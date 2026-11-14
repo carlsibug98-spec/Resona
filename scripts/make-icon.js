@@ -1,6 +1,17 @@
 /* Generate desktop/build/icon.png from an SVG matching Resona's logo. */
-const sharp = require("sharp");
 const path = require("path");
+
+// sharp arrives as an optional (platform-specific) dependency of Next.js.
+// If it is absent in this install, keep the committed icon instead of
+// failing the build — afterpack.cjs falls back to the default icon if the
+// file is missing, and icon.png is committed to the repo anyway.
+let sharp;
+try {
+  sharp = require("sharp");
+} catch {
+  console.log("sharp not installed — keeping existing desktop/build/icon.png");
+  process.exit(0);
+}
 
 // lucide "radio" glyph scaled onto a rounded monochrome tile
 const svg = `
