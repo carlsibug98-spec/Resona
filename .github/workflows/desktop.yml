@@ -43,7 +43,7 @@ jobs:
         working-directory: desktop
         env:
           EP_NPM_VERSION: npm
-        run: npx electron-builder --win --x64
+        run: npx electron-builder --win --x64 --publish never
 
       - uses: actions/upload-artifact@v4
         with:
