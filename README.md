@@ -12,7 +12,7 @@
 ![Issues](https://img.shields.io/github/issues/carlsibug98-spec/Resona?style=flat-square&label=ISSUES&color=1ed760)
 ![License](https://img.shields.io/github/license/carlsibug98-spec/Resona?style=flat-square&label=LICENSE&color=1ed760)
 
-**[⬇️ Download (v1.2.1) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
+**[⬇️ Download (v1.3.0) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
 
 </div>
 
@@ -22,20 +22,21 @@
 
 | Platform | Status | Download | Details |
 | --- | --- | --- | --- |
-| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.2.1** | **[⬇️ Download EXE](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.2.1.exe)** | Installer · ~155 MB |
+| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.3.0** | **[⬇️ Download EXE](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.3.0.exe)** | Installer · ~155 MB |
 | 🍎 **macOS** (Apple Silicon & Intel) | 🔜 Soon | — | In testing |
 | 🐧 **Linux** (AppImage / .deb) | 🔜 Soon | — | In testing |
 | 📱 **iOS / Android** | 🧭 Planned | — | Mobile app in design |
 
-> **All releases:** [github.com/carlsibug98-spec/Resona/releases](https://github.com/carlsibug98-spec/Resona/releases) · **Install guide:** [INSTALL-GUIDE.txt](https://github.com/carlsibug98-spec/Resona/releases/download/v1.2.1/INSTALL-GUIDE.txt)
+> **All releases:** [github.com/carlsibug98-spec/Resona/releases](https://github.com/carlsibug98-spec/Resona/releases) · **Install guide:** [INSTALL-GUIDE.txt](https://github.com/carlsibug98-spec/Resona/releases/download/v1.3.0/INSTALL-GUIDE.txt)
 
 ## ✨ Features
 
 - **🎧 Unlimited streaming** — millions of songs, albums and live sets via YouTube Music. Search, press play, done.
 - **🎬 Synced lyrics** — time-synced, karaoke-style lyrics line by line, powered by lrclib.
 - **📋 Playlists & Spotify import** — paste any public Spotify playlist URL; Resona search-matches every track into a local playlist.
-- **⬇️ Offline downloads** — save songs locally through the built-in downloader and play them without a connection.
-- **🏠 Spotify-style home** — quick tiles, made-for-you shelves, two-panel sidebar and a full-width player bar.
+- **⬇️ Offline downloads that just work** — the app keeps its own downloader (yt-dlp) up to date automatically and falls back to a live fleet of community instances, so downloads work out of the box.
+- **🔄 Self-updating** — on launch the desktop app checks GitHub releases, downloads any newer version in the background and installs it on restart. No manual reinstalling.
+- **🏠 Spotify-style home** — quick tiles, trending charts, made-for-you shelves, two-panel sidebar and a full-width player bar.
 - **👤 No account needed** — install and play. No sign-up, no email, no tracking. Your library stays on your machine.
 - **💚 100% free & open source** — MIT licensed. No ads, no premium tier, forever.
 
@@ -47,7 +48,7 @@
 
 ## 🚀 Install on Windows
 
-1. **Download** `Resona-Setup-1.2.1.exe` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~155 MB)
+1. **Download** `Resona-Setup-1.3.0.exe` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~155 MB)
 2. If SmartScreen shows a warning, click **More info → Run anyway** (the installer isn't code-signed yet)
 3. Follow the wizard — a desktop shortcut is created automatically. Play music.
 

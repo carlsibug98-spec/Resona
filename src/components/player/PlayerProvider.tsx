@@ -52,6 +52,28 @@ export function PlayerProvider() {
     };
   }, []);
 
+  // Space toggles playback, unless the user is typing or focused on a control
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== "Space" || e.repeat) return;
+      const el = e.target as HTMLElement | null;
+      if (
+        el &&
+        (el.isContentEditable ||
+          /^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(el.tagName) ||
+          el.getAttribute("role") === "slider" ||
+          el.closest('[role="dialog"], [role="menu"], [role="listbox"]'))
+      )
+        return;
+      const p = usePlayer.getState();
+      if (!p.queue.length) return;
+      e.preventDefault();
+      p.toggle();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   const track = usePlayer((s) => s.queue[s.index] as Track | undefined);
 
   // history + media session on track change

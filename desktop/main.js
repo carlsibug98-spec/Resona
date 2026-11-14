@@ -4,6 +4,11 @@
  * (Electron's node runtime), waits for it, then opens the app in a native
  * window. Designed to fail fast and LOUD: every attempt is logged to
  * <userData>/server.log and real errors are shown instead of a vague timeout.
+ *
+ * Also keeps the app itself current: on launch (and every 4 hours) it checks
+ * the GitHub releases feed via electron-updater, downloads any newer build
+ * in the background, and installs it on restart — or immediately, if the
+ * user clicks Restart in the ready dialog.
  */
 const { app, BrowserWindow, shell, dialog } = require("electron");
 const { spawn } = require("child_process");
@@ -54,6 +59,8 @@ function startServer(port, attempt) {
     NEXT_TELEMETRY_DISABLED: "1",
     PORT: String(port),
     HOSTNAME: "127.0.0.1",
+    // per-user dir the server may write to (yt-dlp auto-provisioning etc.)
+    RESONA_DATA_DIR: app.getPath("userData"),
   };
   // bundled yt-dlp resolver (optional)
   const ytdlpName = process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp";
@@ -225,6 +232,51 @@ if (!gotLock) {
 } else {
   app.setAppUserModelId("app.resona.desktop");
 
+  /* ── self-update: download new GitHub releases in the background ── */
+  function setupAutoUpdate() {
+    if (!app.isPackaged) return; // dev runs have nothing to update
+    let autoUpdater;
+    try {
+      ({ autoUpdater } = require("electron-updater"));
+    } catch (e) {
+      log("updater unavailable: " + (e && e.message));
+      return;
+    }
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.on("checking-for-update", () => log("updater: checking"));
+    autoUpdater.on("update-available", (i) => log("updater: update available " + (i && i.version)));
+    autoUpdater.on("update-not-available", () => log("updater: up to date"));
+    autoUpdater.on("download-progress", (p) =>
+      log(`updater: downloading ${Math.round(p.percent)}%`)
+    );
+    autoUpdater.on("error", (e) => log("updater error: " + (e && e.message)));
+    autoUpdater.on("update-downloaded", (info) => {
+      log("updater: ready to install " + (info && info.version));
+      dialog
+        .showMessageBox(win, {
+          type: "info",
+          title: "Resona update ready",
+          message: `Resona ${info.version} has been downloaded.`,
+          detail: "Restart now to finish installing, or it will apply when you quit.",
+          buttons: ["Later", "Restart"],
+          defaultId: 1,
+        })
+        .then((r) => {
+          if (r.response === 1) {
+            quitting = true;
+            killServer();
+            autoUpdater.quitAndInstall();
+          }
+        })
+        .catch(() => {});
+    });
+    const check = () =>
+      autoUpdater.checkForUpdates().catch((e) => log("updater check failed: " + (e && e.message)));
+    check();
+    setInterval(check, 4 * 60 * 60 * 1000);
+  }
+
   app.on("second-instance", () => {
     if (win) {
       if (win.isMinimized()) win.restore();
@@ -278,6 +330,7 @@ if (!gotLock) {
       dialog.showErrorBox("Resona", "The interface failed to load.\n\n" + e.message);
       app.quit();
     }
+    setupAutoUpdate();
   });
 
   app.on("window-all-closed", () => {

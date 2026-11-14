@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Track } from "@/lib/types";
 import { useLibrary } from "@/stores/library";
 import { useUi } from "@/stores/ui";
 import { usePlayer } from "@/stores/player";
+import { useSettings } from "@/stores/settings";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TrackRow } from "@/components/track/TrackRow";
 import { Heart, ListPlus, Play, Search } from "lucide-react";
 import { monoGradient } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -14,7 +17,7 @@ type Chip = "all" | "music" | "playlists";
 
 /* Spotify-green hover play button — slides up like the real thing */
 const FAB =
-  "absolute z-10 flex h-12 w-12 translate-y-2 items-center justify-center rounded-full bg-[#1ed760] text-black opacity-0 shadow-[0_8px_16px_rgba(0,0,0,.4)] transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-active:scale-90 focus-visible:translate-y-0 focus-visible:opacity-100";
+  "absolute z-10 flex h-12 w-12 translate-y-2 items-center justify-center rounded-full bg-[linear-gradient(135deg,#5eead4,#7c5cff)] text-black opacity-0 shadow-[0_8px_16px_rgba(0,0,0,.4)] transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-active:scale-90 focus-visible:translate-y-0 focus-visible:opacity-100";
 
 const FAB_ICON = <Play className="h-5 w-5 translate-x-[1px] fill-current" />;
 
@@ -120,6 +123,36 @@ export function HomeView() {
   const ui = useUi();
   const player = usePlayer();
   const [chip, setChip] = useState<Chip>("all");
+  const region = useSettings((s) => s.region);
+  const [greeting, setGreeting] = useState("Welcome back");
+  const [trending, setTrending] = useState<{
+    tracks: Track[];
+    state: "loading" | "ready" | "error";
+  }>({ tracks: [], state: "loading" });
+
+  // set after mount so server and client markup match
+  useEffect(() => {
+    const h = new Date().getHours();
+    setGreeting(h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening");
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setTrending((t) => ({ ...t, state: "loading" }));
+    fetch(`/api/trending?region=${encodeURIComponent(region)}&limit=10`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        const list: Track[] = Array.isArray(d.tracks) ? d.tracks : [];
+        setTrending({ tracks: list, state: list.length ? "ready" : "error" });
+      })
+      .catch(() => {
+        if (!cancelled) setTrending({ tracks: [], state: "error" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [region]);
 
   /* 100% local data — the home renders instantly, nothing to fetch */
   const recent = library.history.slice(0, 12).map((h) => h.track);
@@ -202,8 +235,43 @@ export function HomeView() {
   const empty =
     recent.length === 0 && likedTracks.length === 0 && playlists.length === 0;
 
+  const trendingBlock = (
+    <section className="mt-10">
+      <div className="mb-3 flex items-end justify-between">
+        <h2 className="text-[22px] font-bold tracking-tight">Trending · {region}</h2>
+      </div>
+      {trending.state === "loading" && (
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 px-2 py-2">
+              <Skeleton className="h-10 w-10 rounded-md" />
+              <Skeleton className="h-4 flex-1" />
+            </div>
+          ))}
+        </div>
+      )}
+      {trending.state === "error" && (
+        <p className="rounded-xl border bg-card p-5 text-sm text-muted-foreground">
+          Trending charts aren&apos;t available right now. Your own music is still here.
+        </p>
+      )}
+      {trending.state === "ready" && (
+        <div className="grid grid-cols-1 gap-x-6 lg:grid-cols-2">
+          {trending.tracks.map((t, i) => (
+            <TrackRow key={t.videoId} track={t} index={i} showIndex list={trending.tracks} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+
   return (
     <div>
+      {/* greeting */}
+      <header className="mb-5">
+        <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{greeting}</h1>
+      </header>
+
       {/* filter pills — All / Music / Playlists like Spotify's All / Music / Podcasts */}
       <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
         {([
@@ -317,6 +385,8 @@ export function HomeView() {
           </section>
         </>
       )}
+
+      {chip !== "playlists" && trendingBlock}
     </div>
   );
 }

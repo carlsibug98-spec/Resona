@@ -1,19 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlayer } from "@/stores/player";
 import { useUi } from "@/stores/ui";
 import { useLibrary } from "@/stores/library";
 import { useSettings } from "@/stores/settings";
-import { downloadTrack } from "@/lib/downloads";
-import { formatDuration, cx } from "@/lib/format";
-import type { Lyrics, Track } from "@/lib/types";
+import { DownloadButton } from "@/components/track/DownloadButton";
+import { formatDuration, cx, hueFromId } from "@/lib/format";
+import type { Lyrics } from "@/lib/types";
 import {
   ChevronDown,
-  Download,
   Heart,
-  MicVocal,
   Pause,
   Play,
   Repeat,
@@ -26,9 +24,10 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { TrackMenu } from "@/components/track/TrackMenu";
 import { MoreHorizontal } from "lucide-react";
-import { EqBars } from "@/components/track/EqBars";
-import { useTrackDuration } from "@/stores/durations";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MobileNowPlaying } from "@/components/player/MobileNowPlaying";
+import { QueuePanel, LyricsPanel } from "@/components/player/PlayerPanels";
 
 type Panel = "info" | "lyrics";
 
@@ -80,6 +79,8 @@ export function FullPlayer() {
   }, [track?.videoId]);
 
   const liked = track ? library.isLiked(track.videoId) : false;
+  const isMobile = useIsMobile();
+  const hue = hueFromId(track?.videoId ?? "");
 
   return (
     <AnimatePresence>
@@ -100,7 +101,23 @@ export function FullPlayer() {
             className="pointer-events-none absolute inset-0 h-full w-full scale-125 object-cover opacity-20 blur-3xl grayscale"
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/60 via-background/80 to-background" />
+          {/* per-track colour wash — the ambient look from the mockup */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-70"
+            style={{
+              background: `radial-gradient(900px 520px at 22% 0%, hsl(${hue} 60% 30% / 0.55), transparent 70%)`,
+            }}
+          />
 
+          {isMobile ? (
+            <MobileNowPlaying
+              track={track}
+              lyrics={lyrics}
+              lyricsLoading={lyricsLoading}
+              onClose={() => ui.setFullPlayer(false)}
+            />
+          ) : (
           <motion.div
             initial={{ y: 40, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -229,18 +246,7 @@ export function FullPlayer() {
                   >
                     <Heart className={cn("h-4 w-4", liked && "fill-current")} /> Like
                   </motion.button>
-                  <button
-                    className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-                    onClick={async () => {
-                      toastInfo("Downloading…");
-                      const status = await downloadTrack(track);
-                      if (status === "offline-saved") toastInfo("Saved offline");
-                      else if (status === "stream-only") toastInfo("Stream-only (no resolver)");
-                      else toastInfo("Download failed");
-                    }}
-                  >
-                    <Download className="h-4 w-4" /> Download
-                  </button>
+                  <DownloadButton track={track} labelled className="px-3 py-2" />
                   <TrackMenu
                     track={track}
                     trigger={
@@ -306,152 +312,10 @@ export function FullPlayer() {
               </div>
             </div>
           </motion.div>
+          )}
         </motion.div>
       )}
     </AnimatePresence>
   );
 }
 
-function toastInfo(msg: string) {
-  import("sonner").then(({ toast }) => toast(msg));
-}
-
-function QueuePanel() {
-  const player = usePlayer();
-  if (!player.queue.length)
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center text-sm text-muted-foreground">
-        Queue is empty — play something to build it up
-      </div>
-    );
-  return (
-    <div className="h-full overflow-y-auto scrollbar-thin p-2">
-      {player.queue.map((t, i) => (
-        <QueueRow key={`${t.videoId}-${i}`} track={t} index={i} />
-      ))}
-    </div>
-  );
-}
-
-function QueueRow({ track, index }: { track: Track; index: number }) {
-  const player = usePlayer();
-  const duration = useTrackDuration(track);
-  const isCur = index === player.index;
-  return (
-    <button
-      className={cn(
-        "group flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left text-sm transition-colors",
-        isCur ? "bg-accent" : "hover:bg-accent/60"
-      )}
-      onClick={() => player.playFromQueue(index)}
-    >
-      <span className="flex w-6 items-center justify-center text-xs tabular-nums text-muted-foreground">
-        {isCur ? (
-          <EqBars playing={player.isPlaying} className="h-3 text-foreground" />
-        ) : (
-          index + 1
-        )}
-      </span>
-      <img src={track.thumb} alt="" className="h-9 w-9 rounded-md object-cover" />
-      <div className="min-w-0 flex-1">
-        <div className={cn("truncate font-medium", isCur && "text-foreground")}>{track.title}</div>
-        <div className="truncate text-xs text-muted-foreground">{track.artist}</div>
-      </div>
-      <span className="text-xs tabular-nums text-muted-foreground">
-        {formatDuration(duration)}
-      </span>
-    </button>
-  );
-}
-
-function LyricsPanel({
-  lyrics,
-  loading,
-  position,
-  onSeek,
-  isSynced,
-}: {
-  lyrics: Lyrics | null;
-  loading: boolean;
-  position: number;
-  onSeek: (s: number) => void;
-  isSynced: boolean;
-}) {
-  const activeRef = useRef<HTMLButtonElement>(null);
-  const activeIdx = useMemo(() => {
-    if (!lyrics?.synced) return -1;
-    let idx = -1;
-    for (let i = 0; i < lyrics.synced.length; i++) {
-      if (lyrics.synced[i].t <= position + 0.3) idx = i;
-      else break;
-    }
-    return idx;
-  }, [lyrics, position]);
-
-  useEffect(() => {
-    if (isSynced && activeRef.current) {
-      activeRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-    }
-  }, [activeIdx, isSynced]);
-
-  if (loading)
-    return (
-      <div className="space-y-4 p-7">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-5 animate-pulse rounded-md bg-accent"
-            style={{ width: `${55 + ((i * 17) % 40)}%` }}
-          />
-        ))}
-      </div>
-    );
-
-  if (!lyrics || (!lyrics.synced && !lyrics.plain))
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center text-sm text-muted-foreground">
-        <MicVocal className="h-9 w-9 opacity-30" />
-        No lyrics found for this track
-      </div>
-    );
-
-  if (lyrics.synced)
-    return (
-      <div className="h-full overflow-y-auto scrollbar-thin p-7">
-        {lyrics.synced.map((line, i) => (
-          <button
-            key={i}
-            ref={i === activeIdx ? activeRef : undefined}
-            onClick={() => onSeek(line.t)}
-            className={cx(
-              "block w-full py-1.5 text-left text-lg leading-relaxed transition-all duration-300",
-              i === activeIdx
-                ? "scale-[1.01] font-bold text-foreground"
-                : i < activeIdx
-                  ? "text-muted-foreground/50 hover:text-muted-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {line.text || "♪"}
-          </button>
-        ))}
-        <div className="pt-3 text-[10px] uppercase tracking-widest text-muted-foreground/50">
-          Synced lyrics · {lyrics.source}
-        </div>
-      </div>
-    );
-
-  return (
-    <div className="h-full overflow-y-auto scrollbar-thin p-7">
-      <pre className="whitespace-pre-wrap font-sans text-base leading-relaxed text-foreground/90">
-        {lyrics.plain}
-      </pre>
-      <div className="pt-3 text-[10px] uppercase tracking-widest text-muted-foreground/50">
-        Lyrics · {lyrics.source}
-      </div>
-    </div>
-  );
-}

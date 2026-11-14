@@ -6,9 +6,19 @@ import { usePlayer } from "@/stores/player";
 import { useUi } from "@/stores/ui";
 import { TrackRow } from "@/components/track/TrackRow";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { deleteDownloadedAudio } from "@/lib/downloads";
+import { removeDownload, startDownload } from "@/components/track/DownloadButton";
 import type { DownloadEntry } from "@/stores/library";
 import { formatBytes, formatDuration } from "@/lib/format";
 import { useTrackDuration } from "@/stores/durations";
@@ -23,7 +33,6 @@ import {
   ListPlus,
   Clock,
 } from "lucide-react";
-import { toast } from "sonner";
 import type { Track } from "@/lib/types";
 
 export function LibraryView({ tab }: { tab?: "liked" | "playlists" | "history" | "downloads" }) {
@@ -75,6 +84,7 @@ export function LibraryView({ tab }: { tab?: "liked" | "playlists" | "history" |
               icon={<Heart className="h-8 w-8 opacity-40" />}
               title="No liked songs yet"
               text="Tap the heart on any track to build your collection."
+              action={{ label: "Find songs", onClick: () => ui.navigate({ name: "search" }) }}
             />
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6">
@@ -152,6 +162,7 @@ export function LibraryView({ tab }: { tab?: "liked" | "playlists" | "history" |
               icon={<Clock className="h-8 w-8 opacity-40" />}
               title="Nothing played yet"
               text="Your recently played tracks will appear here."
+              action={{ label: "Find songs", onClick: () => ui.navigate({ name: "search" }) }}
             />
           ) : (
             <>
@@ -199,6 +210,7 @@ export function LibraryView({ tab }: { tab?: "liked" | "playlists" | "history" |
 function DownloadsTab() {
   const library = useLibrary();
   const player = usePlayer();
+  const [confirmRemove, setConfirmRemove] = useState<Track | null>(null);
   const entries = Object.values(library.downloads).sort((a, b) => b.downloadedAt - a.downloadedAt);
 
   const play = (t: Track) => player.playQueue([t], 0, "Downloads");
@@ -206,28 +218,49 @@ function DownloadsTab() {
   return (
     <div>
       <div className="mb-4 rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
-        Downloaded audio is stored offline in your browser (IndexedDB) and plays without
-        the network. Entries marked <em>stream-only</em> could not fetch a direct audio
-        stream — add a resolver instance in{" "}
-        <button className="underline" onClick={() => useUi.getState().navigate({ name: "settings" })}>
-          Settings
-        </button>{" "}
-        and download again.
+        Downloaded audio is stored in this browser (IndexedDB) and plays without a
+        connection. The app keeps its own downloader up to date automatically — if a
+        download fails, just retry later. Entries marked <em>stream-only</em> are
+        leftovers with no saved audio.
       </div>
 
       {entries.length === 0 ? (
         <EmptyState
           icon={<Download className="h-8 w-8 opacity-40" />}
           title="No downloads"
-          text="Use the ⋯ menu on any track and pick Download."
+          text="Use the download icon on any track, or pick Download in its ⋯ menu."
+          action={{ label: "Find songs", onClick: () => useUi.getState().navigate({ name: "search" }) }}
         />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6">
           {entries.map((e, i) => (
-            <DownloadRow key={e.track.videoId} entry={e} index={i} onPlay={play} />
+            <DownloadRow key={e.track.videoId} entry={e} index={i} onPlay={play} onRemove={() => setConfirmRemove(e.track)} />
           ))}
         </div>
       )}
+
+      <AlertDialog open={!!confirmRemove} onOpenChange={(o) => !o && setConfirmRemove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove the offline copy?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmRemove && `“${confirmRemove.title}” will be deleted from this device. You can download it again any time.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => {
+                if (confirmRemove) void removeDownload(confirmRemove);
+                setConfirmRemove(null);
+              }}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -236,12 +269,13 @@ function DownloadRow({
   entry: e,
   index: i,
   onPlay,
+  onRemove,
 }: {
   entry: DownloadEntry;
   index: number;
   onPlay: (t: Track) => void;
+  onRemove: () => void;
 }) {
-  const library = useLibrary();
   const duration = useTrackDuration(e.track);
   return (
     <div
@@ -269,14 +303,20 @@ function DownloadRow({
         size="icon"
         className="h-8 w-8 text-muted-foreground hover:text-destructive"
         aria-label="Remove download"
-        onClick={async () => {
-          await deleteDownloadedAudio(e.track.videoId);
-          library.removeDownload(e.track.videoId);
-          toast.success("Download removed");
-        }}
+        onClick={onRemove}
       >
         <Trash2 className="h-4 w-4" />
       </Button>
+      {!e.complete && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8"
+          onClick={() => void startDownload(e.track)}
+        >
+          Retry
+        </Button>
+      )}
     </div>
   );
 }
@@ -285,16 +325,23 @@ function EmptyState({
   icon,
   title,
   text,
+  action,
 }: {
   icon: React.ReactNode;
   title: string;
   text: string;
+  action?: { label: string; onClick: () => void };
 }) {
   return (
     <div className="rounded-xl border bg-muted/30 p-12 text-center">
       <div className="flex justify-center">{icon}</div>
       <p className="mt-3 font-medium">{title}</p>
       <p className="mt-1 text-sm text-muted-foreground">{text}</p>
+      {action && (
+        <Button className="mt-5 rounded-full" onClick={action.onClick}>
+          {action.label}
+        </Button>
+      )}
     </div>
   );
 }

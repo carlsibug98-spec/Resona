@@ -229,3 +229,15 @@ html {
     0 2px 8px rgba(0, 0, 0, 0.08),
     0 16px 48px rgba(0, 0, 0, 0.14);
 }
+
+/* ── Resona ambient wash: soft brand glow at the top of the main canvas ── */
+.ambient-top {
+  background:
+    radial-gradient(60% 100% at 12% 0%, rgb(124 92 255 / 0.20), transparent 70%),
+    radial-gradient(45% 90% at 88% 0%, rgb(94 234 212 / 0.10), transparent 70%);
+}
+.light .ambient-top {
+  background:
+    radial-gradient(60% 100% at 12% 0%, rgb(124 92 255 / 0.10), transparent 70%),
+    radial-gradient(45% 90% at 88% 0%, rgb(94 234 212 / 0.08), transparent 70%);
+}

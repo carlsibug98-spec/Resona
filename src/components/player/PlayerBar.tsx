@@ -22,6 +22,7 @@ import {
   VolumeX,
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
+import { DownloadButton } from "@/components/track/DownloadButton";
 import { cn } from "@/lib/utils";
 
 export function PlayerBar() {
@@ -208,6 +209,7 @@ export function PlayerBar() {
 
         {/* right side */}
         <div className="hidden items-center justify-end gap-0.5 md:flex md:w-72">
+          <DownloadButton track={track} />
           <motion.button
             whileTap={{ scale: 1.3 }}
             transition={{ type: "spring", bounce: 0.6 }}

@@ -9,6 +9,7 @@ import { formatDuration, cx } from "@/lib/format";
 import { useTrackDuration } from "@/stores/durations";
 import { Heart, MoreHorizontal, Pause, Play } from "lucide-react";
 import { TrackMenu } from "./TrackMenu";
+import { DownloadButton } from "./DownloadButton";
 import { EqBars } from "./EqBars";
 
 export const TrackRow = memo(function TrackRow({
@@ -55,7 +56,7 @@ export const TrackRow = memo(function TrackRow({
   return (
     <div
       className={cx(
-        "group grid grid-cols-[2.5rem_1fr_auto] cursor-pointer select-none items-center gap-3 rounded-xl px-2 py-2 text-sm transition-colors duration-200 hover:bg-card md:grid-cols-[2.5rem_minmax(0,3fr)_minmax(0,2fr)_auto_auto]",
+        "group grid grid-cols-[2.5rem_1fr_auto] cursor-pointer select-none items-center gap-3 rounded-xl px-2 py-2 text-sm transition-colors duration-200 hover:bg-card md:grid-cols-[2.5rem_minmax(0,3fr)_minmax(0,2fr)_auto_auto_auto]",
         isCurrent ? "bg-card" : "hover:bg-card/70"
       )}
       onClick={play}
@@ -120,6 +121,7 @@ export const TrackRow = memo(function TrackRow({
       >
         <Heart className={cx("h-4 w-4 transition-transform active:scale-125", liked && "fill-current")} />
       </button>
+      <DownloadButton track={track} revealOnHover className="hidden md:flex" />
       <div className="flex items-center gap-1">
         <span className="hidden w-10 text-right text-xs tabular-nums text-muted-foreground sm:inline">
           {formatDuration(duration)}

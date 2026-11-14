@@ -5,8 +5,7 @@ import type { Track } from "@/lib/types";
 import { useLibrary } from "@/stores/library";
 import { usePlayer } from "@/stores/player";
 import { useUi } from "@/stores/ui";
-import { downloadTrack } from "@/lib/downloads";
-import { formatDuration } from "@/lib/format";
+import { removeDownload, startDownload } from "@/components/track/DownloadButton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,16 +55,7 @@ export function TrackMenu({
     );
   };
 
-  const doDownload = async () => {
-    toast.info("Downloading…");
-    const status = await downloadTrack(track);
-    if (status === "offline-saved") toast.success("Saved for offline listening");
-    else if (status === "stream-only")
-      toast.warning(
-        "No direct-stream resolver available — saved to Downloads as stream-only"
-      );
-    else toast.error("Download failed");
-  };
+  const saved = library.downloads[track.videoId]?.complete === true;
 
   return (
     <>
@@ -97,8 +87,10 @@ export function TrackMenu({
               </DropdownMenuItem>
             </DropdownMenuSubContent>
           </DropdownMenuSub>
-          <DropdownMenuItem onClick={doDownload}>
-            <Download /> Download
+          <DropdownMenuItem
+            onClick={() => (saved ? void removeDownload(track) : void startDownload(track))}
+          >
+            <Download /> {saved ? "Remove download" : "Download for offline"}
           </DropdownMenuItem>
           {track.artistId && (
             <DropdownMenuItem

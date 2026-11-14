@@ -33,3 +33,10 @@ export function monoGradient(seed: string): string {
   const bottom = 6 + (h % 5); // 6–10%
   return `linear-gradient(135deg, hsl(0 0% ${top}%), hsl(0 0% ${bottom}%))`;
 }
+
+/** stable hue (0–359) from any id — drives ambient colour, no image sampling needed */
+export function hueFromId(seed: string): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return h % 360;
+}

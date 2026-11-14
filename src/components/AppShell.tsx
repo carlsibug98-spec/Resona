@@ -16,6 +16,15 @@ import { PlayerBar } from "@/components/player/PlayerBar";
 import { FullPlayer } from "@/components/player/FullPlayer";
 import { PlayerProvider } from "@/components/player/PlayerProvider";
 import { ImportDialog } from "@/components/ImportDialog";
+import { ProfileMenu } from "@/components/ProfileMenu";
+import { useDownloads } from "@/stores/downloads";
+import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cx, monoGradient } from "@/lib/format";
 import {
   ChevronLeft,
@@ -23,6 +32,7 @@ import {
   Heart,
   Home,
   Library,
+  ListMusic,
   ListPlus,
   Plus,
   Search,
@@ -81,6 +91,37 @@ export function AppShell() {
     window.history.pushState({ resona: true }, "");
   }, [ui.views.length]);
 
+  // start checking whether downloads work on this server
+  useEffect(() => {
+    useDownloads.getState().init();
+  }, []);
+
+  // new-version notice: the desktop app auto-updates via electron-updater;
+  // web users get a toast linking to the release
+  useEffect(() => {
+    fetch("/api/version")
+      .then((r) => r.json())
+      .then(
+        (v: {
+          updateAvailable?: boolean;
+          latest?: { version?: string; url?: string } | null;
+        }) => {
+          if (v.updateAvailable && v.latest?.version) {
+            toast.info(`Resona ${v.latest.version} is available`, {
+              description:
+                "The desktop app updates itself automatically. You can also get it from GitHub releases.",
+              action: {
+                label: "Get the update",
+                onClick: () => window.open(v.latest?.url || "https://github.com/carlsibug98-spec/Resona/releases"),
+              },
+              duration: 12000,
+            });
+          }
+        }
+      )
+      .catch(() => {});
+  }, []);
+
   const navItems = [
     { view: { name: "home" } as View, label: "Home", icon: Home },
     { view: { name: "search" } as View, label: "Search", icon: Search },
@@ -89,7 +130,14 @@ export function AppShell() {
   ];
 
   const viewKey = view.name + ("id" in view ? `:${view.id}` : "");
-  const dlList = Object.values(downloads);
+  // only finished offline copies count as downloads; legacy stream-only entries live in Library
+  const dlList = Object.values(downloads).filter((d) => d.complete);
+  const createPlaylist = () => {
+    const id = useLibrary
+      .getState()
+      .createPlaylist(`My playlist ${useLibrary.getState().playlists.length + 1}`);
+    ui.navigate({ name: "playlist", id });
+  };
   const showLiked = chip === "all" || chip === "liked" || chip === "playlists";
   const showPlaylists = chip === "all" || chip === "playlists";
   const showDownloads = (chip === "all" || chip === "downloads") && dlList.length > 0;
@@ -136,6 +184,7 @@ export function AppShell() {
           >
             <Search className="h-5 w-5" />
           </button>
+          <ProfileMenu />
         </header>
 
         {/* ── body: Spotify-style nav card + library card + main panel ── */}
@@ -177,13 +226,25 @@ export function AppShell() {
                   {plCount + 1}
                 </span>
               </button>
-              <button
-                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-all hover:bg-accent hover:text-foreground active:scale-90"
-                onClick={() => ui.setImportOpen(true)}
-                aria-label="Import playlist"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-all hover:bg-accent hover:text-foreground active:scale-90"
+                    aria-label="Create or import a playlist"
+                    title="Create or import"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onClick={createPlaylist}>
+                    <ListMusic /> New playlist
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => ui.setImportOpen(true)}>
+                    <ListPlus /> Import playlist
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             <div className="flex flex-wrap gap-1.5 px-4 pb-2">
@@ -290,6 +351,8 @@ export function AppShell() {
 
           {/* canvas panel (desktop) / plain main (mobile) */}
           <main className="min-w-0 flex-1 md:relative md:min-h-0 md:overflow-hidden md:rounded-t-lg md:bg-card">
+            {/* ambient wash behind the top of the canvas — gives the home some depth */}
+            <div aria-hidden className="ambient-top pointer-events-none absolute inset-x-0 top-0 hidden h-80 md:block" />
             {/* desktop topbar overlay — nav arrows + actions over the panel */}
             <div className="absolute inset-x-0 top-0 z-20 hidden h-16 items-center gap-2 bg-gradient-to-b from-accent/70 via-accent/30 to-transparent px-6 md:flex">
               <button
@@ -324,12 +387,7 @@ export function AppShell() {
                 >
                   <Settings className="h-4 w-4" />
                 </button>
-                <span
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-neutral-500 to-neutral-900 text-xs font-bold text-foreground ring-1 ring-border"
-                  aria-label="Profile"
-                >
-                  R
-                </span>
+                <ProfileMenu />
               </div>
             </div>
             <div className="px-4 pb-44 pt-2 md:absolute md:inset-0 md:overflow-y-auto md:px-6 md:pb-32 md:pt-[84px] scrollbar-thin">

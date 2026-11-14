@@ -1,11 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Track } from "@/lib/types";
 import { TrackRow } from "@/components/track/TrackRow";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, X } from "lucide-react";
+import { Play, Search, X } from "lucide-react";
 import { usePlayer } from "@/stores/player";
+import { hueFromId } from "@/lib/format";
+
+/* browse tiles shown before the user types — each one runs a search */
+const GENRES = [
+  "OPM",
+  "Pinoy Pop",
+  "Acoustic",
+  "Chill",
+  "Throwback",
+  "Hip-hop",
+  "Lo-fi",
+  "Podcasts",
+];
 
 export function SearchView() {
   const [q, setQ] = useState("");
@@ -13,55 +26,67 @@ export function SearchView() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const ctrlRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
+    return () => ctrlRef.current?.abort();
   }, []);
 
-  function runSearch(query: string) {
+  /* aborts any earlier request, so a slow old response can never overwrite newer results */
+  const runSearch = useCallback(async (query: string): Promise<Track[]> => {
+    ctrlRef.current?.abort();
+    const ctrl = new AbortController();
+    ctrlRef.current = ctrl;
     setLoading(true);
-    fetch(`/api/search?q=${encodeURIComponent(query)}`)
-      .then((r) => r.json())
-      .then((d) => {
-        setTracks(d.tracks || []);
+    try {
+      const r = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+        signal: ctrl.signal,
+      });
+      const d = await r.json();
+      if (ctrl.signal.aborted) return [];
+      const list: Track[] = Array.isArray(d.tracks) ? d.tracks : [];
+      setTracks(list);
+      setSearched(true);
+      return list;
+    } catch {
+      if (!ctrl.signal.aborted) {
+        setTracks([]);
         setSearched(true);
-      })
-      .catch(() => setTracks([]))
-      .finally(() => setLoading(false));
-  }
+      }
+      return [];
+    } finally {
+      if (!ctrl.signal.aborted) setLoading(false);
+    }
+  }, []);
 
-  function resetResults() {
-    setTracks([]);
-    setSearched(false);
-    setLoading(false);
-  }
-
+  /* debounce typing; clear everything when the box is short */
   useEffect(() => {
     const query = q.trim();
     if (query.length < 2) {
-      const t = setTimeout(() => resetResults(), 0);
-      return () => clearTimeout(t);
+      ctrlRef.current?.abort();
+      setTracks([]);
+      setSearched(false);
+      setLoading(false);
+      return;
     }
     const t = setTimeout(() => {
-      runSearch(query);
+      void runSearch(query);
     }, 350);
     return () => clearTimeout(t);
-  }, [q]);
+  }, [q, runSearch]);
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const query = q.trim();
-    if (!query) return;
-    runSearch(query);
-    // enter plays the first result once loaded
-    setTimeout(() => {
-      const first = usePlayer.getState();
-      if (!first.isPlaying && first.queue.length === 0) {
-        const list = tracks;
-        if (list.length) first.playQueue(list, 0, `Search: ${query}`);
-      }
-    }, 900);
+    if (query.length < 2) return;
+    const list = await runSearch(query);
+    // Enter plays the first result once it has actually loaded
+    if (list.length) usePlayer.getState().playQueue(list, 0, `Search: ${query}`);
   };
+
+  const hits = tracks.slice(0, 30);
+  const top = hits[0];
 
   return (
     <div className="space-y-6">
@@ -104,12 +129,42 @@ export function SearchView() {
         </div>
       )}
 
-      {!loading && tracks.length > 0 && (
+      {!loading && top && (
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            Top result
+          </p>
+          <button
+            onClick={() => usePlayer.getState().playQueue(hits, 0, `Search: ${q.trim()}`)}
+            className="group flex w-full max-w-xl items-center gap-5 rounded-2xl p-4 text-left transition-colors hover:bg-card"
+            style={{
+              background: `linear-gradient(135deg, hsl(${hueFromId(top.videoId)} 55% 22% / 0.6), transparent 80%)`,
+            }}
+          >
+            <img
+              src={top.thumb}
+              alt=""
+              className="h-24 w-24 shrink-0 rounded-xl object-cover shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-2xl font-bold tracking-tight">{top.title}</span>
+              <span className="mt-1 block truncate text-sm text-muted-foreground">
+                Song · {top.artist}
+              </span>
+            </span>
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#5eead4,#7c5cff)] text-black opacity-0 shadow-[0_8px_20px_rgba(0,0,0,0.45)] transition-all group-hover:opacity-100">
+              <Play className="h-5 w-5 translate-x-[1px] fill-current" />
+            </span>
+          </button>
+        </div>
+      )}
+
+      {!loading && hits.length > 0 && (
         <div>
           <h2 className="mb-3 text-lg font-semibold">Songs</h2>
           <div className="grid grid-cols-1 gap-x-6 lg:grid-cols-2">
-            {tracks.slice(0, 30).map((t, i) => (
-              <TrackRow key={t.videoId} track={t} index={i} showIndex list={tracks} />
+            {hits.map((t, i) => (
+              <TrackRow key={t.videoId} track={t} index={i} showIndex list={hits} />
             ))}
           </div>
         </div>
@@ -125,8 +180,22 @@ export function SearchView() {
       )}
 
       {!loading && !searched && (
-        <div className="rounded-2xl border bg-card p-10 text-center text-sm text-muted-foreground">
-          Type at least 2 characters to search millions of tracks.
+        <div>
+          <h2 className="mb-3 text-lg font-semibold">Browse all</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {GENRES.map((g) => (
+              <button
+                key={g}
+                onClick={() => setQ(g)}
+                className="relative h-28 overflow-hidden rounded-xl p-4 text-left text-xl font-extrabold transition-transform hover:-translate-y-0.5"
+                style={{
+                  background: `linear-gradient(135deg, hsl(${hueFromId(g)} 60% 42%), hsl(${(hueFromId(g) + 60) % 360} 55% 18%))`,
+                }}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
