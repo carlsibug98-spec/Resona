@@ -6,10 +6,12 @@ export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   const region = req.nextUrl.searchParams.get("region") || "Global";
+  const limitRaw = parseInt(req.nextUrl.searchParams.get("limit") || "40", 10);
+  const limit = Math.min(Math.max(Number.isFinite(limitRaw) ? limitRaw : 40, 1), 100);
   try {
     const [regions, tracks] = await Promise.all([
       getRegions(),
-      getTrending(region),
+      getTrending(region, limit),
     ]);
     return NextResponse.json({ region, regions, tracks });
   } catch (e) {

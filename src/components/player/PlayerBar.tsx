@@ -9,6 +9,7 @@ import {
   Heart,
   ListMusic,
   Maximize2,
+  Music2,
   Pause,
   Play,
   Repeat,
@@ -28,7 +29,53 @@ export function PlayerBar() {
   const library = useLibrary();
   const ui = useUi();
   const track = player.current();
-  if (!track) return null;
+
+  /* empty state — the bar is always visible, like Spotify's disabled player */
+  if (!track) {
+    return (
+      <motion.div
+        initial={{ y: 96, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: "spring", bounce: 0.2, duration: 0.7 }}
+        className="fixed inset-x-0 bottom-0 z-30 px-2 pb-2 md:px-0 md:pb-0"
+      >
+        <div className="mx-auto flex h-16 max-w-screen-2xl items-center gap-3 rounded-2xl border border-border bg-card/85 px-3 shadow-float backdrop-blur-2xl md:h-[72px] md:max-w-none md:rounded-none md:border-0 md:bg-black md:px-4 md:shadow-none md:backdrop-blur-none">
+          <div className="flex min-w-0 flex-1 items-center gap-3 md:flex-none md:w-72">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-muted">
+              <Music2 className="h-5 w-5 text-muted-foreground" />
+            </span>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium text-muted-foreground">Nothing playing</div>
+              <div className="truncate text-xs text-muted-foreground/70">
+                Search a song or import a playlist to start
+              </div>
+            </div>
+          </div>
+          <div className="hidden flex-1 items-center justify-center gap-1 md:flex">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground/40">
+              <Shuffle className="h-4 w-4" />
+            </span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground/40">
+              <SkipBack className="h-[18px] w-[18px] fill-current" />
+            </span>
+            <span className="mx-1 flex h-10 w-10 items-center justify-center rounded-full bg-primary/25 text-primary-foreground/50">
+              <Play className="h-[18px] w-[18px] translate-x-[1px] fill-current" />
+            </span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground/40">
+              <SkipForward className="h-[18px] w-[18px] fill-current" />
+            </span>
+            <span className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground/40">
+              <Repeat className="h-4 w-4" />
+            </span>
+          </div>
+          <div className="hidden items-center justify-end gap-2 md:flex md:w-72">
+            <VolumeX className="h-4 w-4 text-muted-foreground/40" />
+            <div className="h-1 w-24 overflow-hidden rounded-full bg-muted-foreground/20" />
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
 
   const liked = library.isLiked(track.videoId);
   const progress = player.duration > 0 ? (player.position / player.duration) * 100 : 0;

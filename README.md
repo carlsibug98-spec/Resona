@@ -12,7 +12,7 @@
 ![Issues](https://img.shields.io/github/issues/carlsibug98-spec/Resona?style=flat-square&label=ISSUES&color=1ed760)
 ![License](https://img.shields.io/github/license/carlsibug98-spec/Resona?style=flat-square&label=LICENSE&color=1ed760)
 
-**[⬇️ Download (v1.2.0) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
+**[⬇️ Download (v1.2.1) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
 
 </div>
 
@@ -22,12 +22,12 @@
 
 | Platform | Status | Download | Details |
 | --- | --- | --- | --- |
-| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.2.0** | **[⬇️ Download EXE](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.2.0.exe)** | Installer · ~155 MB |
+| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.2.1** | **[⬇️ Download EXE](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.2.1.exe)** | Installer · ~155 MB |
 | 🍎 **macOS** (Apple Silicon & Intel) | 🔜 Soon | — | In testing |
 | 🐧 **Linux** (AppImage / .deb) | 🔜 Soon | — | In testing |
 | 📱 **iOS / Android** | 🧭 Planned | — | Mobile app in design |
 
-> **All releases:** [github.com/carlsibug98-spec/Resona/releases](https://github.com/carlsibug98-spec/Resona/releases) · **Install guide:** [INSTALL-GUIDE.txt](https://github.com/carlsibug98-spec/Resona/releases/download/v1.2.0/INSTALL-GUIDE.txt)
+> **All releases:** [github.com/carlsibug98-spec/Resona/releases](https://github.com/carlsibug98-spec/Resona/releases) · **Install guide:** [INSTALL-GUIDE.txt](https://github.com/carlsibug98-spec/Resona/releases/download/v1.2.1/INSTALL-GUIDE.txt)
 
 ## ✨ Features
 
@@ -47,13 +47,13 @@
 
 ## 🚀 Install on Windows
 
-1. **Download** `Resona-Setup-1.2.0.exe` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~155 MB)
+1. **Download** `Resona-Setup-1.2.1.exe` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~155 MB)
 2. If SmartScreen shows a warning, click **More info → Run anyway** (the installer isn't code-signed yet)
 3. Follow the wizard — a desktop shortcut is created automatically. Play music.
 
 **Verify (SHA-256):**
 ```
-90e0a9327578e05147d6f9b437369c67553c4bdf00febf0a9ce17066f1682e84
+40bfd939b9e904d49ab668e175947d56da578a159b62bf23e09226dc380eabce
 ```
 
 ## 🛠️ Build from source

@@ -76,7 +76,7 @@ export function FullPlayer() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [track?.videoId]);
 
   const liked = track ? library.isLiked(track.videoId) : false;

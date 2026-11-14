@@ -227,21 +227,28 @@ export function HomeView() {
       </div>
 
       {empty ? (
-        <div className="mt-8 rounded-2xl border bg-card p-8 text-center">
-          <p className="font-semibold">Your home fills up as you listen.</p>
-          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-            Search for a song, artist or album to get started — liked songs, playlists
-            and history will gather here.
-          </p>
-          <div className="mt-5 flex justify-center gap-3">
-            <Button onClick={() => ui.navigate({ name: "search" })}>
-              <Search className="h-4 w-4" /> Find music
-            </Button>
-            <Button variant="outline" onClick={() => ui.setImportOpen(true)}>
-              <ListPlus className="h-4 w-4" /> Import playlist
-            </Button>
+        <>
+          {/* the home keeps its Spotify structure even on a fresh profile —
+              the Liked Songs tile always works, empty or not */}
+          <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <Tile item={likedItem} />
           </div>
-        </div>
+          <div className="mt-8 rounded-2xl border bg-card p-8 text-center">
+            <p className="font-semibold">Your home fills up as you listen.</p>
+            <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+              Search for a song, artist or album to get started — liked songs, playlists
+              and history will gather here.
+            </p>
+            <div className="mt-5 flex justify-center gap-3">
+              <Button onClick={() => ui.navigate({ name: "search" })}>
+                <Search className="h-4 w-4" /> Find music
+              </Button>
+              <Button variant="outline" onClick={() => ui.setImportOpen(true)}>
+                <ListPlus className="h-4 w-4" /> Import playlist
+              </Button>
+            </div>
+          </div>
+        </>
       ) : (
         <>
           {tiles.length > 0 && (

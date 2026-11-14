@@ -64,7 +64,6 @@ type LibChip = "all" | "playlists" | "liked" | "downloads";
 export function AppShell() {
   const ui = useUi();
   const view = ui.views[ui.views.length - 1];
-  const hasTrack = usePlayer((s) => s.queue.length > 0);
   const likedCount = useLibrary((s) => Object.keys(s.liked).length);
   const plCount = useLibrary((s) => s.playlists.length);
   const playlists = useLibrary((s) => s.playlists);
@@ -107,8 +106,7 @@ export function AppShell() {
     <MotionConfig reducedMotion="user">
       <div
         className={cn(
-          "flex min-h-screen flex-col bg-background text-foreground md:h-screen md:overflow-hidden",
-          hasTrack && "md:pb-[72px]"
+          "flex min-h-screen flex-col bg-background text-foreground md:h-screen md:overflow-hidden md:pb-[72px]"
         )}
       >
         <PlayerProvider />
@@ -344,7 +342,7 @@ export function AppShell() {
         <nav
           className={cn(
             "fixed inset-x-0 z-20 border-t border-border/60 bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden",
-            hasTrack ? "bottom-[4.5rem]" : "bottom-0"
+            "bottom-[4.5rem]"
           )}
         >
           <div className="grid grid-cols-4">
@@ -367,7 +365,7 @@ export function AppShell() {
           </div>
         </nav>
 
-        {hasTrack && <PlayerBar />}
+        <PlayerBar />
         <FullPlayer />
         <ImportDialog />
       </div>
