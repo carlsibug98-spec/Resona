@@ -6,6 +6,7 @@ import { usePlayer } from "@/stores/player";
 import { useLibrary } from "@/stores/library";
 import { useSettings } from "@/stores/settings";
 import { useUi } from "@/stores/ui";
+import { toast } from "@/stores/toast";
 import type { Track } from "@/lib/types";
 
 export function PlayerProvider() {
@@ -36,7 +37,7 @@ export function PlayerProvider() {
       }
     };
     engine.onError = (msg) => {
-      import("sonner").then(({ toast }) => toast.error(msg));
+      toast(msg);
       const p = usePlayer.getState();
       consecutiveErrors += 1;
       if (consecutiveErrors <= 3 && p.queue.length > 1) {
@@ -45,9 +46,7 @@ export function PlayerProvider() {
         engine.pause();
         usePlayer.setState({ isPlaying: false });
         if (consecutiveErrors > 3)
-          import("sonner").then(({ toast }) =>
-            toast.error("Stopped: too many unavailable tracks in a row")
-          );
+          toast("Stopped: too many unavailable tracks in a row");
       }
     };
   }, []);
@@ -108,18 +107,16 @@ export function PlayerProvider() {
 
   const showVideo = useSettings((s) => s.showVideo);
   const fullPlayer = useUi((s) => s.fullPlayer);
-  const visibleVideo = showVideo && fullPlayer && !!track;
+  const nfMode = useUi((s) => s.nfMode);
+  // the real YouTube video docks into the mockup's video slot
+  const visibleVideo = showVideo && fullPlayer && nfMode === "video" && !!track;
 
   return (
     <div
       ref={hostRef}
       id="resona-yt-host"
-      aria-hidden="true"
-      className={
-        visibleVideo
-          ? "fixed z-40 bottom-44 left-1/2 -translate-x-1/2 w-80 h-44 rounded-xl overflow-hidden shadow-2xl border bg-black"
-          : "fixed -z-10 bottom-0 right-0 w-[220px] h-[160px] overflow-hidden opacity-[0.01] pointer-events-none"
-      }
+      aria-hidden={!visibleVideo}
+      className={visibleVideo ? "nf-video-live" : "yt-host-hidden"}
     />
   );
 }

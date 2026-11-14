@@ -1,23 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Track } from "@/lib/types";
-import { TrackRow } from "@/components/track/TrackRow";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Play, Search, X } from "lucide-react";
+import { TrackRow, TrackTableHead } from "@/components/track/TrackRow";
+import { CoverArt } from "@/lib/art";
+import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/stores/player";
-import { hueFromId } from "@/lib/format";
+import { useLibrary } from "@/stores/library";
+import { useSeedTracks, seedTrack, SEEDS } from "@/lib/seed";
 
-/* browse tiles shown before the user types — each one runs a search */
-const GENRES = [
-  "OPM",
-  "Pinoy Pop",
-  "Acoustic",
-  "Chill",
-  "Throwback",
-  "Hip-hop",
-  "Lo-fi",
-  "Podcasts",
+/* mockup browse tiles: genre → colour */
+const GENRES: [string, string][] = [
+  ["OPM", "#7c5cff"],
+  ["Pinoy Pop", "#e11d74"],
+  ["Acoustic", "#0f766e"],
+  ["Chill", "#1d4ed8"],
+  ["Throwback", "#b45309"],
+  ["Hip-hop", "#be123c"],
+  ["Lo-fi", "#4d7c0f"],
+  ["Podcasts", "#334155"],
 ];
 
 export function SearchView() {
@@ -27,22 +28,22 @@ export function SearchView() {
   const [searched, setSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const ctrlRef = useRef<AbortController | null>(null);
+  const player = usePlayer();
+  const library = useLibrary();
+  const resolved = useSeedTracks((s) => s.resolved);
 
   useEffect(() => {
     inputRef.current?.focus();
     return () => ctrlRef.current?.abort();
   }, []);
 
-  /* aborts any earlier request, so a slow old response can never overwrite newer results */
   const runSearch = useCallback(async (query: string): Promise<Track[]> => {
     ctrlRef.current?.abort();
     const ctrl = new AbortController();
     ctrlRef.current = ctrl;
     setLoading(true);
     try {
-      const r = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
-        signal: ctrl.signal,
-      });
+      const r = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal: ctrl.signal });
       const d = await r.json();
       if (ctrl.signal.aborted) return [];
       const list: Track[] = Array.isArray(d.tracks) ? d.tracks : [];
@@ -60,7 +61,6 @@ export function SearchView() {
     }
   }, []);
 
-  /* debounce typing; clear everything when the box is short */
   useEffect(() => {
     const query = q.trim();
     if (query.length < 2) {
@@ -70,134 +70,146 @@ export function SearchView() {
       setLoading(false);
       return;
     }
-    const t = setTimeout(() => {
-      void runSearch(query);
-    }, 350);
+    const t = setTimeout(() => void runSearch(query), 350);
     return () => clearTimeout(t);
   }, [q, runSearch]);
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const query = q.trim();
-    if (query.length < 2) return;
-    const list = await runSearch(query);
-    // Enter plays the first result once it has actually loaded
-    if (list.length) usePlayer.getState().playQueue(list, 0, `Search: ${query}`);
-  };
+  /** library + starter seeds that match the query — shown above live results */
+  const localHits = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    if (query.length < 2) return [];
+    const pool: Track[] = [];
+    for (const l of Object.values(library.liked)) pool.push(l.track);
+    for (const p of library.playlists) pool.push(...p.tracks);
+    for (const h of library.history) pool.push(h.track);
+    for (const s of SEEDS) {
+      const t = resolved[s.key] ?? seedTrack(s.key);
+      if (t) pool.push(t);
+    }
+    const seen = new Set<string>();
+    return pool.filter((t) => {
+      if (seen.has(t.videoId)) return false;
+      seen.add(t.videoId);
+      return `${t.title} ${t.artist}`.toLowerCase().includes(query);
+    });
+  }, [q, library.liked, library.playlists, library.history, resolved]);
 
   const hits = tracks.slice(0, 30);
-  const top = hits[0];
+  const top = localHits[0] ?? hits[0];
+  const topIsLocal = localHits.length > 0;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight md:hidden">Search</h1>
-      <form onSubmit={onSubmit}>
-        <div className="group relative">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-foreground" />
-          <input
-            ref={inputRef}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search songs, artists, albums…"
-            className="h-14 w-full rounded-2xl border border-border bg-card pl-12 pr-12 text-lg outline-none transition-all placeholder:text-muted-foreground focus:border-foreground/25 focus:bg-accent/60 focus:shadow-[0_0_0_4px_rgba(255,255,255,0.04)]"
-            aria-label="Search"
-          />
-          {q && (
-            <button
-              type="button"
-              onClick={() => {
-                setQ("");
-                inputRef.current?.focus();
-              }}
-              className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              aria-label="Clear search"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      </form>
-
-      {loading && (
-        <div className="space-y-2">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <Skeleton className="h-10 w-10 rounded-lg" />
-              <Skeleton className="h-10 flex-1" />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {!loading && top && (
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Top result
-          </p>
+    <>
+      <div className="hero tight">
+        <h1>Search</h1>
+      </div>
+      <label className="sbox">
+        <Icon name="search" />
+        <input
+          ref={inputRef}
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="What do you want to listen to?"
+          autoComplete="off"
+          aria-label="Search songs, artists, albums"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && hits.length) {
+              const ctx = [...localHits, ...hits];
+              player.playQueue(ctx, 0, `Search: ${q.trim()}`);
+            }
+          }}
+        />
+        {q && (
           <button
-            onClick={() => usePlayer.getState().playQueue(hits, 0, `Search: ${q.trim()}`)}
-            className="group flex w-full max-w-xl items-center gap-5 rounded-2xl p-4 text-left transition-colors hover:bg-card"
-            style={{
-              background: `linear-gradient(135deg, hsl(${hueFromId(top.videoId)} 55% 22% / 0.6), transparent 80%)`,
+            className="iconbtn"
+            aria-label="Clear"
+            onClick={() => {
+              setQ("");
+              inputRef.current?.focus();
             }}
           >
-            <img
-              src={top.thumb}
-              alt=""
-              className="h-24 w-24 shrink-0 rounded-xl object-cover shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
-            />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-2xl font-bold tracking-tight">{top.title}</span>
-              <span className="mt-1 block truncate text-sm text-muted-foreground">
-                Song · {top.artist}
-              </span>
-            </span>
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#5eead4,#7c5cff)] text-black opacity-0 shadow-[0_8px_20px_rgba(0,0,0,0.45)] transition-all group-hover:opacity-100">
-              <Play className="h-5 w-5 translate-x-[1px] fill-current" />
-            </span>
+            <Icon name="x" />
           </button>
-        </div>
-      )}
+        )}
+      </label>
 
-      {!loading && hits.length > 0 && (
-        <div>
-          <h2 className="mb-3 text-lg font-semibold">Songs</h2>
-          <div className="grid grid-cols-1 gap-x-6 lg:grid-cols-2">
-            {hits.map((t, i) => (
-              <TrackRow key={t.videoId} track={t} index={i} showIndex list={hits} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {!loading && searched && tracks.length === 0 && (
-        <div className="rounded-2xl border bg-card p-10 text-center">
-          <p className="font-medium">No results for &ldquo;{q}&rdquo;</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Check the spelling or try different keywords.
-          </p>
-        </div>
-      )}
-
-      {!loading && !searched && (
-        <div>
-          <h2 className="mb-3 text-lg font-semibold">Browse all</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {GENRES.map((g) => (
+      {q.trim().length < 2 ? (
+        <>
+          <h2 className="browse-h">Browse all</h2>
+          <div className="genres">
+            {GENRES.map(([g, color]) => (
               <button
                 key={g}
+                className="genre"
                 onClick={() => setQ(g)}
-                className="relative h-28 overflow-hidden rounded-xl p-4 text-left text-xl font-extrabold transition-transform hover:-translate-y-0.5"
-                style={{
-                  background: `linear-gradient(135deg, hsl(${hueFromId(g)} 60% 42%), hsl(${(hueFromId(g) + 60) % 360} 55% 18%))`,
-                }}
+                style={{ background: color }}
               >
                 {g}
               </button>
             ))}
           </div>
-        </div>
+        </>
+      ) : loading ? (
+        <p className="muted pad-note">Searching…</p>
+      ) : (
+        <>
+          {localHits.length > 0 && (
+            <>
+              <div className="section-h s20">
+                <h2>From your library</h2>
+              </div>
+              <div className="tlist">
+                {localHits.map((t, i) => (
+                  <TrackRow key={t.videoId} track={t} index={i} list={localHits} contextLabel="Your library" />
+                ))}
+              </div>
+            </>
+          )}
+
+          {hits.length > 0 ? (
+            <>
+              <p className="muted kicker-s">Top result</p>
+              <button
+                className="topres"
+                onClick={() => {
+                  const ctx = [...localHits, ...hits];
+                  player.playQueue(ctx, 0, `Search: ${q.trim()}`);
+                }}
+              >
+                <CoverArt track={top} className="cov" />
+                <div className="grow">
+                  <div className="big trunc">{top.title}</div>
+                  <div className="muted">
+                    Song · {top.artist}
+                    {topIsLocal ? " · in your library" : ""}
+                  </div>
+                </div>
+                <span className="fab sm">
+                  <Icon name="play" fill />
+                </span>
+              </button>
+              <div className="section-h s20">
+                <h2>Songs</h2>
+              </div>
+              <div className="tlist">
+                <TrackTableHead />
+                {hits.map((t, i) => (
+                  <TrackRow key={t.videoId} track={t} index={i} list={hits} contextLabel={`Search: ${q.trim()}`} />
+                ))}
+              </div>
+            </>
+          ) : localHits.length === 0 ? (
+            <div className="empty">
+              <Icon name="search" />
+              <h3>No results for “{q.trim()}”</h3>
+              <p>Check the spelling or try an artist name.</p>
+              <button className="btn2 ghost" onClick={() => setQ("")}>
+                Clear search
+              </button>
+            </div>
+          ) : null}
+        </>
       )}
-    </div>
+    </>
   );
 }

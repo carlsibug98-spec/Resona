@@ -39,8 +39,15 @@
     "/tmp/resona-dist/dev/types/**/*.ts"
   ],
   "exclude": [
+    ".zscripts",
+    "desktop",
+    "examples",
+    "mini-services",
     "node_modules",
+    "scratch",
+    "scripts",
     "skills",
-    "tests"
+    "tests",
+    "website"
   ]
 }
