@@ -10,6 +10,7 @@ on:
       - "scripts/stage-desktop.js"
       - "next.config.ts"
       - "package.json"
+      - "package-lock.json"
 
 jobs:
   build-exe:
@@ -23,11 +24,11 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Install desktop packaging tools
         working-directory: desktop
-        run: npm install
+        run: npm install --no-audit --no-fund
 
       - name: Build web app (standalone)
         run: npx next build
@@ -40,11 +41,16 @@ jobs:
 
       - name: Build Windows installer
         working-directory: desktop
+        env:
+          EP_NPM_VERSION: npm
         run: npx electron-builder --win --x64
 
       - uses: actions/upload-artifact@v4
         with:
           name: Resona-Windows-Installer
-          path: desktop/dist/Resona-Setup-*.exe
+          path: |
+            desktop/dist/Resona-Setup-*.exe
+            desktop/dist/latest.yml
+            desktop/dist/*.blockmap
           if-no-files-found: error
           compression-level: 0
