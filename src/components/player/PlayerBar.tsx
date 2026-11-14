@@ -38,13 +38,13 @@ export function PlayerBar() {
       initial={{ y: 96, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ type: "spring", bounce: 0.2, duration: 0.7 }}
-      className="fixed inset-x-0 bottom-0 z-30 px-2 pb-2 md:px-3 md:pb-3"
+      className="fixed inset-x-0 bottom-0 z-30 px-2 pb-2 md:px-0 md:pb-0"
     >
       {/* mobile progress line */}
       <div className="mx-auto h-0.5 w-full max-w-screen-2xl overflow-hidden rounded-full bg-white/10 md:hidden">
         <div className="h-full rounded-full bg-foreground/80" style={{ width: `${progress}%` }} />
       </div>
-      <div className="mx-auto flex h-16 max-w-screen-2xl items-center gap-3 rounded-2xl border border-border bg-card/85 px-3 shadow-float backdrop-blur-2xl md:h-[4.5rem] md:px-4">
+      <div className="mx-auto flex h-16 max-w-screen-2xl items-center gap-3 rounded-2xl border border-border bg-card/85 px-3 shadow-float backdrop-blur-2xl md:h-[72px] md:max-w-none md:rounded-none md:border-0 md:bg-black md:px-4 md:shadow-none md:backdrop-blur-none">
         {/* track info */}
         <button
           className="group flex min-w-0 flex-1 items-center gap-3 text-left md:flex-none md:w-72"

@@ -1,61 +1,117 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import type { Track } from "@/lib/types";
 import { useLibrary } from "@/stores/library";
 import { useUi } from "@/stores/ui";
 import { usePlayer } from "@/stores/player";
-import { TrackCardRow } from "@/components/track/TrackCard";
 import { Button } from "@/components/ui/button";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Heart,
-  ListPlus,
-  Play,
-  Search,
-} from "lucide-react";
+import { Heart, ListPlus, Play, Search } from "lucide-react";
 import { monoGradient } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type Chip = "all" | "music" | "playlists";
 
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 5) return "Up late";
-  if (h < 12) return "Good morning";
-  if (h < 18) return "Good afternoon";
-  return "Good evening";
-}
+/* Spotify-green hover play button — slides up like the real thing */
+const FAB =
+  "absolute z-10 flex h-12 w-12 translate-y-2 items-center justify-center rounded-full bg-[#1ed760] text-black opacity-0 shadow-[0_8px_16px_rgba(0,0,0,.4)] transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-active:scale-90 focus-visible:translate-y-0 focus-visible:opacity-100";
 
-const PLAY_OVERLAY =
-  "absolute bottom-2 right-2 flex h-11 w-11 translate-y-2 items-center justify-center rounded-full bg-primary text-primary-foreground opacity-0 shadow-float transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-active:scale-90 focus-visible:translate-y-0 focus-visible:opacity-100";
+const FAB_ICON = <Play className="h-5 w-5 translate-x-[1px] fill-current" />;
 
-interface CardDef {
+const LIKED_COVER = (
+  <span className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,#450af5,#c4efd9)] text-white">
+    <Heart className="h-7 w-7 fill-current" />
+  </span>
+);
+
+interface Item {
   key: string;
-  title: string;
+  name: string;
   sub: string;
   cover: React.ReactNode;
   onOpen: () => void;
   onPlay: () => void;
 }
 
-function GridCard({ card }: { card: CardDef }) {
+/* ── quick tile: 76px art on the left, bold label, green fab on hover ── */
+function Tile({ item }: { item: Item }) {
   return (
-    <div className="group relative rounded-xl p-3 transition-colors duration-200 hover:bg-card">
-      <div className="relative">
-        <button className="block w-full text-left" onClick={card.onOpen} aria-label={card.title}>
-          <span className="relative block aspect-square overflow-hidden rounded-lg bg-muted shadow-[0_6px_18px_rgba(0,0,0,0.35)]">
-            {card.cover}
-          </span>
-          <span className="mt-3 block truncate text-sm font-semibold">{card.title}</span>
-          <span className="mt-1 block truncate text-xs text-muted-foreground">{card.sub}</span>
-        </button>
-        <button className={PLAY_OVERLAY} onClick={card.onPlay} aria-label={`Play ${card.title}`}>
-          <Play className="h-4 w-4 translate-x-[1px] fill-current" />
-        </button>
-      </div>
+    <div className="group relative flex h-16 items-center overflow-hidden rounded-md bg-foreground/10 transition-colors duration-200 hover:bg-foreground/[.15] sm:h-[76px]">
+      <button
+        className="flex h-full min-w-0 flex-1 items-center text-left"
+        onClick={item.onOpen}
+        aria-label={item.name}
+      >
+        <span className="relative h-full w-16 shrink-0 sm:w-[76px]">{item.cover}</span>
+        <span className="min-w-0 flex-1 truncate px-3 text-[15px] font-bold">{item.name}</span>
+      </button>
+      <button className={cn(FAB, "bottom-[10px] right-2.5 h-11 w-11")} onClick={item.onPlay} aria-label={`Play ${item.name}`}>
+        {FAB_ICON}
+      </button>
     </div>
+  );
+}
+
+/* ── shelf card: square cover, bold title, grey sub, green fab on hover ── */
+function Card({ item }: { item: Item }) {
+  return (
+    <div className="group relative min-w-0 rounded-md p-2.5 transition-colors duration-200 hover:bg-foreground/[.08]">
+      <button className="block w-full text-left" onClick={item.onOpen} aria-label={item.name}>
+        <span className="relative block aspect-square overflow-hidden rounded-md bg-muted shadow-[0_8px_24px_rgba(0,0,0,.5)]">
+          {item.cover}
+        </span>
+        <span className="mt-2 block truncate text-[15px] font-bold">{item.name}</span>
+        <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">{item.sub}</span>
+      </button>
+      <button className={cn(FAB, "bottom-14 right-4")} onClick={item.onPlay} aria-label={`Play ${item.name}`}>
+        {FAB_ICON}
+      </button>
+    </div>
+  );
+}
+
+/* ── shelf: 22px bold header, hover-revealed "Show all" ── */
+function Shelf({
+  title,
+  onShowAll,
+  children,
+}: {
+  title: string;
+  onShowAll?: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="group/shelf mt-8">
+      <div className="flex items-end justify-between">
+        <button
+          className="text-[22px] font-bold tracking-tight hover:underline"
+          onClick={onShowAll}
+          tabIndex={onShowAll ? 0 : -1}
+        >
+          {title}
+        </button>
+        {onShowAll && (
+          <button
+            className="mb-1 text-[13px] font-bold text-muted-foreground opacity-0 transition-opacity hover:underline focus-visible:opacity-100 group-hover/shelf:opacity-100"
+            onClick={onShowAll}
+          >
+            Show all
+          </button>
+        )}
+      </div>
+      <div className="mt-2">{children}</div>
+    </section>
+  );
+}
+
+function playlistCover(item: { id: string; name: string }) {
+  return (
+    <span
+      className="flex h-full w-full items-center justify-center text-3xl font-bold text-foreground/60"
+      style={{ background: monoGradient(item.id + item.name) }}
+    >
+      {item.name.slice(0, 1).toUpperCase()}
+    </span>
   );
 }
 
@@ -63,16 +119,16 @@ export function HomeView() {
   const library = useLibrary();
   const ui = useUi();
   const player = usePlayer();
-  const shelfRef = useRef<HTMLDivElement>(null);
   const [chip, setChip] = useState<Chip>("all");
 
-  // 100% local data — the home renders instantly, nothing to fetch.
+  /* 100% local data — the home renders instantly, nothing to fetch */
   const recent = library.history.slice(0, 12).map((h) => h.track);
   const likedTracks = Object.values(library.liked)
     .sort((a, b) => b.likedAt - a.likedAt)
     .map((l) => l.track);
+  const playlists = library.playlists;
 
-  // artist radios derived from history (needs 3+ plays of one artist)
+  /* artist radios derived from history (needs 3+ plays of one artist) */
   const byArtist = new Map<string, Track[]>();
   for (const h of library.history) {
     const list = byArtist.get(h.track.artist) || [];
@@ -85,44 +141,27 @@ export function HomeView() {
     .slice(0, 3)
     .map(([artist, ts]) => ({ artist, tracks: ts.slice(0, 20) }));
 
-  const scrollShelf = (dir: 1 | -1) =>
-    shelfRef.current?.scrollBy({
-      left: dir * (shelfRef.current.clientWidth * 0.8),
-      behavior: "smooth",
-    });
-
-  const likedCard: CardDef = {
+  const likedItem: Item = {
     key: "liked",
-    title: "Liked Songs",
+    name: "Liked Songs",
     sub: `Playlist · ${likedTracks.length} songs`,
-    cover: (
-      <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-neutral-500 via-neutral-700 to-neutral-950 text-foreground">
-        <Heart className="h-9 w-9 fill-current" />
-      </span>
-    ),
+    cover: LIKED_COVER,
     onOpen: () => ui.navigate({ name: "library", tab: "liked" }),
     onPlay: () => likedTracks.length && player.playQueue(likedTracks, 0),
   };
 
-  const playlistCards: CardDef[] = library.playlists.map((p) => ({
+  const playlistItems: Item[] = playlists.map((p) => ({
     key: `pl:${p.id}`,
-    title: p.name,
+    name: p.name,
     sub: `Playlist · ${p.tracks.length} songs`,
-    cover: (
-      <span
-        className="flex h-full w-full items-center justify-center text-3xl font-bold text-foreground/60"
-        style={{ background: monoGradient(p.id + p.name) }}
-      >
-        {p.name.slice(0, 1).toUpperCase()}
-      </span>
-    ),
+    cover: playlistCover(p),
     onOpen: () => ui.navigate({ name: "playlist", id: p.id, label: p.name }),
     onPlay: () => p.tracks.length && player.playQueue(p.tracks, 0),
   }));
 
-  const radioCards: CardDef[] = radios.map((r) => ({
+  const radioItems: Item[] = radios.map((r) => ({
     key: `radio:${r.artist}`,
-    title: `${r.artist} Radio`,
+    name: `${r.artist} Radio`,
     sub: "Radio · from your history",
     cover: (
       <span
@@ -136,32 +175,36 @@ export function HomeView() {
     onPlay: () => player.playQueue(r.tracks, 0),
   }));
 
-  const trackCards: CardDef[] = recent.map((t, i) => ({
+  const trackItems: Item[] = recent.map((t, i) => ({
     key: `t:${t.videoId}`,
-    title: t.title,
+    name: t.title,
     sub: t.artist,
     cover: <img src={t.thumb} alt="" loading="lazy" className="h-full w-full object-cover" />,
     onOpen: () => player.playQueue(recent, i),
     onPlay: () => player.playQueue(recent, i),
   }));
 
-  const cards: CardDef[] =
+  /* quick tiles — 8 like the real Spotify home */
+  const tiles: Item[] =
     chip === "playlists"
-      ? [likedCard, ...playlistCards]
+      ? [likedItem, ...playlistItems].slice(0, 8)
       : chip === "music"
-        ? [...radioCards, ...trackCards.slice(0, 10)]
-        : [
-            likedCard,
-            ...playlistCards.slice(0, 6),
-            ...radioCards.slice(0, 2),
-            ...trackCards.slice(0, Math.max(0, 12 - 1 - Math.min(6, playlistCards.length) - Math.min(2, radioCards.length))),
-          ];
+        ? [...radioItems, ...trackItems.slice(0, Math.max(0, 8 - radioItems.length))].slice(0, 8)
+        : [likedItem, ...playlistItems, ...radioItems, ...trackItems.slice(0, 2)].slice(0, 8);
 
-  const empty = recent.length === 0 && likedTracks.length === 0 && library.playlists.length === 0;
+  const madeForYou: Item[] =
+    chip === "music"
+      ? [...radioItems, ...trackItems.slice(0, 6)].slice(0, 6)
+      : [...playlistItems, ...radioItems].slice(0, 6);
+
+  const recentlyPlayed: Item[] = chip === "playlists" ? [] : trackItems.slice(0, 6);
+
+  const empty =
+    recent.length === 0 && likedTracks.length === 0 && playlists.length === 0;
 
   return (
     <div>
-      {/* filter chips — like Spotify's All / Music / Podcasts row */}
+      {/* filter pills — All / Music / Playlists like Spotify's All / Music / Podcasts */}
       <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
         {([
           ["all", "All"],
@@ -174,7 +217,7 @@ export function HomeView() {
               "shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold transition-colors",
               chip === key
                 ? "bg-foreground text-background"
-                : "bg-card text-muted-foreground hover:text-foreground"
+                : "bg-foreground/10 text-muted-foreground hover:text-foreground"
             )}
             onClick={() => setChip(key)}
           >
@@ -185,7 +228,7 @@ export function HomeView() {
 
       {empty ? (
         <div className="mt-8 rounded-2xl border bg-card p-8 text-center">
-          <p className="font-semibold">{greeting()}. Your home fills up as you listen.</p>
+          <p className="font-semibold">Your home fills up as you listen.</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
             Search for a song, artist or album to get started — liked songs, playlists
             and history will gather here.
@@ -201,49 +244,40 @@ export function HomeView() {
         </div>
       ) : (
         <>
-          {cards.length > 0 && (
-            <div className="mt-6 grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {cards.map((c) => (
-                <GridCard key={c.key} card={c} />
+          {tiles.length > 0 && (
+            <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {tiles.map((t) => (
+                <Tile key={t.key} item={t} />
               ))}
             </div>
           )}
 
-          {chip !== "playlists" && recent.length > 0 && (
-            <section className="mt-10">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold tracking-tight md:text-2xl">Jump back in</h2>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-muted-foreground"
-                    onClick={() => ui.navigate({ name: "library", tab: "history" })}
-                  >
-                    View all
-                  </Button>
-                  <button
-                    className="hidden h-8 w-8 items-center justify-center rounded-full bg-card text-muted-foreground transition-colors hover:text-foreground sm:flex"
-                    onClick={() => scrollShelf(-1)}
-                    aria-label="Scroll back"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <button
-                    className="hidden h-8 w-8 items-center justify-center rounded-full bg-card text-muted-foreground transition-colors hover:text-foreground sm:flex"
-                    onClick={() => scrollShelf(1)}
-                    aria-label="Scroll forward"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
+          {madeForYou.length > 0 && (
+            <Shelf
+              title={chip === "playlists" ? "Your playlists" : chip === "music" ? "Made for you" : "Made For You"}
+              onShowAll={() =>
+                ui.navigate({ name: "library", tab: chip === "playlists" ? "playlists" : "liked" })
+              }
+            >
+              <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                {madeForYou.map((c) => (
+                  <Card key={c.key} item={c} />
+                ))}
               </div>
-              <div ref={shelfRef} className="mt-3">
-                <TrackCardRow tracks={recent} />
-              </div>
-            </section>
+            </Shelf>
           )}
 
+          {recentlyPlayed.length > 0 && (
+            <Shelf title="Recently played" onShowAll={() => ui.navigate({ name: "library", tab: "history" })}>
+              <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                {recentlyPlayed.map((c) => (
+                  <Card key={c.key} item={c} />
+                ))}
+              </div>
+            </Shelf>
+          )}
+
+          {/* getting-started row — quiet, below the fold */}
           <section className="mt-10 grid gap-4 sm:grid-cols-2">
             <button
               className="group flex items-center gap-4 rounded-2xl bg-card p-5 text-left transition-colors hover:bg-accent"

@@ -23,6 +23,7 @@ import {
   Heart,
   Home,
   Library,
+  ListPlus,
   Plus,
   Search,
   Settings,
@@ -104,52 +105,13 @@ export function AppShell() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="flex min-h-screen flex-col bg-background text-foreground md:h-screen md:overflow-hidden">
+      <div
+        className={cn(
+          "flex min-h-screen flex-col bg-background text-foreground md:h-screen md:overflow-hidden",
+          hasTrack && "md:pb-[72px]"
+        )}
+      >
         <PlayerProvider />
-
-        {/* ── desktop top bar ─────────────────────────────────────────── */}
-        <header className="hidden h-16 shrink-0 items-center gap-2 px-4 pt-2 md:flex">
-          <button
-            className={cx(
-              "flex h-8 w-8 items-center justify-center rounded-full bg-card/80 transition-all active:scale-90",
-              ui.canBack() ? "text-foreground hover:bg-card" : "text-muted-foreground/40"
-            )}
-            onClick={() => ui.back()}
-            disabled={!ui.canBack()}
-            aria-label="Back"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <button
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-card/80 text-muted-foreground/40 transition-all active:scale-90"
-            disabled
-            aria-label="Forward"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-          <button
-            className="ml-3 flex h-11 w-[380px] max-w-[38vw] items-center gap-3 rounded-full border border-border bg-card/80 px-4 text-left text-sm text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
-            onClick={() => ui.navigate({ name: "search" })}
-          >
-            <Search className="h-4 w-4" />
-            What do you want to play?
-          </button>
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-card/80 text-muted-foreground transition-all hover:bg-card hover:text-foreground active:scale-90"
-              onClick={() => ui.navigate({ name: "settings" })}
-              aria-label="Settings"
-            >
-              <Settings className="h-4 w-4" />
-            </button>
-            <span
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-neutral-500 to-neutral-900 text-xs font-bold text-foreground ring-1 ring-border"
-              aria-label="Profile"
-            >
-              R
-            </span>
-          </div>
-        </header>
 
         {/* mobile top bar */}
         <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border/60 bg-background/90 px-3 backdrop-blur-xl md:hidden">
@@ -178,10 +140,35 @@ export function AppShell() {
           </button>
         </header>
 
-        {/* ── body: unified library sidebar + canvas panel ────────────── */}
-        <div className="flex min-h-0 flex-1 gap-2 px-0 md:px-2 md:pb-2">
+        {/* ── body: Spotify-style nav card + library card + main panel ── */}
+        <div className="flex min-h-0 flex-1 gap-2 px-0 md:px-2 md:pt-2">
           {/* desktop sidebar */}
-          <aside className="hidden w-[300px] shrink-0 flex-col rounded-2xl bg-sidebar md:flex">
+          <aside className="hidden w-[280px] shrink-0 flex-col gap-2 md:flex">
+            <nav className="shrink-0 rounded-lg bg-card p-2" aria-label="Main">
+              <button
+                className={cn(
+                  "flex h-12 w-full items-center gap-4 rounded-md px-3 text-sm font-bold transition-colors",
+                  view.name === "home"
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => ui.navigate({ name: "home" })}
+              >
+                <Home className="h-6 w-6" /> Home
+              </button>
+              <button
+                className={cn(
+                  "flex h-12 w-full items-center gap-4 rounded-md px-3 text-sm font-bold transition-colors",
+                  view.name === "search"
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => ui.navigate({ name: "search" })}
+              >
+                <Search className="h-6 w-6" /> Search
+              </button>
+            </nav>
+            <div className="flex min-h-0 flex-1 flex-col rounded-lg bg-card p-2">
             <div className="flex items-center justify-between px-4 pb-2 pt-4">
               <button
                 className="flex items-center gap-2 text-sm font-bold text-muted-foreground transition-colors hover:text-foreground"
@@ -215,7 +202,7 @@ export function AppShell() {
                       "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
                       chip === key
                         ? "bg-foreground text-background"
-                        : "bg-card text-muted-foreground hover:text-foreground"
+                        : "bg-foreground/10 text-muted-foreground hover:text-foreground"
                     )}
                     onClick={() => setChip(key)}
                   >
@@ -231,8 +218,8 @@ export function AppShell() {
                   className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-accent/60"
                   onClick={() => ui.navigate({ name: "library", tab: "liked" })}
                 >
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-neutral-500 via-neutral-700 to-neutral-950 text-foreground shadow-[0_4px_14px_rgba(0,0,0,0.35)]">
-                    <Heart className="h-4 w-4 fill-current" />
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-[linear-gradient(135deg,#450af5,#c4efd9)] text-white shadow-[0_4px_14px_rgba(0,0,0,0.35)]">
+                    <Heart className="h-5 w-5 fill-current" />
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold">Liked songs</span>
@@ -256,7 +243,7 @@ export function AppShell() {
                       onClick={() => ui.navigate({ name: "playlist", id: p.id, label: p.name })}
                     >
                       <span
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-sm font-bold text-foreground/70 shadow-[0_4px_14px_rgba(0,0,0,0.35)]"
+                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md text-sm font-bold text-foreground/70 shadow-[0_4px_14px_rgba(0,0,0,0.35)]"
                         style={{ background: monoGradient(p.id + p.name) }}
                       >
                         {p.name.slice(0, 1).toUpperCase()}
@@ -282,7 +269,7 @@ export function AppShell() {
                       src={d.track.thumb}
                       alt=""
                       loading="lazy"
-                      className="h-11 w-11 shrink-0 rounded-md object-cover"
+                      className="h-12 w-12 shrink-0 rounded-md object-cover"
                     />
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold">{d.track.title}</span>
@@ -300,19 +287,54 @@ export function AppShell() {
               )}
             </div>
 
-            <div className="border-t border-sidebar-border p-2">
-              <button
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
-                onClick={() => ui.setImportOpen(true)}
-              >
-                <Plus className="h-4 w-4" /> Import playlist
-              </button>
             </div>
           </aside>
 
           {/* canvas panel (desktop) / plain main (mobile) */}
-          <main className="min-w-0 flex-1 md:relative md:min-h-0 md:overflow-hidden md:rounded-2xl md:bg-card/50">
-            <div className="px-4 pb-44 pt-2 md:absolute md:inset-0 md:overflow-y-auto md:px-6 md:pb-32 md:pt-5 scrollbar-thin">
+          <main className="min-w-0 flex-1 md:relative md:min-h-0 md:overflow-hidden md:rounded-t-lg md:bg-card">
+            {/* desktop topbar overlay — nav arrows + actions over the panel */}
+            <div className="absolute inset-x-0 top-0 z-20 hidden h-16 items-center gap-2 bg-gradient-to-b from-accent/70 via-accent/30 to-transparent px-6 md:flex">
+              <button
+                className={cx(
+                  "flex h-8 w-8 items-center justify-center rounded-full bg-black/70 transition-all active:scale-90",
+                  ui.canBack() ? "text-foreground hover:bg-black" : "text-muted-foreground/40"
+                )}
+                onClick={() => ui.back()}
+                disabled={!ui.canBack()}
+                aria-label="Back"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-muted-foreground/40 transition-all active:scale-90"
+                disabled
+                aria-label="Forward"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  className="flex h-8 items-center gap-1.5 rounded-full bg-foreground px-4 text-[13px] font-bold text-background transition-transform hover:scale-[1.04] active:scale-100"
+                  onClick={() => ui.setImportOpen(true)}
+                >
+                  <ListPlus className="h-4 w-4" /> Import playlist
+                </button>
+                <button
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-muted-foreground transition-all hover:bg-black hover:text-foreground active:scale-90"
+                  onClick={() => ui.navigate({ name: "settings" })}
+                  aria-label="Settings"
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+                <span
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-neutral-500 to-neutral-900 text-xs font-bold text-foreground ring-1 ring-border"
+                  aria-label="Profile"
+                >
+                  R
+                </span>
+              </div>
+            </div>
+            <div className="px-4 pb-44 pt-2 md:absolute md:inset-0 md:overflow-y-auto md:px-6 md:pb-32 md:pt-[84px] scrollbar-thin">
               {content}
             </div>
           </main>
