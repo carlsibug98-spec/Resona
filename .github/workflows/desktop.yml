@@ -1,0 +1,50 @@
+name: Build Windows installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "desktop/**"
+      - "scripts/stage-desktop.js"
+      - "next.config.ts"
+      - "package.json"
+
+jobs:
+  build-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install desktop packaging tools
+        working-directory: desktop
+        run: npm install
+
+      - name: Build web app (standalone)
+        run: npx next build
+
+      - name: Generate app icons
+        run: node scripts/make-icon.js
+
+      - name: Stage desktop bundle
+        run: node scripts/stage-desktop.js
+
+      - name: Build Windows installer
+        working-directory: desktop
+        run: npx electron-builder --win --x64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Resona-Windows-Installer
+          path: desktop/dist/Resona-Setup-*.exe
+          if-no-files-found: error
+          compression-level: 0

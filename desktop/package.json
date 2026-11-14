@@ -1,0 +1,55 @@
+{
+  "name": "resona",
+  "productName": "Resona",
+  "version": "1.1.0",
+  "description": "Resona — free music streaming desktop app",
+  "main": "main.js",
+  "author": "Resona",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^45.3.2",
+    "electron-builder": "^26.18.0",
+    "resedit": "^3.1.0"
+  },
+  "build": {
+    "appId": "app.resona.desktop",
+    "productName": "Resona",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "package.json"
+    ],
+    "afterPack": "afterpack.cjs",
+    "extraResources": [
+      {
+        "from": "staging/server",
+        "to": "server"
+      },
+      {
+        "from": "staging/yt-dlp.exe",
+        "to": "yt-dlp.exe"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Resona-Setup-${version}.exe"
+    }
+  }
+}

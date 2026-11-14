@@ -1,0 +1,421 @@
+import type { AlbumCard, ArtistPage, Track } from "@/lib/types";
+import { cacheGet, cacheSet, cached, fetchWithTimeout, mapPool } from "./cache";
+
+const YT_MUSIC = "https://music.youtube.com/youtubei/v1";
+
+const CONTEXT = {
+  client: {
+    clientName: "WEB_REMIX",
+    clientVersion: "1.20240401.01.00",
+    hl: "en",
+    gl: "US",
+  },
+};
+
+ 
+
+function walk(o: any, key: string, depth = 0): any[] {
+  if (depth > 14 || o == null) return [];
+  let out: any[] = [];
+  if (Array.isArray(o)) {
+    for (const v of o) out = out.concat(walk(v, key, depth + 1));
+  } else if (typeof o === "object") {
+    for (const k of Object.keys(o)) {
+      if (k === key) out.push(o[k]);
+      out = out.concat(walk(o[k], key, depth + 1));
+    }
+  }
+  return out;
+}
+
+export function parseDuration(text?: string): number | undefined {
+  if (!text) return undefined;
+  const parts = text.split(":").map((p) => parseInt(p, 10));
+  if (parts.some((p) => isNaN(p))) return undefined;
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  return undefined;
+}
+
+function thumbFor(videoId: string): string {
+  return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+}
+
+function parseListItem(r: any): Track | null {
+  try {
+    const flex = r.flexColumns?.map(
+      (c: any) => c.musicResponsiveListItemFlexColumnRenderer
+    );
+    const titleRuns = flex?.[0]?.text?.runs || [];
+    const title = titleRuns.map((x: any) => x.text || "").join("").trim();
+    if (!title) return null;
+
+    let videoId: string | undefined =
+      r.playlistItemData?.videoId ||
+      r.overlay?.musicItemThumbnailOverlayRenderer?.content
+        ?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint?.videoId ||
+      flex?.[0]?.text?.runs?.[0]?.navigationEndpoint?.watchEndpoint?.videoId;
+    if (!videoId) return null;
+
+    let artist = "";
+    let artistId: string | undefined;
+    let album = "";
+    let channelFallback = "";
+    const others: string[] = [];
+    // scan metadata columns: flex[1] for search rows, flex[1..3] for album pages
+    for (const col of flex?.slice(1, 4) || []) {
+      const metaRuns: any[] = col?.text?.runs || [];
+      for (const run of metaRuns) {
+        const nav = run.navigationEndpoint?.browseEndpoint;
+        const pageType =
+          nav?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig
+            ?.pageType || "";
+        if (pageType === "MUSIC_PAGE_TYPE_ARTIST") {
+          if (!artist) {
+            artist = run.text;
+            artistId = nav?.browseId;
+          }
+        } else if (pageType === "MUSIC_PAGE_TYPE_ALBUM") {
+          album = album || run.text;
+        } else if (run.text && run.text.trim() && run.text.trim() !== "•") {
+          const txt = run.text.trim();
+          // candidate channel/artist name: first non-view, non-duration run
+          if (
+            !channelFallback &&
+            !/^\d+:\d\d(:\d\d)?$/.test(txt) &&
+            !/view|plays|song|video/i.test(txt)
+          ) {
+            channelFallback = txt;
+          }
+          others.push(txt);
+        }
+      }
+      // keep scanning later columns: official song rows carry "3.7B plays"
+      // (views) in flex[2] even after the artist was found in flex[1]
+    }
+    if (!artist) {
+      artist = channelFallback;
+      // keep the nav-less channel id if present on the first run
+      artistId =
+        artistId ||
+        flex?.[1]?.text?.runs?.find(
+          (r: any) => r.navigationEndpoint?.browseEndpoint?.browseId
+        )?.navigationEndpoint?.browseEndpoint?.browseId;
+    }
+
+    let dText = "";
+    let views = "";
+    for (const o of others) {
+      if (/^\d+:\d\d(:\d\d)?$/.test(o)) dText = dText || o;
+      else if (/view|plays/i.test(o)) views = o;
+    }
+    const fixed = r.fixedColumns?.[0]?.musicResponsiveListItemFixedColumnRenderer;
+    const fixedText = fixed?.text?.simpleText || "";
+    if (!dText && /^\d+:\d\d(:\d\d)?$/.test(fixedText)) dText = fixedText;
+
+    return {
+      videoId,
+      title,
+      artist: artist || "Unknown artist",
+      artistId,
+      album: album || undefined,
+      duration: parseDuration(dText),
+      durationText: dText || undefined,
+      thumb: thumbFor(videoId),
+      views: views || undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function innertubePost(
+  endpoint: string,
+  body: Record<string, unknown>
+): Promise<any> {
+  const res = await fetchWithTimeout(
+    `${YT_MUSIC}/${endpoint}?prettyPrint=false`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ context: CONTEXT, ...body }),
+    },
+    12000
+  );
+  if (!res.ok) throw new Error(`innertube ${endpoint} ${res.status}`);
+  return res.json();
+}
+
+export async function searchTracksRaw(
+  query: string,
+  filter: "songs" | "videos" = "songs"
+): Promise<Track[]> {
+  const data = await innertubePost("search", { query, filter });
+  const items = walk(data, "musicResponsiveListItemRenderer");
+  const seen = new Set<string>();
+  const tracks: Track[] = [];
+  for (const item of items) {
+    const t = parseListItem(item);
+    if (t && !seen.has(t.videoId)) {
+      seen.add(t.videoId);
+      tracks.push(t);
+    }
+  }
+  return tracks;
+}
+
+export async function searchTracks(
+  query: string,
+  filter: "songs" | "videos" = "songs"
+): Promise<Track[]> {
+  return cached(`search:${filter}:${query}`, 1000 * 60 * 30, () =>
+    searchTracksRaw(query, filter)
+  );
+}
+
+/**
+ * Resolve exact durations (seconds) for video ids. YT Music search and
+ * playlist rows omit duration for official song results, so a fallback
+ * is required. The innertube `player` endpoint is bot-gated, but the
+ * `next` endpoint (radio queue for a seed video) returns 50 tracks with
+ * lengthText — including the seed. Every harvested duration is cached
+ * for a week, so one request usually covers dozens of ids.
+ */
+export async function getDurations(
+  ids: string[]
+): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  const missing: string[] = [];
+  for (const id of ids) {
+    const hit = cacheGet<number>(`dur:${id}`);
+    if (hit != null && hit > 0) out[id] = hit;
+    else missing.push(id);
+  }
+  if (!missing.length) return out;
+
+  await mapPool(missing, 4, async (id) => {
+    try {
+      const data = await innertubePost("next", {
+        videoId: id,
+        playlistId: `RDAMVM${id}`,
+      });
+      for (const p of walk(data, "playlistPanelVideoRenderer")) {
+        const vid: string | undefined = p.videoId;
+        const text: string =
+          p.lengthText?.simpleText ||
+          p.lengthText?.runs?.map((r: any) => r.text || "").join("") ||
+          "";
+        const secs = parseDuration(text.trim());
+        if (vid && secs && secs > 0) {
+          cacheSet(`dur:${vid}`, secs, 1000 * 60 * 60 * 24 * 7);
+        }
+      }
+      const mine = cacheGet<number>(`dur:${id}`);
+      if (mine && mine > 0) out[id] = mine;
+    } catch {
+      /* leave id unresolved */
+    }
+  });
+  return out;
+}
+
+export async function searchOne(
+  query: string,
+  filter: "songs" | "videos" = "songs"
+): Promise<Track | null> {
+  try {
+    const tracks = await searchTracks(query, filter);
+    return tracks[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+function parseTwoRow(r: any): AlbumCard | null {
+  try {
+    const nav =
+      r.navigationEndpoint?.watchEndpoint ||
+      r.navigationEndpoint?.browseEndpoint;
+    let playlistId = nav?.playlistId;
+    const browseId = r.navigationEndpoint?.browseEndpoint?.browseId;
+    if (!playlistId && browseId && browseId.startsWith("MPRE")) playlistId = browseId;
+    if (!playlistId && nav?.videoId) playlistId = `RV${nav.videoId}`;
+    if (!playlistId) return null;
+    const title =
+      r.title?.simpleText ||
+      r.title?.runs?.[0]?.text ||
+      r.title?.runs?.map((x: any) => x.text).join("") ||
+      "";
+    if (!title) return null;
+    const thumbSrc =
+      r.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
+    const thumb = thumbSrc.length
+      ? thumbSrc[thumbSrc.length - 1].url
+      : "";
+    const subtitle =
+      r.subtitle?.runs?.map((x: any) => x.text).join("").trim() || "";
+    return { playlistId, title, subtitle, thumb };
+  } catch {
+    return null;
+  }
+}
+
+export async function browseArtist(browseId: string): Promise<ArtistPage> {
+  return cached(`artist:${browseId}`, 1000 * 60 * 60, async () => {
+    const data = await innertubePost("browse", { browseId });
+
+    let name = "";
+    const headers = [
+      ...walk(data, "musicImmersiveHeaderRenderer"),
+      ...walk(data, "musicDetailHeaderRenderer"),
+      ...walk(data, "musicResponsiveHeaderRenderer"),
+    ];
+    let headerThumb: string | undefined;
+    if (headers.length) {
+      const h = headers[0];
+      name =
+        h.title?.simpleText ||
+        h.title?.runs?.[0]?.text ||
+        "";
+      const thumbSrc =
+        h.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails ||
+        h.thumbnail?.croppedSquareThumbnailRenderer?.thumbnail?.thumbnails ||
+        [];
+      headerThumb = thumbSrc.length
+        ? thumbSrc[thumbSrc.length - 1].url
+        : undefined;
+    }
+
+    const songs: Track[] = [];
+    const albums: AlbumCard[] = [];
+    const singles: AlbumCard[] = [];
+    const seenSong = new Set<string>();
+    const seenAlbum = new Set<string>();
+
+    const shelves = [
+      ...walk(data, "musicShelfRenderer"),
+      ...walk(data, "musicPlaylistShelfRenderer"),
+    ];
+    for (const shelf of shelves) {
+      const items = shelf.contents || [];
+      for (const item of items) {
+        const t = parseListItem(item.musicResponsiveListItemRenderer || item);
+        if (t && !seenSong.has(t.videoId)) {
+          seenSong.add(t.videoId);
+          songs.push(t);
+        }
+      }
+    }
+
+    const carousels = walk(data, "musicCarouselShelfRenderer");
+    for (const c of carousels) {
+      const ctitle = c.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.[0]?.text || "";
+      const rows = [
+        ...walk(c, "musicTwoRowItemRenderer"),
+      ];
+      for (const r of rows) {
+        const card = parseTwoRow(r);
+        if (!card) continue;
+        if (seenAlbum.has(card.playlistId + card.title)) continue;
+        seenAlbum.add(card.playlistId + card.title);
+        const isSingle = /single|ep/i.test(ctitle);
+        const isVideo = /video/i.test(ctitle);
+        if (isVideo) continue;
+        if (isSingle) singles.push(card);
+        else albums.push(card);
+      }
+    }
+
+    return {
+      name,
+      thumb: headerThumb,
+      songs,
+      albums: albums.slice(0, 12),
+      singles: singles.slice(0, 12),
+    };
+  });
+}
+
+export async function browsePlaylist(
+  playlistId: string
+): Promise<{ name: string; tracks: Track[] }> {
+  return cached(`playlist:${playlistId}`, 1000 * 60 * 60, async () => {
+    const id = /^MPRE/.test(playlistId)
+      ? playlistId
+      : playlistId.startsWith("VL")
+        ? playlistId
+        : `VL${playlistId}`;
+    const data = await innertubePost("browse", { browseId: id });
+
+    let name = "";
+    const headers = [
+      ...walk(data, "musicDetailHeaderRenderer"),
+      ...walk(data, "musicResponsiveHeaderRenderer"),
+      ...walk(data, "musicImmersiveHeaderRenderer"),
+    ];
+    if (headers.length) {
+      const h = headers[0];
+      name = h.title?.simpleText || h.title?.runs?.[0]?.text || "";
+    }
+
+    const tracks: Track[] = [];
+    const seen = new Set<string>();
+    const shelves = [
+      ...walk(data, "musicShelfRenderer"),
+      ...walk(data, "musicPlaylistShelfRenderer"),
+    ];
+    // album pages carry the artist in the header, not in the rows
+    let headerArtist = "";
+    if (headers.length) {
+      for (const run of headers[0].subtitle?.runs || []) {
+        const pt =
+          run.navigationEndpoint?.browseEndpoint?.browseEndpointContextSupportedConfigs
+            ?.browseEndpointContextMusicConfig?.pageType || "";
+        if (pt === "MUSIC_PAGE_TYPE_ARTIST") {
+          headerArtist = run.text;
+          break;
+        }
+      }
+    }
+    if (!headerArtist) {
+      // fallback: first run anywhere on the page that links to an artist page
+      for (const grp of walk(data, "runs")) {
+        for (const run of grp) {
+          const pt =
+            run.navigationEndpoint?.browseEndpoint
+              ?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig
+              ?.pageType || "";
+          if (pt === "MUSIC_PAGE_TYPE_ARTIST" && run.text) {
+            headerArtist = run.text;
+            break;
+          }
+        }
+        if (headerArtist) break;
+      }
+    }
+    for (const shelf of shelves) {
+      for (const item of shelf.contents || []) {
+        const t = parseListItem(item.musicResponsiveListItemRenderer || item);
+        if (t && !seen.has(t.videoId)) {
+          seen.add(t.videoId);
+          if (t.artist === "Unknown artist" && headerArtist) {
+            t.artist = headerArtist;
+          }
+          tracks.push(t);
+        }
+      }
+    }
+    return { name, tracks };
+  });
+}
+
+export async function resolveMany(
+  queries: { key: string; query: string; filter?: "songs" | "videos" }[],
+  concurrency = 5
+): Promise<Map<string, Track | null>> {
+  const out = new Map<string, Track | null>();
+  await mapPool(queries, concurrency, async (q) => {
+    out.set(q.key, await searchOne(q.query, q.filter || "songs"));
+  });
+  return out;
+}
