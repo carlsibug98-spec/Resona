@@ -1,52 +1,93 @@
+<div align="center">
+
+<img src="assets/banner.png" width="100%" alt="Resona — free music streaming desktop app">
+
 # Resona
 
-**Resona** is a free, open-source music streaming web app — an independent, clean-room reimplementation of the system behind [OpenSpot Music](https://github.com/BlackHatDevX/openspot-music-app) (different code, same ideas). No login, no ads, no tracking.
+### Stream & download high-quality music, free, no ads, no login.
 
-## Features
+![Release](https://img.shields.io/github/v/release/carlsibug98-spec/Resona?style=flat-square&label=RELEASE&color=1ed760)
+![Stars](https://img.shields.io/github/stars/carlsibug98-spec/Resona?style=flat-square&label=STARS&color=1ed760)
+![Forks](https://img.shields.io/github/forks/carlsibug98-spec/Resona?style=flat-square&label=FORKS&color=1ed760)
+![Issues](https://img.shields.io/github/issues/carlsibug98-spec/Resona?style=flat-square&label=ISSUES&color=1ed760)
+![License](https://img.shields.io/github/license/carlsibug98-spec/Resona?style=flat-square&label=LICENSE&color=1ed760)
 
-- **Search** — millions of tracks via YouTube Music metadata (songs, artists, views, durations)
-- **Stream** — playback through the official YouTube embedded player, with a native-audio path when a direct-stream resolver is configured
-- **Trending** — region-based trending chart (81 regions) with daily refresh, powered by kworb.net YouTube data
-- **Likes & Playlists** — create, rename, delete, export playlists; like songs; everything stored locally
-- **Spotify playlist import** — paste a public playlist URL; every track is fuzzy search-matched (typically ~100% match rate)
-- **Downloads** — offline audio stored in IndexedDB (needs a configured resolver for direct streams; otherwise tracks are marked *stream-only*)
-- **Lyrics** — time-synced scrolling lyrics (LRCLIB), click any line to seek; plain-text fallback
-- **Queue & full player** — shuffle, repeat one/all, play-next, queue reordering, drag-free recontextualization, Media Session (lockscreen) controls
-- **Artist pages** — popular tracks, albums and singles with full discography browsing
-- **Albums** — open any album from an artist page and play it through
-- **Themes** — pure monochrome (white / black / gray) with light, dark, and auto (system) modes
-- **Recently played** — local history of the last 60 tracks
+**[⬇️ Download (v1.2.0) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
 
-## The music source
+</div>
 
-Search metadata comes from YouTube Music's public web API (`music.youtube.com/youtubei/v1`, `WEB_REMIX` client). Playback uses the **official YouTube IFrame embed** in your browser — the same source OpenSpot streams from. Direct audio streams for offline downloads are resolved through configurable community instances (Piped / Invidious compatible). Lyrics come from [LRCLIB](https://lrclib.net). Trending charts come from [kworb.net](https://kworb.net/youtube/).
+---
 
-## Tech stack
+## 📦 Downloads
 
-- Next.js 16 (App Router) + TypeScript
-- Tailwind CSS 4 + shadcn/ui (monochrome neutral theme)
-- Zustand (client state + localStorage persistence)
-- IndexedDB for offline audio blobs
-- In-memory TTL cache on all upstream API routes
+| Platform | Status | Download | Details |
+| --- | --- | --- | --- |
+| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.2.0** | **[⬇️ Download EXE](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.2.0.exe)** | Installer · ~155 MB |
+| 🍎 **macOS** (Apple Silicon & Intel) | 🔜 Soon | — | In testing |
+| 🐧 **Linux** (AppImage / .deb) | 🔜 Soon | — | In testing |
+| 📱 **iOS / Android** | 🧭 Planned | — | Mobile app in design |
 
-## Run it
+> **All releases:** [github.com/carlsibug98-spec/Resona/releases](https://github.com/carlsibug98-spec/Resona/releases) · **Install guide:** [INSTALL-GUIDE.txt](https://github.com/carlsibug98-spec/Resona/releases/download/v1.2.0/INSTALL-GUIDE.txt)
 
-```bash
-bun install
-bun run dev        # http://localhost:3000
+## ✨ Features
+
+- **🎧 Unlimited streaming** — millions of songs, albums and live sets via YouTube Music. Search, press play, done.
+- **🎬 Synced lyrics** — time-synced, karaoke-style lyrics line by line, powered by lrclib.
+- **📋 Playlists & Spotify import** — paste any public Spotify playlist URL; Resona search-matches every track into a local playlist.
+- **⬇️ Offline downloads** — save songs locally through the built-in downloader and play them without a connection.
+- **🏠 Spotify-style home** — quick tiles, made-for-you shelves, two-panel sidebar and a full-width player bar.
+- **👤 No account needed** — install and play. No sign-up, no email, no tracking. Your library stays on your machine.
+- **💚 100% free & open source** — MIT licensed. No ads, no premium tier, forever.
+
+## 🖼️ Screenshots
+
+| Home | Synced lyrics | Playlists |
+| --- | --- | --- |
+| ![Home](website/screenshots/home.png) | ![Lyrics](website/screenshots/lyrics.png) | ![Playlists](website/screenshots/playlist.png) |
+
+## 🚀 Install on Windows
+
+1. **Download** `Resona-Setup-1.2.0.exe` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~155 MB)
+2. If SmartScreen shows a warning, click **More info → Run anyway** (the installer isn't code-signed yet)
+3. Follow the wizard — a desktop shortcut is created automatically. Play music.
+
+**Verify (SHA-256):**
+```
+90e0a9327578e05147d6f9b437369c67553c4bdf00febf0a9ce17066f1682e84
 ```
 
-## Configuration
+## 🛠️ Build from source
 
-All settings live in the in-app **Settings** page:
+```bash
+git clone https://github.com/carlsibug98-spec/Resona.git
+cd Resona
+bun install          # or npm install
 
-- Theme (light / dark / auto)
-- Default trending region
-- Direct-stream resolver instances (one URL per line, Piped/Invidious API compatible)
-- Export / wipe all local data
+# Web app
+bun run build        # Next.js production build (standalone output)
+bun run start        # serve at http://localhost:3000
 
-## Credits & license
+# Windows desktop installer
+node scripts/stage-desktop.js
+cd desktop && npx electron-builder --win nsis
+# → desktop/dist/Resona-Setup-<version>.exe
+```
 
-- Inspired by [OpenSpot Music](https://github.com/BlackHatDevX/openspot-music-app) by Jash Gro — original codebase, same product system, zero code copied.
-- Lyrics: LRCLIB · Charts: kworb.net · Music: YouTube
-- MIT License — see [LICENSE](./LICENSE)
+## 🧱 Tech stack
+
+| Layer | Tech |
+| --- | --- |
+| UI | Next.js (App Router) · React · Zustand · Tailwind-style CSS |
+| Music data | YouTube Music (innertube) · kworb charts (81 regions) |
+| Playback | HTML5 audio / YouTube embedded player · yt-dlp direct streams |
+| Lyrics | lrclib.net (time-synced) |
+| Desktop | Electron 45 + electron-builder (NSIS) |
+| License | MIT |
+
+## ⚠️ Disclaimer
+
+Resona is a media interface that streams publicly available content via YouTube Music's public catalog. It does **not** host, store, or distribute any music files. All content remains the property of its respective copyright holders. Users are responsible for complying with the laws and terms of service in their own jurisdiction. Resona is **not affiliated with YouTube, Google or Spotify**.
+
+## 📄 License
+
+Released under the [MIT License](LICENSE) — free to use, study, modify and share.
