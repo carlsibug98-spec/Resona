@@ -34,7 +34,7 @@ BODY=$(cat <<MD
 2. If SmartScreen shows a warning: click **More info → Run anyway** (the installer is not code-signed yet)
 3. Follow the setup wizard — a desktop shortcut is created automatically
 
-Existing installs update themselves: just let Resona run, and the new version installs on the next restart.
+Updating from v1.2.x: install this once over your current copy (your library and offline music are kept). From v1.3.0 on, Resona updates itself automatically - future releases install on restart.
 MD
 )
 
@@ -42,7 +42,7 @@ python3 - "$BODY" "$VERSION" <<'PY' > /tmp/release.json
 import json, sys
 print(json.dumps({
     "tag_name": "v" + sys.argv[2],
-    "target_commitish": "main",
+    "target_commitish": "v" + sys.argv[2],
     "name": f"Resona v{sys.argv[2]}",
     "body": sys.argv[1],
     "draft": False,
@@ -84,6 +84,11 @@ else:
 }
 
 upload "$EXE" "Resona-Setup-$VERSION.exe" "application/octet-stream"
+
+# differential update map (optional - full download works without it)
+if [ -f "desktop/dist/Resona-Setup-$VERSION.exe.blockmap" ]; then
+  upload "desktop/dist/Resona-Setup-$VERSION.exe.blockmap" "Resona-Setup-$VERSION.exe.blockmap" "application/octet-stream"
+fi
 
 # the auto-updater feed — without this, installed apps never see the update
 if [ -f "$LATEST_YML" ]; then
