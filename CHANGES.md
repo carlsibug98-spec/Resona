@@ -1,5 +1,32 @@
 # Changes
 
+## v1.6.3 — one mark everywhere: the app icon catches up (2026-11-15)
+
+A small visual release: the app icon finally matches the mark the app
+and the website already use.
+
+### The new icon
+
+- The taskbar / Dock / start-menu icon drops the old v1.4.0
+  broadcast-waves design and adopts the **five-bar Resona mark** — the
+  exact path the header and the website draw — in paper cream on a
+  warm-dark squircle, the site's palette.
+- Every size in the Windows `.ico` (16→256 px) is rendered natively
+  from the vector instead of downscaled from one bitmap, and the tiny
+  16/24/32 px entries carry an optically heavier stroke so the bars
+  survive taskbar scale.
+- The web app grows a favicon (`/icon.svg`) with the same mark, and
+  `public/logo.svg` drops a stale unused placeholder for the canonical
+  website mark.
+
+### Housekeeping
+
+- `scripts/make-icon.js` now generates the five-bar icon with sharp
+  (it regenerated the old radio glyph in CI, which would have undone
+  the new assets at build time); it also builds the multi-size `.ico`
+  and replaces the old single-size `make-ico.js`.
+- Version bump 1.6.2 → 1.6.3 (app, desktop installer, README, website).
+
 ## v1.6.2 — native shell: taskbar controls, frameless header, docked queue (2026-11-15)
 
 The desktop app stops feeling like a browser in a box. Playback is
