@@ -166,6 +166,10 @@ svg{display:block}
 .top.desktop{padding-right:0}
 .top button,.top input,.topsearch,.winctl{-webkit-app-region:no-drag}
 .top-nav{display:flex;align-items:center;gap:4px;flex:none}
+/* nav-relocation ①: green home pill while Home is the active view */
+.top-nav .homebtn{width:34px;height:34px;border-radius:999px;transition:background .2s,color .2s}
+.top-nav .homebtn.on{background:var(--brand1);color:#0c0c10}
+.top-nav .homebtn.on:hover{background:#25e56b}
 .top-right{display:flex;align-items:center;gap:8px;flex:none}
 .topsearch{flex:0 1 480px;min-width:0;margin:0 auto;height:40px;padding:0 16px;display:flex;align-items:center;gap:10px;border-radius:999px;background:var(--elev);color:var(--muted);font-size:14px;font-weight:500;text-align:left;transition:background .15s,color .15s,transform .12s}
 .topsearch:hover{background:color-mix(in srgb,var(--elev) 70%,var(--text) 10%);color:var(--text)}
@@ -370,11 +374,11 @@ svg{display:block}
   radial-gradient(35% 35% at 70% 10%, hsl(calc(var(--hue) - 40) 60% 30% / .5), transparent 70%)}
 @keyframes drift{from{transform:translate3d(-2%,-1%,0) scale(1)}to{transform:translate3d(3%,2%,0) scale(1.08)}}
 .npp::after{content:"";position:absolute;inset:0;z-index:-1;background:rgba(8,8,12,.35)}
-.npp-h{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:14px 18px}
+.npp-h{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:10px;padding:14px 18px}
 .npp-h .iconbtn{color:#fff}
 .npp-h .iconbtn:hover{background:rgba(255,255,255,.12)}
-.tabs-top{margin:0;background:rgba(255,255,255,.1);backdrop-filter:blur(10px)}
-.tabs-top button{color:rgba(255,255,255,.7)}
+.tabs-top{margin:0;background:rgba(255,255,255,.1);backdrop-filter:blur(10px);flex-wrap:nowrap}
+.tabs-top button{color:rgba(255,255,255,.7);flex:none;white-space:nowrap}
 .tabs-top button.on{background:#fff;color:#0c0c10}
 .lyctl{display:none;justify-self:end;gap:4px}
 .lyctl.show{display:flex}
@@ -398,7 +402,8 @@ svg{display:block}
 .ly.past[data-d="3"]{color:rgba(255,255,255,.2)}
 .ly:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.85)}
 .ly.on{color:#fff;text-shadow:0 0 28px rgba(255,255,255,.22)}
-.ly.on .fillx{background:linear-gradient(90deg,#fff var(--lp,0%),rgba(255,255,255,.62) var(--lp,0%));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+/* lyrics-match change: the word-by-word gradient sweep (.ly.on .fillx) is
+   removed — the side panel highlights the whole line, exactly like fullscreen */
 .ly.gap{font-size:calc(var(--lysz)*.8);letter-spacing:.3em}
 .lyempty{display:grid;place-items:center;height:100%;text-align:center;color:rgba(255,255,255,.7);gap:8px;padding:20px}
 .lyempty b{font-size:22px;color:#fff}

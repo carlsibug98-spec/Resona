@@ -26,6 +26,8 @@ export function TopBar() {
   const ui = useUi();
   const canBack = ui.canBack();
   const canForward = ui.canForward();
+  const view = ui.view();
+  const onHome = view.name === "home";
   const { resolvedTheme, setTheme } = useTheme();
   const lastBackupAt = useSettings((s) => s.lastBackupAt);
   const doneIds = useSettings((s) => s.onboardingSteps);
@@ -98,7 +100,13 @@ export function TopBar() {
         >
           <Icon name="fwd" />
         </button>
-        <button className="iconbtn" onClick={() => ui.navigate({ name: "home" })} aria-label="Home" data-tip="Home">
+        {/* nav-relocation ①: the home button becomes a green pill while Home is active */}
+        <button
+          className={`iconbtn homebtn${onHome ? " on" : ""}`}
+          onClick={() => ui.navigate({ name: "home" })}
+          aria-label="Home"
+          data-tip="Home"
+        >
           <Icon name="home" />
         </button>
       </div>
@@ -115,7 +123,9 @@ export function TopBar() {
       <div className="top-right">
         <button className="pill" onClick={() => ui.openModal({ kind: "import" })}>
           <Icon name="queue" className="xs" />
-          <span className="hide-sm">Import playlist</span>
+          {/* button-placement fix (mockup 3): the long pill crowded the window
+              controls at narrow widths — shortened to "Import" */}
+          <span className="hide-sm">Import</span>
         </button>
 
         <div className={`menu-wrap${gsOpen ? " gs-open" : ""}`} ref={wrapRef}>
@@ -160,6 +170,12 @@ export function TopBar() {
               <b>Resona listener</b>
               <span className="sub">Stored on this device</span>
             </div>
+            {/* nav-relocation ④: with the sidebar nav card gone, Settings and
+                Trending are reached from this profile menu (Trending also
+                stays reachable from the home shelf) */}
+            <button className="mi" role="menuitem" onClick={() => { setMenuOpen(false); ui.navigate({ name: "trending" }); }}>
+              <Icon name="bars" /> Trending
+            </button>
             <button className="mi" role="menuitem" onClick={() => { setMenuOpen(false); ui.navigate({ name: "settings" }); }}>
               <Icon name="gear" /> Settings
             </button>

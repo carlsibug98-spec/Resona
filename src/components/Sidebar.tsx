@@ -52,7 +52,9 @@ function NewUserCards() {
   );
 }
 
-/** desktop sidebar: main nav card + your-library card — mockup verbatim */
+/** desktop sidebar: your-library card only — the nav card (Home / Search /
+ * Library / Trending / Settings) is deleted in the nav-relocation change;
+ * Home & Search live in the top bar, Settings & Trending in the profile menu */
 export function Sidebar() {
   const ui = useUi();
   const view = ui.view();
@@ -141,31 +143,11 @@ export function Sidebar() {
     );
   }
 
-  const navItems: { view: View; label: string; icon: IconName }[] = [
-    { view: { name: "home" }, label: "Home", icon: "home" },
-    { view: { name: "search" }, label: "Search", icon: "search" },
-    { view: { name: "library", tab: "liked" }, label: "Library", icon: "library" },
-    { view: { name: "trending" }, label: "Trending", icon: "bars" },
-    { view: { name: "settings" }, label: "Settings", icon: "gear" },
-  ];
-
   return (
     <>
       <div className="brandrow">
         <Logo />
       </div>
-      {!collapsed && <nav className="card nav" aria-label="Main">
-        {navItems.map((item) => (
-          <button
-            key={item.label}
-            className={`navbtn${view.name === item.view.name ? " on" : ""}`}
-            onClick={() => ui.navigate(item.view)}
-          >
-            <Icon name={item.icon} />
-            {item.label}
-          </button>
-        ))}
-      </nav>}
       <section className="card lib">
         <div className="lib-head">
           <button

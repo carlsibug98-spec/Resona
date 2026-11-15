@@ -23,12 +23,30 @@ export function TaskbarControls() {
   const autoplayRadio = useSettings((s) => s.autoplayRadio);
 
   // push the control state whenever anything that affects it changes
-  useEffect(() => {
+  const push = () => {
     const api = window.resonaDesktop;
     if (!desktop || !api?.setThumbarState) return;
     api.setThumbarState(
       thumbarState({ isPlaying, index, queue: { length: queueLength }, repeat, autoplayRadio })
     );
+  };
+
+  // media-state fix (taskbar-controls change): state is pushed on app start
+  // (mount + one late retry so a slow bridge registration can't leave the
+  // buttons stale/missing on a fresh launch), on window focus, and on every
+  // playback change. navigator.mediaSession.playbackState is kept in sync so
+  // Windows/ChromeOS overlays and hardware media keys always agree.
+  useEffect(() => {
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+    }
+    push();
+    const t = setTimeout(push, 800); // late re-push after app start
+    window.addEventListener("focus", push);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("focus", push);
+    };
   }, [desktop, isPlaying, index, queueLength, repeat, autoplayRadio]);
 
   // clicks arrive from the main process — route them to the player store

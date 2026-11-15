@@ -90,7 +90,9 @@ function LyricsView({
     list.scrollTo({ top, behavior: smooth ? "smooth" : "auto" });
   };
 
-  // active-line follow + karaoke fill
+  // active-line follow (whole-line highlight — identical to the fullscreen
+  // player; the word-by-word karaoke fill was removed per the lyrics-match
+  // change, so no per-line progress variable is needed here anymore)
   useEffect(() => {
     const list = listRef.current;
     if (!list || !lines.length) return;
@@ -103,7 +105,6 @@ function LyricsView({
         const d = Math.min(3, Math.abs(i - idx));
         if (d > 0) el.dataset.d = String(d);
         else delete el.dataset.d;
-        if (i !== idx) el.style.removeProperty("--lp");
       });
       const el = els[idx];
       if (el && autoRef.current) {
@@ -113,13 +114,6 @@ function LyricsView({
         const smooth = Math.abs(top - list.scrollTop) < 220;
         follow(list, el, smooth);
       }
-    }
-    const el = els[idx];
-    if (el) {
-      const a = lines[idx].t;
-      const b = lines[idx + 1] ? lines[idx + 1].t : duration || a + 1;
-      const lp = Math.max(0, Math.min(100, ((position - a) / Math.max(0.1, b - a)) * 100));
-      el.style.setProperty("--lp", `${lp}%`);
     }
   }, [idx, lines, position, duration]);
 
@@ -220,7 +214,8 @@ function LyricsView({
                   resume();
                 }}
               >
-                <span className="fillx">{l.text || "♪"}</span>
+                {/* whole-line highlight — no .fillx karaoke wrapper anymore */}
+                {l.text || "♪"}
               </button>
             ))}
         </div>
