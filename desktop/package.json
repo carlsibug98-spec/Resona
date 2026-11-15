@@ -4,7 +4,10 @@
   "version": "1.4.0",
   "description": "Resona \u2014 free music streaming desktop app",
   "main": "main.js",
-  "author": "Resona",
+  "author": {
+    "name": "Resona",
+    "email": "resona@users.noreply.github.com"
+  },
   "license": "MIT",
   "devDependencies": {
     "electron": "^45.3.2",
