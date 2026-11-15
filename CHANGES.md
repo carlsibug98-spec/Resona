@@ -1,5 +1,41 @@
 # Changes
 
+## v1.6.1 — instant starts, click anywhere to play (2026-11-15)
+
+Two playback fixes, both reported in the first days after 1.6.0: tracks
+took too long to start, and only the tiny hover-revealed play button
+started them.
+
+### Faster playback starts
+
+- **The first click no longer pays for stream resolution.** The first play
+  of a track used to resolve its stream on the critical path — `/api/stream`
+  could spawn yt-dlp (up to 25 s) and then fall back through Piped/Invidious
+  instances before the first audio byte. Results were cached 30 minutes, so
+  only the first click per song was slow — but that first click felt broken.
+- **Hover = prefetch**: when your pointer rests on a track row (a 450 ms
+  intent signal) or you press it, Resona fires the resolution request in the
+  background, once per song per session. By the time you click play, the
+  stream URL is already cached and playback starts instantly.
+- **The queue resolves ahead**: whenever a song starts, the player store
+  prefetches the upcoming queue track, so track-to-track transitions no
+  longer wait for a resolve.
+- **One resolve per song**: the server's cache now shares in-flight
+  computations — a hover prefetch and the click that follows spawn exactly
+  one yt-dlp run instead of racing duplicates (unit-tested).
+
+### Play from anywhere
+
+- **The whole track row is clickable** — not just the small play button.
+  The play, like, save and ⋯ menu buttons keep their own handlers (a
+  closest('button, a') guard routes the click correctly). Queue drawer rows
+  and the home card play buttons prefetch on pointer-down too.
+
+### Housekeeping
+
+- Version bump 1.6.0 → 1.6.1 (app, desktop installer, website, README).
+- 67 unit tests pass; tsc and eslint clean.
+
 ## v1.6.0 — the app that updates itself (2026-11-15)
 
 Resona now installs its own updates, so for most people this is the last

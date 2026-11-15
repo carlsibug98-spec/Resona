@@ -12,7 +12,7 @@
 ![Issues](https://img.shields.io/github/issues/carlsibug98-spec/Resona?style=flat-square&label=ISSUES&color=1ed760)
 ![License](https://img.shields.io/github/license/carlsibug98-spec/Resona?style=flat-square&label=LICENSE&color=1ed760)
 
-**[⬇️ Download (v1.5.0) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
+**[⬇️ Download (v1.6.1) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
 
 </div>
 
@@ -22,13 +22,25 @@
 
 | Platform | Status | Download | Details |
 | --- | --- | --- | --- |
-| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.5.0** | **[⬇️ Download EXE](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.5.0.exe)** | Installer · ~155 MB |
-| 🍎 **macOS** (Apple Silicon) | ✅ **v1.5.0** | **[⬇️ Download DMG (arm64)](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.5.0-arm64.dmg)** | Unsigned — right-click → Open the first time |
-| 🍎 **macOS** (Intel) | ✅ **v1.5.0** | **[⬇️ Download DMG (x64)](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.5.0-x64.dmg)** | Unsigned — right-click → Open the first time |
-| 🐧 **Linux** (AppImage / .deb) | ✅ **v1.5.0** | **[⬇️ AppImage](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.5.0.AppImage)** · **[⬇️ .deb](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.5.0.deb)** | x64 |
+| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.6.1** | **[⬇️ Download EXE](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.6.1.exe)** | Installer · ~155 MB |
+| 🍎 **macOS** (Apple Silicon) | ✅ **v1.6.1** | **[⬇️ Download DMG (arm64)](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.1-arm64.dmg)** | Unsigned — right-click → Open the first time |
+| 🍎 **macOS** (Intel) | ✅ **v1.6.1** | **[⬇️ Download DMG (x64)](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.1-x64.dmg)** | Unsigned — right-click → Open the first time |
+| 🐧 **Linux** (AppImage / .deb) | ✅ **v1.6.1** | **[⬇️ AppImage](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.1.AppImage)** · **[⬇️ .deb](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.1.deb)** | x64 |
 | 📱 **iOS / Android** | 🧭 Planned | — | Mobile app in design |
 
-> **All releases:** [github.com/carlsibug98-spec/Resona/releases](https://github.com/carlsibug98-spec/Resona/releases) · **Install guide:** [INSTALL-GUIDE.txt](https://github.com/carlsibug98-spec/Resona/releases/download/v1.5.0/INSTALL-GUIDE.txt)
+> **All releases:** [github.com/carlsibug98-spec/Resona/releases](https://github.com/carlsibug98-spec/Resona/releases) · **Install guide:** [INSTALL-GUIDE.txt](https://github.com/carlsibug98-spec/Resona/releases/download/v1.6.1/INSTALL-GUIDE.txt)
+
+## ✨ What's new in v1.6.1
+
+- **⚡ Instant starts** — the stream resolves in the background while you hover or press a row (450 ms intent), the next queue track resolves ahead, and the server merges duplicate resolves — the first click on a song no longer waits for yt-dlp / Piped fallbacks (up to ~25 s before).
+- **👆 Click anywhere to play** — the whole track row is clickable, not just the small hover-revealed play button; the play / like / save / ⋯ buttons keep their own actions.
+
+## ✨ What's new in v1.6.0
+
+- **🔄 The app updates itself** — on launch Resona silently downloads a newer release while the splash screen shows live progress (10-second cap), installs it and starts the new build. v1.6.0 was the last manual install; every later version arrives on its own.
+- **✅ Getting-started checklist** — a progress ring around the profile avatar fills as you finish six steps (search, make a playlist, like a song, start a radio, download for offline, import your music); hovering the avatar shows the checklist popover.
+- **📌 Queue drawer** — the queue button opens a Now playing / Next up panel; long-press a row (350 ms) and drag to reorder, tap to jump, Esc closes.
+- **🖼️ Real artist artwork** — the Popular artists shelf shows real YouTube Music photos (the 1.5.0 loader shipped broken and is fixed), card play buttons are centred on the cover again, the snackbar is a proper bottom bar with actions, and the sidebar wears the brand wordmark.
 
 ## ✨ What's new in v1.5.0
 
@@ -72,7 +84,7 @@
 
 ## 🚀 Install on Windows
 
-1. **Download** `Resona-Setup-1.5.0.exe` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~155 MB)
+1. **Download** `Resona-Setup-1.6.1.exe` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~155 MB). Once installed, later versions arrive automatically at launch.
 2. **If Windows SmartScreen shows a warning** — this is expected and safe. Resona's installer is *not code-signed* (a signing certificate costs ~$100+/yr), so Windows warns about every app it hasn't seen before. It does **not** mean a virus was found. To run the installer:
    - Click **More info** → **Run anyway**. That's it.
    - Or, if the download finished already: right-click the `.exe` → **Properties** → tick **Unblock** → OK, then double-click it.
@@ -82,11 +94,11 @@
 **Verify (SHA-256):** compare against the checksum published in each release's notes:
 
 ```
-Get-FileHash .\Resona-Setup-1.5.0.exe   # in PowerShell
+Get-FileHash .\Resona-Setup-1.6.1.exe   # in PowerShell
 ```
 
 **macOS**: the `.dmg` is unsigned — right-click Resona → **Open** the first time (or `xattr -d com.apple.quarantine /Applications/Resona.app`).  
-**Linux**: `chmod +x Resona-*.AppImage && ./Resona-*.AppImage`, or install the `.deb` with `sudo apt install ./Resona-1.5.0.deb`.
+**Linux**: `chmod +x Resona-*.AppImage && ./Resona-*.AppImage`, or install the `.deb` with `sudo apt install ./Resona-1.6.1.deb`.
 
 > Signed builds are on the roadmap — until then the two steps above are the only friction.
 
@@ -112,13 +124,13 @@ cd desktop && npx electron-builder --win nsis
 
 | Topic | Details |
 | --- | --- |
-| **Playback** | Resona tries three sources in order: an offline copy saved in IndexedDB → a direct audio stream through a same-origin proxy (Piped/Invidious resolvers, configurable in Settings) → the official YouTube embedded player. |
+| **Playback** | Resona tries three sources in order: an offline copy saved in IndexedDB → a direct audio stream through a same-origin proxy (Piped/Invidious resolvers, configurable in Settings) → the official YouTube embedded player. Resolution starts while you hover a row and the next queue track resolves ahead; results are cached 30 minutes, so every start after the first is instant. |
 | **Downloads** | The same resolver pipeline fetches the audio, shows a progress ring in every row, and stores it in IndexedDB. Downloaded tracks play with zero network. Removing one asks for confirmation first. |
 | **Lyrics** | LRCLIB's synced LRC lines drive the karaoke panel; unsynced text and "no lyrics" states are handled honestly. |
 | **Home & onboarding** | First run opens the Welcome home (Getting started carousel, no quick tiles). The first like / playlist / download / import graduates you to the full home. Upgrades from earlier versions keep the full home. |
 | **Global shelves** | Popular artists / Popular albums and singles / New releases come from the worldwide trending chart via `/api/catalog` (6 h server cache, 30 min per-track resolve cache shared with the Trending view). Artist cards open real artist pages. |
 | **Starter content** | The mockup's OPM demo tracks are seeded on first run and resolved through real search — no invented video ids. Remove everything in Settings → Starter content; anything you added yourself is untouched. |
-| **Updates** | Once an hour (and on demand via *Check now*) Resona compares its version to `carlsibug98-spec/Resona/releases/latest` on GitHub and surfaces an "Update available" link. Nothing is installed automatically. |
+| **Updates** | On launch the desktop app checks this repo's releases; a newer build is downloaded while the splash screen shows progress, then installed and started (10-second cap — on slow connections the app opens and the update finishes on the next quit). The hourly in-app check remains as a fallback and surfaces "Update available" in the account menu and Settings → Updates. |
 | **Backups** | Likes, playlists and history export as JSON (account menu → *Export now*). Restoring offers merge or replace per section. Downloaded audio stays on its device by design. |
 
 ## 🧱 Tech stack
