@@ -1,5 +1,55 @@
 # Changes
 
+## v1.6.2 — native shell: taskbar controls, frameless header, docked queue (2026-11-15)
+
+The desktop app stops feeling like a browser in a box. Playback is
+controllable from the taskbar, the window wears its own header, and the
+queue became a docked panel.
+
+### Taskbar playback controls
+
+- **Windows**: hovering Resona's taskbar icon shows the thumbnail
+  preview with **Previous / Play-Pause / Next** buttons — the same
+  interaction Spotify has. The pause/play icon follows playback, and
+  buttons disable honestly: Next dims at a queue dead-end unless repeat
+  or autoplay radio can keep the music going. Windows drops the toolbar
+  after fullscreen, so Resona re-applies it automatically.
+- **macOS**: the same three controls in the dock menu.
+
+### A window that looks native
+
+- **Frameless window**: the app's own header draws the title row —
+  min / max / close in the corner, draggable everywhere else, with the
+  full-width search and home controls. The bridge stays minimal
+  (contextBridge, five window methods plus the playback controls).
+- **Collapsible library**: the sidebar folds down to a 72 px icon rail
+  when you want the space — and folds itself on narrow windows when the
+  queue or now-playing panel opens.
+- **Docked queue**: the queue is a resizable column now, with Queue /
+  Recently played tabs. Now playing docks into the same column; opening
+  one replaces the other, and they share the resizable width.
+- **Polish**: shorter player bar with the play button centred
+  vertically and the seek bar below; overlay scrollbars that appear only
+  while scrolling; tooltips; the website's logo mark and Space Grotesk
+  wordmark in the shell.
+
+### Audit fixes
+
+- Visiting Search no longer completes the "Search anything" onboarding
+  step by itself — running a real search does.
+- The checklist popover is portalled to the page, so the header can't
+  clip it; clicking a step opens the feature and the feature marks it
+  done; "See what's next" navigates home and pulses the next pending
+  card; the ring and pill disappear once all six steps are done.
+- Phone: the player sits above the bottom nav; library tabs scroll
+  sideways instead of clipping; the onboarding pill is visible without
+  hover; the checklist popover stays on screen.
+
+### Housekeeping
+
+- Version bump 1.6.1 → 1.6.2 (app, desktop installer, README, website).
+- 74 unit tests pass; tsc, eslint and the production build are clean.
+
 ## v1.6.1 — instant starts, click anywhere to play (2026-11-15)
 
 Two playback fixes, both reported in the first days after 1.6.0: tracks
