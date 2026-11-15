@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import type { ThumbarAction, ThumbarState } from "@/lib/thumbar";
 
 /** exposed by desktop/preload.js inside the Electron app only */
 declare global {
@@ -11,6 +12,9 @@ declare global {
       close: () => void;
       isMaximized: () => Promise<boolean>;
       onMaximizeChange: (cb: (maximized: boolean) => void) => void;
+      /** taskbar playback controls (see TaskbarControls.tsx) */
+      setThumbarState: (s: ThumbarState) => void;
+      onThumbarAction: (cb: (action: ThumbarAction) => void) => () => void;
     };
   }
 }

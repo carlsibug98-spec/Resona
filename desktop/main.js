@@ -5,7 +5,7 @@
  * window. Designed to fail fast and LOUD: every attempt is logged to
  * <userData>/server.log and real errors are shown instead of a vague timeout.
  */
-const { app, BrowserWindow, shell, dialog, ipcMain } = require("electron");
+const { app, BrowserWindow, shell, dialog, ipcMain, nativeImage, Menu } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const { spawn } = require("child_process");
 const path = require("path");
@@ -36,6 +36,67 @@ ipcMain.on("win:toggle-max", (e) => {
 });
 ipcMain.on("win:close", (e) => winOf(e)?.close());
 ipcMain.handle("win:is-max", (e) => winOf(e)?.isMaximized() ?? false);
+
+// ---- taskbar playback controls (Spotify-style) ----
+// Windows: prev / play-pause / next buttons on the taskbar hover preview
+// (the thumbnail toolbar). macOS: the same three in the dock menu.
+// The renderer pushes { playing, hasPrev, hasNext, hasTrack } whenever
+// playback changes; button clicks come back as "thumbs:action" events.
+const THUMB_ICONS = {
+  prev: nativeImage.createFromDataURL("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAABXUlEQVR42sWVMU7DQBBF37cDVAEiTpIiBQUV4SCIAtEgcRFKCiRoOQMSHACaHIEbEKFUKLY/zRgtjq2YULDSSuvxn+eZ2dFYJMu26rMk8x/LdpY+qxHdLlALFpKKNTBJsu1MUvUjTdv7tt9sv8c+CnveBqrttq9sT2tt1oj2ABjF3upKUZIllbZvgGvgu95ZQ7+Ml05FCSyXVNke2r4DLkJX1ZpBw0dpXVtgpe0R8AhMgE9gJ/XJet7kIGBj4DlgRVtZBj14maSl7UlENgLK8K1WxP0C9CXwlMDyzq/37N9x9OhynU8voKRT4DxqprZUf5tyLukWOAMW4Vf+JcIybvoemALzqGOxaQ2RVAT0FTgGZsB2M9ImsEq2O6C5pFlAXyLSsg0oYBi2rKtHI/1c0hw4AR7Cb2V8DYDDpPtnkub1iOoYElWc9yR9pAN60+G6AlBzAKT17PMbqKG19gspN779QBxw4QAAAABJRU5ErkJggg=="),
+  play: nativeImage.createFromDataURL("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAABFUlEQVR42uWUPUoEQRBGv+pt1GTFn8AFY4M9gomZqZ7BS3gJPcMeQQVZwQvsERZzDQRBMBTteQZWQ9uMs44aaUEx9EzPq6Lqq5L+nVl5AEzSQFIyM35EBgbVOQDRg/QCmT83gGvgGNiug7lbH+A68My7PQEXwBGwVd2PnfAK+AC88NHugQlwCKy2ZB66gI8OScCre2m3wAmwW9d8EbApII1nnSr4HDh1+ErmhC9KK0hq3LONJe1J2pG0lJOLXf2SlFyXoQg+k3QmaWpmN/VP8ROIHJS/zyVdSTo3s1lVrmBmqa2Gay6XsgETYB+I5X2XTljUlE3gDrgEDoBhm/76TMwyMPr2hLQthzzD/r75jQVhf3/BvgFowmBHZR+/8gAAAABJRU5ErkJggg=="),
+  pause: nativeImage.createFromDataURL("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAuElEQVR42uWUywrCMBBFz7W6ESoF/RkXbsT/xz8Qf8CFXVp63aQySBq6EB84EELOJJebyQO+PTSWsP3ISfIY+4zD5GQFzBJqJXW2m7CmldQV1Yct2W5sn2xfUtvarmyfA9uluVXUmBecr4E6jRep3wDLJ8YUQYAbMBTeBTZZUJkaq3QzCEV/WfyhYOlQ+tTiieYYU+9hHXYwzMuxccHw4K/AIeSPydkeqAIjOH7/9xXfaC/JOcbPxR27fFh+gsLXdAAAAABJRU5ErkJggg=="),
+  next: nativeImage.createFromDataURL("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAABX0lEQVR42qWUPU4DMRSEv9lshFAEJJT0XAAJRBoaCm4AJwAOQ0OJwgk4AjUFFEgcgR6JgKBBYneHAm9ionX+eNKTLHveeGw/j1gybKseS3IKlMXAZUIRWUtSWe+e3HWsbh3IwtSnpOKPdNtbti9st+sNUse03bX9bHsY8mBUE4E2/Bv3trtNpBG2Z/vD4zis8VmEz4AXYB+4tb0tqbSdJ07+DTjKEUkcbaAC9oAH27uSigSpoiRFWM8VwGZQejyFtLG4KVpBaQ+4sX06esUlCeu1CiiBge0roDPZbosQxqSEx1r5j0IHdW1gAOxIeo3WFiKsQraAS0nnkirbs05EnlBWN/SZpOvQ4NU0ZSmFRbjwIXASyHJJ5bS/nVJYAl3gHTiS9BjIihnXQuqndIA7oD8HmYC1UJ/FwmL7WgUs6Su2soR95UA/dADAk6S3Ri+d5yXnMth5jHUCG1tbVdf9AJVh3y6Fxf8fAAAAAElFTkSuQmCC"),
+};
+let thumb = { playing: false, hasPrev: false, hasNext: false, hasTrack: false };
+const sendThumbAction = (action) => win && win.webContents.send("thumbs:action", action);
+function applyTaskbarControls() {
+  if (win && typeof win.setThumbarButtons === "function") {
+    const ok = win.setThumbarButtons([
+      {
+        icon: THUMB_ICONS.prev,
+        tooltip: "Previous",
+        flags: [thumb.hasPrev ? "enabled" : "disabled"],
+        click: () => sendThumbAction("prev"),
+      },
+      {
+        icon: thumb.playing ? THUMB_ICONS.pause : THUMB_ICONS.play,
+        tooltip: thumb.playing ? "Pause" : "Play",
+        flags: [thumb.hasTrack ? "enabled" : "disabled"],
+        click: () => sendThumbAction("toggle"),
+      },
+      {
+        icon: THUMB_ICONS.next,
+        tooltip: "Next",
+        flags: [thumb.hasNext ? "enabled" : "disabled"],
+        click: () => sendThumbAction("next"),
+      },
+    ]);
+    if (!ok) log("taskbar buttons rejected (setThumbarButtons returned false)");
+  }
+  if (process.platform === "darwin" && app.dock) {
+    app.dock.setMenu(
+      Menu.buildFromTemplate([
+        { label: "Previous", enabled: thumb.hasPrev, click: () => sendThumbAction("prev") },
+        {
+          label: thumb.playing ? "Pause" : "Play",
+          enabled: thumb.hasTrack,
+          click: () => sendThumbAction("toggle"),
+        },
+        { label: "Next", enabled: thumb.hasNext, click: () => sendThumbAction("next") },
+      ])
+    );
+  }
+}
+ipcMain.on("thumbs:state", (_e, s) => {
+  thumb = {
+    playing: !!(s && s.playing),
+    hasPrev: !!(s && s.hasPrev),
+    hasNext: !!(s && s.hasNext),
+    hasTrack: !!(s && s.hasTrack),
+  };
+  applyTaskbarControls();
+});
 let logFile = null;
 // last lines of server output, for the error dialog
 const tail = [];
@@ -283,7 +344,12 @@ async function createWindow(port) {
   win.once("ready-to-show", () => {
     closeSplash();
     win.show();
+    // the thumbnail toolbar attaches to a shown window; apply the last known state
+    applyTaskbarControls();
   });
+  // Windows drops the thumbnail toolbar when the window returns from fullscreen
+  win.on("restore", () => applyTaskbarControls());
+  win.on("leave-full-screen", () => applyTaskbarControls());
   // open external links in the system browser
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (!url.startsWith(`http://127.0.0.1:${port}`)) shell.openExternal(url);

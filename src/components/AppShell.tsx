@@ -16,6 +16,7 @@ import { NowPlayingPanel } from "@/components/player/NowPlayingPanel";
 import { NowFull } from "@/components/player/NowFull";
 import { QueueDrawer } from "@/components/player/QueueDrawer";
 import { PlayerProvider } from "@/components/player/PlayerProvider";
+import { TaskbarControls } from "@/components/TaskbarControls";
 import { Sidebar, MobileNav } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
 import { ModalHost } from "@/components/ModalHost";
@@ -129,6 +130,8 @@ export function AppShell() {
     >
       <IconSprite />
       <PlayerProvider />
+      {/* prev/play/next on the Windows taskbar preview; dock menu on macOS */}
+      <TaskbarControls />
 
       <TopBar />
 
