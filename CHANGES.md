@@ -1,5 +1,39 @@
 # Changes
 
+## v1.6.4 — lyrics you can read again (2026-11-15)
+
+A fix release for the two things the first v1.6.x shakedown surfaced:
+the lyrics view could leave you staring at an empty panel, and a thick
+gray stripe lived down the right side of the window.
+
+### Lyrics that keep following the song
+
+- Opening the lyrics panel mid-song (or seeking) could leave the view
+  stranded: the auto-follow mistook its own smooth scrolling for you
+  scrolling, gave up, and parked a "Sync to song" pill over the words
+  while the active line drifted off the bottom edge. Follow now snaps
+  instantly for long jumps, glides only for line-to-line moves, and —
+  like Spotify — resumes on its own a few seconds after you scroll
+  manually. The Sync button is still there when you want to re-anchor
+  right now, and clicking any line still seeks to it.
+- The lyrics restyle: the album art folds into a compact header row so
+  the words own the whole panel, upcoming lines are bright enough to
+  actually read, past lines fade with distance instead of blurring and
+  shrinking, and the active line sits lower in the view like a synced
+  lyrics card.
+
+### No more parked-scrollbar stripe
+
+- The overlay scrollbar used to light up its thumb whenever the mouse
+  merely rested over a scroll area, which read as a thick vertical
+  line down the right side of every list. The thumb now appears only
+  while you are actually scrolling and fades out after, the way every
+  other overlay scrollbar behaves.
+
+### Housekeeping
+
+- Version bump 1.6.3 → 1.6.4 (app, desktop installer, README, website).
+
 ## v1.6.3 — one mark everywhere: the app icon catches up (2026-11-15)
 
 A small visual release: the app icon finally matches the mark the app

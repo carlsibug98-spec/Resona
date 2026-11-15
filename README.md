@@ -12,7 +12,7 @@
 ![Issues](https://img.shields.io/github/issues/carlsibug98-spec/Resona?style=flat-square&label=ISSUES&color=1ed760)
 ![License](https://img.shields.io/github/license/carlsibug98-spec/Resona?style=flat-square&label=LICENSE&color=1ed760)
 
-**[⬇️ Download (v1.6.3) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
+**[⬇️ Download (v1.6.4) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
 
 </div>
 
@@ -22,13 +22,19 @@
 
 | Platform | Status | Download | Details |
 | --- | --- | --- | --- |
-| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.6.3** | **[⬇️ Download EXE](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.6.3.exe)** | Installer · ~155 MB |
-| 🍎 **macOS** (Apple Silicon) | ✅ **v1.6.3** | **[⬇️ Download DMG (arm64)](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.3-arm64.dmg)** | Unsigned — right-click → Open the first time |
-| 🍎 **macOS** (Intel) | ✅ **v1.6.3** | **[⬇️ Download DMG (x64)](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.3-x64.dmg)** | Unsigned — right-click → Open the first time |
-| 🐧 **Linux** (AppImage / .deb) | ✅ **v1.6.3** | **[⬇️ AppImage](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.3.AppImage)** · **[⬇️ .deb](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.3.deb)** | x64 |
+| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.6.4** | **[⬇️ Download EXE](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.6.4.exe)** | Installer · ~155 MB |
+| 🍎 **macOS** (Apple Silicon) | ✅ **v1.6.4** | **[⬇️ Download DMG (arm64)](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.4-arm64.dmg)** | Unsigned — right-click → Open the first time |
+| 🍎 **macOS** (Intel) | ✅ **v1.6.4** | **[⬇️ Download DMG (x64)](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.4-x64.dmg)** | Unsigned — right-click → Open the first time |
+| 🐧 **Linux** (AppImage / .deb) | ✅ **v1.6.4** | **[⬇️ AppImage](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.4.AppImage)** · **[⬇️ .deb](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.4.deb)** | x64 |
 | 📱 **iOS / Android** | 🧭 Planned | — | Mobile app in design |
 
-> **All releases:** [github.com/carlsibug98-spec/Resona/releases](https://github.com/carlsibug98-spec/Resona/releases) · **Install guide:** [INSTALL-GUIDE.txt](https://github.com/carlsibug98-spec/Resona/releases/download/v1.6.3/INSTALL-GUIDE.txt)
+> **All releases:** [github.com/carlsibug98-spec/Resona/releases](https://github.com/carlsibug98-spec/Resona/releases) · **Install guide:** [INSTALL-GUIDE.txt](https://github.com/carlsibug98-spec/Resona/releases/download/v1.6.4/INSTALL-GUIDE.txt)
+
+## ✨ What's new in v1.6.4
+
+- **🎤 Lyrics you can read again** — the lyrics panel no longer strands you: auto-follow snaps straight to the active line when you open it or seek, glides line-to-line while the song plays, and — like Spotify — resumes on its own a few seconds after you scroll manually (the Sync button is still there for an instant re-anchor; click any line to jump to it).
+- **📋 A lyrics restyle** — the album art folds into a compact header row so the words own the whole panel, upcoming lines are bright enough to actually read, and past lines fade with distance instead of blurring away.
+- **🚫 No more parked-scrollbar stripe** — the thick vertical line that lived down the right side of every list was the scrollbar lighting up on hover; it now appears only while you scroll and fades out after.
 
 ## ✨ What's new in v1.6.3
 
@@ -96,7 +102,7 @@
 
 ## 🚀 Install on Windows
 
-1. **Download** `Resona-Setup-1.6.3.exe` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~155 MB). Once installed, later versions arrive automatically at launch.
+1. **Download** `Resona-Setup-1.6.4.exe` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~155 MB). Once installed, later versions arrive automatically at launch.
 2. **If Windows SmartScreen shows a warning** — this is expected and safe. Resona's installer is *not code-signed* (a signing certificate costs ~$100+/yr), so Windows warns about every app it hasn't seen before. It does **not** mean a virus was found. To run the installer:
    - Click **More info** → **Run anyway**. That's it.
    - Or, if the download finished already: right-click the `.exe` → **Properties** → tick **Unblock** → OK, then double-click it.
@@ -106,11 +112,11 @@
 **Verify (SHA-256):** compare against the checksum published in each release's notes:
 
 ```
-Get-FileHash .\Resona-Setup-1.6.3.exe   # in PowerShell
+Get-FileHash .\Resona-Setup-1.6.4.exe   # in PowerShell
 ```
 
 **macOS**: the `.dmg` is unsigned — right-click Resona → **Open** the first time (or `xattr -d com.apple.quarantine /Applications/Resona.app`).  
-**Linux**: `chmod +x Resona-*.AppImage && ./Resona-*.AppImage`, or install the `.deb` with `sudo apt install ./Resona-1.6.3.deb`.
+**Linux**: `chmod +x Resona-*.AppImage && ./Resona-*.AppImage`, or install the `.deb` with `sudo apt install ./Resona-1.6.4.deb`.
 
 > Signed builds are on the roadmap — until then the two steps above are the only friction.
 
