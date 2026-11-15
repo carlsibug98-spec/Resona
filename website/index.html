@@ -339,11 +339,15 @@ a:focus-visible,button:focus-visible{outline:2px solid #1B9E4B;outline-offset:3p
   }
 
   /* ── live release facts (version, sizes, checksum, links) ── */
+  var fallbackSum = "Checksums for every file are on the Releases page — link below.";
   var MB = function (b) { return Math.round(b / 1000000) + " MB"; };
   fetch("https://api.github.com/repos/carlsibug98-spec/Resona/releases/latest")
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (rel) {
-      if (!rel || !rel.assets) return;
+      if (!rel || !rel.assets) {
+        $("checksum").textContent = fallbackSum;
+        return;
+      }
       var find = function (re) {
         for (var i = 0; i < rel.assets.length; i++) if (re.test(rel.assets[i].name)) return rel.assets[i];
         return null;
@@ -386,7 +390,7 @@ a:focus-visible,button:focus-visible{outline:2px solid #1B9E4B;outline-offset:3p
       if (deb && deb.browser_download_url) $("dlDeb").href = deb.browser_download_url;
     })
     .catch(function () {
-      $("checksum").textContent = "Couldn't reach GitHub just now — see the Releases page for checksums.";
+      $("checksum").textContent = fallbackSum;
     });
 
   /* ── copy checksum ── */

@@ -19,15 +19,15 @@ git -c user.name="carlsibug98-spec" -c user.email="carlsibug98-spec@users.norepl
   commit --quiet -m "Deploy Resona download site to GitHub Pages"
 echo "gh-pages commit: $(git rev-parse --short HEAD) ($(git ls-files | wc -l) files)"
 
-echo "== 2. push gh-pages =="
-git push "$PUSHURL" gh-pages:gh-pages 2>&1 | grep -v '^remote:' || true
+echo "== 2. push gh-pages (force: the branch is rebuilt as an orphan each deploy) =="
+git push --force "$PUSHURL" gh-pages:gh-pages 2>&1 | grep -v '^remote:' || true
 
 echo "== 3. commit website source on main =="
 cd /home/z/my-project
 git add website/
 git -c user.name="carlsibug98-spec" -c user.email="carlsibug98-spec@users.noreply.github.com" \
   commit --quiet -m "Add download website source (GitHub Pages site)" || echo "nothing to commit on main"
-git push "$PUSHURL" main 2>&1 | grep -v '^remote:' || true
+git push "$PUSHURL" HEAD:main 2>&1 | grep -v '^remote:' || true
 
 echo "== 4. try enabling Pages via API =="
 ENABLE=$(curl -s -X POST \
