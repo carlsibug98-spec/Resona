@@ -6,6 +6,7 @@
  * <userData>/server.log and real errors are shown instead of a vague timeout.
  */
 const { app, BrowserWindow, shell, dialog } = require("electron");
+const { autoUpdater } = require("electron-updater");
 const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
@@ -162,6 +163,67 @@ p{margin:0;color:#a3a3a3;font-size:13px}
 <h1>Resona</h1><p>Starting up&hellip;</p><div class="spin"></div>
 </body></html>`;
 
+/* ── startup update ──────────────────────────────────────────────────────────
+ * Runs before the server boots. Silent install on Windows (NSIS) and Linux
+ * AppImage. macOS is unsigned, so it keeps the in-app "update available"
+ * prompt. The whole step is capped at UPDATE_WAIT_MS: if it is still running
+ * then, the app opens on the current version and the download installs on the
+ * next quit. A failed check never blocks launch. */
+const UPDATE_WAIT_MS = 10000;
+
+function canSelfUpdate() {
+  if (!app.isPackaged) return false;
+  if (process.platform === "win32") return true;
+  if (process.platform === "linux") return !!process.env.APPIMAGE;
+  return false;
+}
+
+function setSplashStatus(text) {
+  if (!splash) return;
+  splash.webContents
+    .executeJavaScript(`document.querySelector("p").textContent = ${JSON.stringify(text)};`)
+    .catch(() => {});
+}
+
+function startupUpdate() {
+  if (!canSelfUpdate()) return Promise.resolve();
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.logger = null;
+
+  return new Promise((resolve) => {
+    let finished = false;
+    const finish = (why) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      log(`startup update: ${why}`);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      autoUpdater.autoInstallOnAppQuit = true;
+      finish("time limit reached, opening app");
+    }, UPDATE_WAIT_MS);
+
+    autoUpdater.once("update-not-available", () => finish("up to date"));
+    autoUpdater.on("update-available", (info) => setSplashStatus(`Updating to ${info.version}…`));
+    autoUpdater.on("download-progress", (p) =>
+      setSplashStatus(`Downloading update… ${Math.round(p.percent)}%`)
+    );
+    autoUpdater.once("update-downloaded", () => {
+      // past the time limit the app is already open: leave the install to the next quit
+      if (finished) return log("update downloaded after launch, installs on next quit");
+      setSplashStatus("Installing update…");
+      finished = true;
+      clearTimeout(timer);
+      autoUpdater.quitAndInstall(true, true);
+    });
+    autoUpdater.once("error", (e) => finish(`error, opening app (${e && e.message})`));
+
+    autoUpdater.checkForUpdates().catch((e) => finish(`check failed (${e && e.message})`));
+  });
+}
+
 function showSplash() {
   splash = new BrowserWindow({
     width: 380,
@@ -243,6 +305,7 @@ if (!gotLock) {
     log(`resources: ${resourceBase}`);
 
     showSplash();
+    await startupUpdate();
     let port;
     try {
       port = await bootServer();

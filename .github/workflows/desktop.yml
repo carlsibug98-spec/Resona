@@ -22,7 +22,10 @@ jobs:
             os: windows-latest
             builder: --win --x64
             artifact: Resona-Windows-Installer
-            paths: desktop/dist/Resona-Setup-*.exe
+            paths: |
+              desktop/dist/Resona-Setup-*.exe
+              desktop/dist/Resona-Setup-*.exe.blockmap
+              desktop/dist/latest.yml
           - name: macOS dmg
             os: macos-latest
             builder: --mac --x64 --arm64

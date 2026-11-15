@@ -91,7 +91,17 @@
           "to": "yt-dlp"
         }
       ]
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "carlsibug98-spec",
+        "repo": "Resona"
+      }
+    ]
   },
-  "homepage": "https://github.com/carlsibug98-spec/Resona"
+  "homepage": "https://github.com/carlsibug98-spec/Resona",
+  "dependencies": {
+    "electron-updater": "^6.8.11"
+  }
 }
