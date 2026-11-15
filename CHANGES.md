@@ -1,5 +1,57 @@
 # Changes
 
+## v1.6.0 — the app that updates itself (2026-11-15)
+
+Resona now installs its own updates, so for most people this is the last
+manual download. The rest of the release makes the app feel finished.
+
+### Silent auto-update
+
+- **Updates install before the window opens**: on launch Resona checks this
+  repo's releases, and when a newer build exists it downloads and installs
+  it while the splash screen shows live progress ("Downloading update…
+  47 %"), then starts the new version. The wait is capped at 10 seconds —
+  on a slow connection the current version opens and the update quietly
+  installs on the next quit.
+- This release carries the update feeds (`latest.yml` + blockmaps for
+  Windows, macOS and Linux) the updater reads. Installs from v1.5.0 and
+  earlier don't have the updater — they need this one last manual install
+  from the download site.
+
+### Getting-started checklist (mockup v3)
+
+- **Profile progress ring**: the top bar shows a ring that fills as you
+  finish the six getting-started steps — search, make a playlist, like a
+  song, start a radio, download for offline, import your music. Hovering
+  the avatar slides out the checklist popover with per-step done state, an
+  "Up next" tag, CTA buttons and a remaining-steps footer.
+- **Steps complete themselves**: doing the real thing (visiting search,
+  creating a playlist, liking a song, starting a radio, an offline save,
+  importing or restoring a backup) marks its step done; the snackbar
+  reports progress and its "See what's next" button pulses the home
+  carousel's first card. Finished steps drop out of the carousel, all-done
+  shows the mockup's "All set" note, and progress persists across
+  restarts.
+
+### Queue drawer
+
+- **Now playing / Next up panel**: the queue button in the player bar opens
+  a right-side drawer listing what's playing and what's coming. Long-press
+  a row (350 ms) and drag to reorder — a drop line shows where it lands;
+  tapping a row jumps to it and Esc closes the drawer.
+
+### Real artist artwork + fixes
+
+- **Popular artists show real photos**: the home shelf now fetches each
+  artist's actual YouTube Music artwork instead of gradient initials, with
+  the gradient as an instant placeholder while images load. (The artwork
+  loader shipped broken in 1.5.0 — `Object.fromEntries` over the wrong
+  shape — and is fixed here.)
+- Card play buttons sit centred on the cover again; the snackbar became a
+  proper bottom bar with an action button and 6-second auto-dismiss; the
+  sidebar wears the brand wordmark with the logo dot, and the mobile top
+  bar shows the dot too.
+
 ## v1.5.0 — a home that welcomes you (2026-11-15)
 
 The home screen was rebuilt against the updated mockup. New listeners now get
