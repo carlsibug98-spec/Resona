@@ -1,6 +1,23 @@
 # Changes
 
-## Unreleased — a real database under the app (2026-11-15)
+## v1.6.5 — a real database, nav refresh, never-empty shelves (2026-11-15)
+
+The `feat/sqlite-drizzle-storage` branch merged to main. Highlights since v1.6.4:
+
+- **Top-bar navigation (Spotify-style)** — green Home pill; the sidebar nav card is
+  gone (Home & Search in the top bar, Settings & Trending in the profile menu)
+- **Sidebar lyrics match fullscreen** — whole-line highlight everywhere; the
+  word-by-word gradient sweep is removed
+- **Taskbar media controls always work** — state is pushed on app start, window
+  focus and every playback change; `mediaSession.playbackState` stays in sync
+- **Never-empty shelves** — when kworb's chart site is unreachable, trending now
+  falls back to YouTube Charts (same keyless pipeline, real playable tracks);
+  a weak or empty chart resolution is never cached for hours; a cold server
+  warms the home catalog at boot instead of showing "Loading…" for 30 seconds;
+  the home UI gains retry buttons and says which source fed the shelves
+- **SQLite under the app** (details below)
+
+## v1.6.5 storage — a real database under the app (2026-11-15)
 
 Resona used to keep everything in browser storage: likes, playlists and
 history in localStorage, downloaded audio in IndexedDB, and the server's

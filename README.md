@@ -12,7 +12,7 @@
 ![Issues](https://img.shields.io/github/issues/carlsibug98-spec/Resona?style=flat-square&label=ISSUES&color=1ed760)
 ![License](https://img.shields.io/github/license/carlsibug98-spec/Resona?style=flat-square&label=LICENSE&color=1ed760)
 
-**[⬇️ Download (v1.6.4) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
+**[⬇️ Download (v1.6.5) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
 
 </div>
 
@@ -22,13 +22,21 @@
 
 | Platform | Status | Download | Details |
 | --- | --- | --- | --- |
-| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.6.4** | **[⬇️ Download EXE](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.6.4.exe)** | Installer · ~155 MB |
-| 🍎 **macOS** (Apple Silicon) | ✅ **v1.6.4** | **[⬇️ Download DMG (arm64)](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.4-arm64.dmg)** | Unsigned — right-click → Open the first time |
-| 🍎 **macOS** (Intel) | ✅ **v1.6.4** | **[⬇️ Download DMG (x64)](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.4-x64.dmg)** | Unsigned — right-click → Open the first time |
-| 🐧 **Linux** (AppImage / .deb) | ✅ **v1.6.4** | **[⬇️ AppImage](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.4.AppImage)** · **[⬇️ .deb](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.4.deb)** | x64 |
+| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.6.5** | **[⬇️ Download ZIP (portable)](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.5-win.zip)** | Unzip → run `Resona.exe` · ~172 MB · the `Resona-Setup` installer is built by CI for tagged releases |
+| 🍎 **macOS** | ⏳ v1.6.5 | **[Releases page](https://github.com/carlsibug98-spec/Resona/releases)** | DMGs are built by CI — grab v1.6.4 from there in the meantime |
+| 🐧 **Linux** (AppImage / .deb) | ✅ **v1.6.5** | **[⬇️ AppImage](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.5.AppImage)** · **[⬇️ .deb](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.5.deb)** | x64 |
 | 📱 **iOS / Android** | 🧭 Planned | — | Mobile app in design |
 
-> **All releases:** [github.com/carlsibug98-spec/Resona/releases](https://github.com/carlsibug98-spec/Resona/releases) · **Install guide:** [INSTALL-GUIDE.txt](https://github.com/carlsibug98-spec/Resona/releases/download/v1.6.4/INSTALL-GUIDE.txt)
+> **All releases:** [github.com/carlsibug98-spec/Resona/releases](https://github.com/carlsibug98-spec/Resona/releases) · **Install guide:** [INSTALL-GUIDE.txt](https://github.com/carlsibug98-spec/Resona/releases/download/v1.6.5/INSTALL-GUIDE.txt)
+
+## ✨ What's new in v1.6.5
+
+- **🛰️ Never-empty shelves** — trending no longer goes blank when kworb's chart site is down: Resona falls back to YouTube Charts through the same keyless pipeline (real, playable tracks), a bad chart pass is never cached for hours, and a cold server warms the home catalog at boot so the first visit doesn't stare at "Loading…".
+- **🧭 Top-bar navigation, Spotify-style** — a green Home pill up top; the sidebar nav card is gone (Home & Search in the top bar, Settings & Trending in the profile menu, Trending still on the home shelf).
+- **🎵 Sidebar lyrics match fullscreen** — whole-line highlight everywhere; the word-by-word gradient sweep is gone (click a line to seek — still there).
+- **⌨️ Taskbar media controls always work** — prev / play-pause / next are pushed on app start, window focus and every playback change, and `mediaSession.playbackState` keeps OS overlays and media keys honest.
+- **🗄️ A real database under the app** — likes, playlists, history and the server cache now live in SQLite (libsql + Drizzle): a restart no longer throws away resolved streams and searches.
+- **🖱️ Touch & a11y fixes** — row actions always visible on touch devices, alt text on covers, ≥3:1 contrast in light theme, reduced-motion respected, search shows a result count with Load more (the ten v1.6.4 audit findings, shipped).
 
 ## ✨ What's new in v1.6.4
 
@@ -102,21 +110,20 @@
 
 ## 🚀 Install on Windows
 
-1. **Download** `Resona-Setup-1.6.4.exe` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~155 MB). Once installed, later versions arrive automatically at launch.
-2. **If Windows SmartScreen shows a warning** — this is expected and safe. Resona's installer is *not code-signed* (a signing certificate costs ~$100+/yr), so Windows warns about every app it hasn't seen before. It does **not** mean a virus was found. To run the installer:
+1. **Download** `Resona-1.6.5-win.zip` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~172 MB), unzip it anywhere and run `Resona.exe`. (The `Resona-Setup-*.exe` installer returns with the next CI-tagged release — it needs a Windows/wine build step this release didn't have; once installed, later versions arrive automatically at launch.)
+2. **If Windows SmartScreen shows a warning** — this is expected and safe. Resona is *not code-signed* (a signing certificate costs ~$100+/yr), so Windows warns about every app it hasn't seen before. It does **not** mean a virus was found. To run it:
    - Click **More info** → **Run anyway**. That's it.
-   - Or, if the download finished already: right-click the `.exe` → **Properties** → tick **Unblock** → OK, then double-click it.
-   - After install, launch from the desktop shortcut. The app itself doesn't need unblocking again unless SmartScreen has never seen it run before.
-3. Follow the wizard — a desktop shortcut is created automatically. Play music.
+   - Or, if the download finished already: right-click `Resona.exe` → **Properties** → tick **Unblock** → OK, then double-click it.
+3. Play music. Your library lives in `%APPDATA%/resona`.
 
 **Verify (SHA-256):** compare against the checksum published in each release's notes:
 
 ```
-Get-FileHash .\Resona-Setup-1.6.4.exe   # in PowerShell
+Get-FileHash .\Resona-1.6.5-win.zip   # in PowerShell
 ```
 
 **macOS**: the `.dmg` is unsigned — right-click Resona → **Open** the first time (or `xattr -d com.apple.quarantine /Applications/Resona.app`).  
-**Linux**: `chmod +x Resona-*.AppImage && ./Resona-*.AppImage`, or install the `.deb` with `sudo apt install ./Resona-1.6.4.deb`.
+**Linux**: `chmod +x Resona-*.AppImage && ./Resona-*.AppImage`, or install the `.deb` with `sudo apt install ./Resona-1.6.5.deb`.
 
 > Signed builds are on the roadmap — until then the two steps above are the only friction.
 
