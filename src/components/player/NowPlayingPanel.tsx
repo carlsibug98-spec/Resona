@@ -47,10 +47,16 @@ function Seek({ compact }: { compact?: boolean }) {
 
 const EMPTY_LINES: LyricLine[] = [];
 
+/** how long a manual scroll pauses auto-follow before it resumes (Spotify-like) */
+const RESUME_MS = 3500;
+/** scroll events within this window after our own scrollTo are ignored */
+const PROG_MS = 900;
+
 /**
  * Karaoke lyrics list. Holds its own follow state and is keyed by track id
  * in the parent, so every track starts with a fresh, auto-following view
- * without any reset effects.
+ * without any reset effects. Manual scrolling pauses the follow briefly;
+ * it resumes on its own after a few seconds or via the Sync button.
  */
 function LyricsView({
   track,
@@ -66,13 +72,23 @@ function LyricsView({
   const lyrics: LyricsState = useLyrics(track, duration);
   const listRef = useRef<HTMLDivElement>(null);
   const autoRef = useRef(true);
-  const autoUntilRef = useRef(0);
+  const progUntilRef = useRef(0);
   const idxRef = useRef(-2);
+  const resumeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [auto, setAuto] = useState(true);
   // derived, not state — the lyrics cache keeps the lines array stable
   const lines = lyrics.status === "synced" ? lyrics.lines : EMPTY_LINES;
 
   const idx = lines.length ? lineIndexAt(lines, position) : -1;
+
+  // scroll the active line into its anchor position (low in the view,
+  // like a synced lyrics card); long jumps land instantly so they can
+  // never be mistaken for the user scrolling
+  const follow = (list: HTMLElement, el: HTMLElement, smooth: boolean) => {
+    const top = el.offsetTop - list.clientHeight * 0.58 + el.offsetHeight / 2;
+    progUntilRef.current = Date.now() + PROG_MS;
+    list.scrollTo({ top, behavior: smooth ? "smooth" : "auto" });
+  };
 
   // active-line follow + karaoke fill
   useEffect(() => {
@@ -91,9 +107,11 @@ function LyricsView({
       });
       const el = els[idx];
       if (el && autoRef.current) {
-        const top = el.offsetTop - list.clientHeight * 0.38 + el.offsetHeight / 2;
-        autoUntilRef.current = Date.now() + 800;
-        list.scrollTo({ top, behavior: "smooth" });
+        const top = el.offsetTop - list.clientHeight * 0.58 + el.offsetHeight / 2;
+        // big jumps (panel just opened, seek) snap into place; line-to-line
+        // moves glide — and a glide this short always finishes inside PROG_MS
+        const smooth = Math.abs(top - list.scrollTop) < 220;
+        follow(list, el, smooth);
       }
     }
     const el = els[idx];
@@ -105,12 +123,39 @@ function LyricsView({
     }
   }, [idx, lines, position, duration]);
 
-  // pause auto-follow when the user scrolls manually
+  // manual scrolling pauses the follow — resume on its own a few seconds
+  // after the last scroll, or instantly via the Sync button
   const pauseAuto = () => {
-    if (!autoRef.current) return;
+    if (resumeRef.current) clearTimeout(resumeRef.current);
+    if (!autoRef.current) {
+      resumeRef.current = setTimeout(resume, RESUME_MS);
+      return;
+    }
     autoRef.current = false;
     setAuto(false);
+    resumeRef.current = setTimeout(resume, RESUME_MS);
   };
+
+  const resume = () => {
+    if (resumeRef.current) {
+      clearTimeout(resumeRef.current);
+      resumeRef.current = null;
+    }
+    if (autoRef.current) return;
+    autoRef.current = true;
+    setAuto(true);
+    const list = listRef.current;
+    const el = list?.querySelector<HTMLElement>(".ly.on");
+    if (list && el) follow(list, el, true);
+  };
+
+  // never leave a dangling resume timer behind
+  useEffect(
+    () => () => {
+      if (resumeRef.current) clearTimeout(resumeRef.current);
+    },
+    [],
+  );
 
   const synced = lyrics.status === "synced" && lines.length > 0;
 
@@ -158,7 +203,9 @@ function LyricsView({
         onWheel={pauseAuto}
         onTouchMove={pauseAuto}
         onScroll={() => {
-          if (Date.now() > autoUntilRef.current) pauseAuto();
+          // our own scrollTo fires scroll events too — ignore those
+          if (Date.now() < progUntilRef.current) return;
+          pauseAuto();
         }}
       >
         <div className="lypad">
@@ -170,9 +217,7 @@ function LyricsView({
                 data-i={i}
                 onClick={() => {
                   onSeek(l.t);
-                  autoRef.current = true;
-                  setAuto(true);
-                  idxRef.current = -2;
+                  resume();
                 }}
               >
                 <span className="fillx">{l.text || "♪"}</span>
@@ -184,9 +229,7 @@ function LyricsView({
         <button
           className="syncbtn show"
           onClick={() => {
-            autoRef.current = true;
-            setAuto(true);
-            idxRef.current = -2;
+            resume();
           }}
         >
           <Icon name="mic" className="xs" /> Sync to song

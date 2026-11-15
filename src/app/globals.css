@@ -377,27 +377,24 @@ svg{display:block}
 .aa{font-weight:800;font-size:13px}
 .aa.big{font-size:16px}
 .npp-body{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;padding:10px 40px 20px;min-height:0;transition:grid-template-columns .3s}
-.npp.lm .npp-body{grid-template-columns:minmax(0,.7fr) minmax(0,1.5fr)}
 .npp-art{display:flex;flex-direction:column;justify-content:center;gap:20px;min-width:0}
 .npp-art .cov{width:min(100%,420px);align-self:center;font-size:110px;box-shadow:0 30px 60px rgba(0,0,0,.55);transition:width .3s,font-size .3s}
-.npp.lm .npp-art .cov{width:min(100%,300px);font-size:80px}
 .npp-meta{text-align:center}
 .npp-art h2{margin:0;font-size:30px;letter-spacing:-.02em}
-.npp.lm .npp-art h2{font-size:22px}
 .npp-art .a{color:rgba(255,255,255,.75);margin-top:4px}
 .npp-side{position:relative;display:flex;flex-direction:column;min-height:0}
 .npp-list{overflow:auto;flex:1;padding-right:8px;scrollbar-width:none}
 .npp-list::-webkit-scrollbar{display:none}
-.npp-list.lyrics{padding:0 4px;-webkit-mask-image:linear-gradient(transparent 0,#000 14%,#000 78%,transparent 100%);mask-image:linear-gradient(transparent 0,#000 14%,#000 78%,transparent 100%)}
-.lypad{padding:30vh 0 34vh}
-.ly{position:relative;display:block;width:100%;text-align:left;font-size:var(--lysz);font-weight:800;line-height:1.28;letter-spacing:-.02em;padding:10px 14px;margin:2px 0;border-radius:14px;color:rgba(255,255,255,.34);transform-origin:left center;transform:scale(.94);transition:color .35s,transform .35s,filter .35s,background .2s;cursor:pointer;filter:blur(0)}
-.ly[data-d="1"]{color:rgba(255,255,255,.42);filter:blur(.4px)}
-.ly[data-d="2"]{filter:blur(1px)}
-.ly[data-d="3"]{filter:blur(1.8px)}
-.ly:hover{background:rgba(255,255,255,.08);filter:blur(0);color:rgba(255,255,255,.8)}
-.ly.past{color:rgba(255,255,255,.5)}
-.ly.on{color:#fff;transform:scale(1);filter:none;text-shadow:0 0 28px rgba(255,255,255,.25)}
-.ly.on .fillx{background:linear-gradient(90deg,#fff var(--lp,0%),rgba(255,255,255,.4) var(--lp,0%));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.npp-list.lyrics{padding:0 4px;-webkit-mask-image:linear-gradient(transparent 0,#000 14%,#000 84%,transparent 100%);mask-image:linear-gradient(transparent 0,#000 14%,#000 84%,transparent 100%)}
+.lypad{padding:12vh 0 40vh}
+.ly{position:relative;display:block;width:100%;text-align:left;font-size:var(--lysz);font-weight:800;line-height:1.28;letter-spacing:-.02em;padding:10px 14px;margin:2px 0;border-radius:14px;color:rgba(255,255,255,.62);transition:color .35s,background .2s;cursor:pointer}
+.ly.past{color:rgba(255,255,255,.42)}
+.ly.past[data-d="1"]{color:rgba(255,255,255,.34)}
+.ly.past[data-d="2"]{color:rgba(255,255,255,.27)}
+.ly.past[data-d="3"]{color:rgba(255,255,255,.2)}
+.ly:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.85)}
+.ly.on{color:#fff;text-shadow:0 0 28px rgba(255,255,255,.22)}
+.ly.on .fillx{background:linear-gradient(90deg,#fff var(--lp,0%),rgba(255,255,255,.62) var(--lp,0%));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
 .ly.gap{font-size:calc(var(--lysz)*.8);letter-spacing:.3em}
 .lyempty{display:grid;place-items:center;height:100%;text-align:center;color:rgba(255,255,255,.7);gap:8px;padding:20px}
 .lyempty b{font-size:22px;color:#fff}
@@ -748,14 +745,15 @@ img.cov{object-fit:cover}
 .brandrow{padding:16px 16px 6px}
 .ring-av.plain{background:none}
 
-/* ───────── overlay scrollbars: invisible until a scroll area is hovered or scrolling ───────── */
+/* ───────── overlay scrollbars: invisible until a scroll area is actually
+   scrolling — a parked mouse must not paint a stripe down the right side ───────── */
 :root{--sb-thumb:rgba(255,255,255,.2);--sb-thumb-hi:rgba(255,255,255,.4)}
 :root.light{--sb-thumb:rgba(0,0,0,.18);--sb-thumb-hi:rgba(0,0,0,.34)}
 ::-webkit-scrollbar{width:12px;height:12px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-corner{background:transparent}
 ::-webkit-scrollbar-thumb{background-color:transparent;border:3px solid transparent;background-clip:padding-box;border-radius:999px;transition:background-color .35s ease}
-:hover::-webkit-scrollbar-thumb,.is-scrolling::-webkit-scrollbar-thumb{background-color:var(--sb-thumb)}
+.is-scrolling::-webkit-scrollbar-thumb{background-color:var(--sb-thumb)}
 ::-webkit-scrollbar-thumb:hover{background-color:var(--sb-thumb-hi)}
 
 /* ───────── Spotify-style windowed view ───────── */
@@ -785,8 +783,14 @@ img.cov{object-fit:cover}
 .npp .qd-resize::after{left:4px}
 @media (min-width:821px){
   .npp-body,.npp.lm .npp-body{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:14px;padding:4px 16px 14px}
-  .npp-art .cov,.npp.lm .npp-art .cov{width:min(100%,240px);font-size:72px}
-  .npp-art h2,.npp.lm .npp-art h2{font-size:20px}
+  .npp-art .cov{width:min(100%,240px);font-size:72px}
+  /* lyrics mode: the art folds into a compact row so the words own the panel */
+  .npp.lm .npp-art{flex-direction:row;align-items:center;justify-content:flex-start;gap:14px;padding:2px 2px 0}
+  .npp.lm .npp-art .cov{width:64px;height:64px;flex:none;font-size:22px;border-radius:10px;box-shadow:0 10px 26px rgba(0,0,0,.45)}
+  .npp.lm .npp-meta{text-align:left;min-width:0}
+  .npp.lm .npp-art h2{font-size:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .npp.lm .npp-art .a{margin-top:2px}
+  .npp-art h2{font-size:20px}
   .npp-h{padding:12px 14px}
 }
 
