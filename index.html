@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Resona Download</title>
+<meta name="description" content="Resona is a free, open-source desktop music player for YouTube Music — synced lyrics, offline downloads, real music videos, credits and radio. Windows, macOS and Linux. No account, no ads, no fees.">
+<meta property="og:title" content="Resona — Free Music Desktop App">
+<meta property="og:description" content="Stream anything from YouTube Music. No account, no ads, no fees.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2315130F' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M4 10v4'/%3E%3Cpath d='M8 6v12'/%3E%3Cpath d='M12 3v18'/%3E%3Cpath d='M16 6v12'/%3E%3Cpath d='M20 10v4'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F2EEE6;color:#15130F;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+a:focus-visible,button:focus-visible{outline:2px solid #1B9E4B;outline-offset:3px;border-radius:6px}
+.disp{font-family:"Space Grotesk",Inter,system-ui,sans-serif;letter-spacing:-0.02em}
+.mono{font-family:"JetBrains Mono",ui-monospace,Consolas,monospace}
+.wrap{max-width:1180px;margin:0 auto;padding:0 40px}
+.lbl{font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#6B665C}
+.rule{border-top:1px solid #D6CFC0}
+.nav a.nl:hover{color:#15130F}
+.btn{display:inline-flex;align-items:center;gap:10px;height:56px;padding:0 28px;border-radius:999px;font-weight:600;font-size:16px;transition:transform .15s,background .15s}
+.btn:hover{transform:translateY(-1px)}
+.btn-ink{background:#15130F;color:#F2EEE6}
+.btn-ink:hover{background:#2a2722}
+.btn-line{border:1px solid #15130F;color:#15130F}
+.copy{height:36px;padding:0 14px;border-radius:999px;border:1px solid #3a362e;background:transparent;color:#F2EEE6;font:600 13px Inter,system-ui,sans-serif;cursor:pointer}
+.copy:hover{background:#221f1a}
+.bar{display:flex;align-items:flex-end;gap:5px;height:260px}
+.bar i{flex:1;background:var(--acc,#1B9E4B);border-radius:3px;opacity:.9}
+.shot{border-radius:14px;overflow:hidden;border:1px solid #2c2922;background:#1a1814}
+.shot img{display:block;width:100%;height:auto;max-width:100%}
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:48px}
+.hero{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:56px;align-items:end}
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0}
+.step{padding:28px 28px 0 0;border-top:2px solid #15130F;margin-right:28px}
+.step:last-child{margin-right:0}
+.shots{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:20px;align-items:start}
+.shots2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;margin-top:20px}
+.feat{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:40px;padding:30px 0;border-top:1px solid #D6CFC0}
+.news{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:48px 56px}
+.dlrow{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,2fr) auto auto;gap:24px;align-items:center;padding:22px 0;border-top:1px solid #D6CFC0}
+.dlrow.off{color:#8A8475}
+.pill{display:inline-block;padding:5px 11px;border-radius:999px;font-size:12px;font-weight:600}
+.faq{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:24px 56px;padding:26px 0;border-top:1px solid #D6CFC0}
+/* two build buttons in one row (macOS arm64/x64, Linux AppImage/.deb) */
+.btn-pair{display:inline-flex;gap:10px;flex-wrap:wrap}
+.btn-pair .btn{height:44px;padding:0 18px;font-size:15px}
+@media (max-width:900px){
+  .wrap{padding:0 22px}
+  .hero,.split,.feat,.faq,.shots,.shots2,.news{grid-template-columns:minmax(0,1fr)!important}
+  .steps{grid-template-columns:minmax(0,1fr)!important}
+  .step{margin-right:0;padding-bottom:24px}
+  .dlrow{grid-template-columns:minmax(0,1fr)!important}
+  .nav-links{display:none!important}
+  .bar{height:150px}
+  .hero-title{font-size:52px!important}
+}
+</style>
+</head>
+<body>
+
+<!-- top bar -->
+<nav class="nav wrap" style="display:flex;align-items:center;justify-content:space-between;height:76px">
+  <a href="#top" style="display:flex;align-items:center;gap:12px">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#15130F" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 10v4M8 6v12M12 3v18M16 6v12M20 10v4"></path></svg>
+    <span class="disp" style="font-weight:700;font-size:20px">Resona</span>
+  </a>
+  <div class="nav-links" style="display:flex;gap:32px;font-size:15px;color:#6B665C">
+    <a class="nl" href="#install">Install</a>
+    <a class="nl" href="#screens">Screens</a>
+    <a class="nl" href="#features">Features</a>
+    <a class="nl" href="#faq">FAQ</a>
+  </div>
+  <a class="btn btn-ink" href="#get" style="height:44px;padding:0 20px;font-size:15px">Get Resona</a>
+</nav>
+
+<!-- hero -->
+<header id="top" class="wrap" style="padding-top:56px;padding-bottom:88px">
+  <div class="hero">
+    <div>
+      <p class="lbl" style="margin:0">Free · Open source · <span id="ver">v1.6.4</span></p>
+      <h1 class="disp hero-title" style="font-size:96px;line-height:0.98;font-weight:700;margin:22px 0 26px">Play anything.<br>Pay nothing.</h1>
+      <p style="font-size:20px;line-height:1.6;color:#4A463D;max-width:520px;margin:0">Resona is a desktop music player for YouTube Music. It has synced lyrics, real music videos, offline downloads and your own playlists. No account, no ads, no fees — songs start the moment you click, updates install themselves, and this is the last download you make by hand.</p>
+      <div id="get" style="display:flex;gap:14px;flex-wrap:wrap;margin-top:40px">
+        <a class="btn btn-ink" id="heroDl" href="https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.6.4.exe">Download for Windows</a>
+        <a class="btn btn-line" href="#install">How to install</a>
+      </div>
+      <p style="margin:18px 0 0;font-size:14px;color:#6B665C">Windows 10 and 11, 64-bit. Installer is about <span id="exeSize">150 MB</span>.</p>
+      <p style="margin:8px 0 0;font-size:14px;color:#15130F;min-height:20px" id="osNote"></p>
+    </div>
+    <div aria-hidden="true" style="--acc:#1B9E4B">
+      <div class="bar">
+        <i style="height:38%"></i><i style="height:62%"></i><i style="height:44%"></i><i style="height:82%"></i><i style="height:57%"></i><i style="height:94%"></i><i style="height:70%"></i><i style="height:48%"></i><i style="height:88%"></i><i style="height:60%"></i><i style="height:36%"></i><i style="height:76%"></i><i style="height:52%"></i><i style="height:100%"></i><i style="height:66%"></i><i style="height:42%"></i>
+      </div>
+      <div class="rule" style="margin-top:14px;padding-top:12px;display:flex;justify-content:space-between;font-size:13px;color:#6B665C"><span class="mono">00:00</span><span class="mono">03:48</span></div>
+    </div>
+  </div>
+</header>
+
+<!-- availability strip -->
+<section class="wrap" style="padding-bottom:88px">
+  <div class="rule" style="display:flex;flex-wrap:wrap;gap:12px 40px;padding-top:22px;font-size:15px">
+    <span><b style="font-weight:600">Windows</b> available now</span>
+    <span><b style="font-weight:600">macOS</b> available now</span>
+    <span><b style="font-weight:600">Linux</b> available now</span>
+    <span style="color:#8A8475">iOS and Android in design</span>
+  </div>
+</section>
+
+<!-- install -->
+<section id="install" class="wrap" style="padding-bottom:110px">
+  <p class="lbl" style="margin:0">Install</p>
+  <h2 class="disp" style="font-size:52px;font-weight:700;margin:14px 0 56px;line-height:1.05;max-width:700px">Three steps from download to playing.</h2>
+  <div class="steps">
+    <div class="step">
+      <p class="mono" style="margin:0;font-size:14px;color:#6B665C">01</p>
+      <h3 class="disp" style="font-size:24px;font-weight:600;margin:14px 0 10px">Download the installer</h3>
+      <p style="margin:0;font-size:16px;line-height:1.6;color:#4A463D">Use the button above. Pick your system below for macOS and Linux builds.</p>
+    </div>
+    <div class="step">
+      <p class="mono" style="margin:0;font-size:14px;color:#6B665C">02</p>
+      <h3 class="disp" style="font-size:24px;font-weight:600;margin:14px 0 10px">Run the setup file</h3>
+      <p style="margin:0;font-size:16px;line-height:1.6;color:#4A463D">If Windows shows a warning, choose More info, then Run anyway. The installer is not code-signed yet. On macOS, right-click the app and choose Open the first time.</p>
+    </div>
+    <div class="step">
+      <p class="mono" style="margin:0;font-size:14px;color:#6B665C">03</p>
+      <h3 class="disp" style="font-size:24px;font-weight:600;margin:14px 0 10px">Search and play</h3>
+      <p style="margin:0;font-size:16px;line-height:1.6;color:#4A463D">Search for a song, or paste a Spotify playlist link to import it. Your library stays on this device.</p>
+    </div>
+  </div>
+</section>
+
+<!-- showcase band -->
+<section id="screens" style="background:#15130F;color:#F2EEE6;padding-block:110px">
+  <div class="wrap">
+    <div class="split" style="align-items:end">
+      <div>
+        <p class="lbl" style="margin:0;color:#9A9383">Screens</p>
+        <h2 class="disp" style="font-size:52px;font-weight:700;margin:14px 0 0;line-height:1.05">The player is the product.</h2>
+      </div>
+      <p style="margin:0;font-size:18px;line-height:1.6;color:#B9B3A4;max-width:520px">Lyrics follow the song line by line. A Getting started guide and global shelves greet new listeners, and every screen works the same way at any size.</p>
+    </div>
+    <div class="shots" style="margin-top:56px">
+      <figure style="margin:0">
+        <div class="shot"><img src="screenshots/lyrics.png" alt="Resona now-playing view with time-synced lyrics" loading="lazy"></div>
+        <figcaption style="margin-top:14px;font-size:15px;color:#B9B3A4"><b style="color:#F2EEE6;font-weight:600">Synced lyrics.</b> Each line fills as the song plays.</figcaption>
+      </figure>
+      <figure style="margin:0;padding-top:72px">
+        <div class="shot"><img src="screenshots/home.png" alt="Resona home screen with quick tiles and a Getting started guide" loading="lazy"></div>
+        <figcaption style="margin-top:14px;font-size:15px;color:#B9B3A4"><b style="color:#F2EEE6;font-weight:600">Home.</b> Quick tiles and a Getting started guide.</figcaption>
+      </figure>
+    </div>
+    <div class="shots2" style="margin-top:20px">
+      <figure style="margin:0">
+        <div class="shot"><img src="screenshots/playlist.png" alt="Resona playlist view" loading="lazy"></div>
+        <figcaption style="margin-top:14px;font-size:15px;color:#B9B3A4"><b style="color:#F2EEE6;font-weight:600">Playlists.</b> Import from a Spotify link.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- features -->
+<section id="features" class="wrap" style="padding-block:110px">
+  <p class="lbl" style="margin:0">Features</p>
+  <h2 class="disp" style="font-size:52px;font-weight:700;margin:14px 0 40px;line-height:1.05">What you get</h2>
+  <div class="feat">
+    <h3 class="disp" style="font-size:24px;font-weight:600;margin:0">Unlimited streaming</h3>
+    <p style="margin:0;font-size:17px;line-height:1.6;color:#4A463D">Search the YouTube Music catalog, press play, and listen. Live sets and albums are included.</p>
+  </div>
+  <div class="feat">
+    <h3 class="disp" style="font-size:24px;font-weight:600;margin:0">Synced lyrics</h3>
+    <p style="margin:0;font-size:17px;line-height:1.6;color:#4A463D">Time-synced lyrics from LRCLIB for most tracks. Tap a line to jump to it, or press Sync when you scroll away.</p>
+  </div>
+  <div class="feat">
+    <h3 class="disp" style="font-size:24px;font-weight:600;margin:0">Real music videos</h3>
+    <p style="margin:0;font-size:17px;line-height:1.6;color:#4A463D">The full player plays the song's actual music video when one exists, and falls back to audio when it doesn't.</p>
+  </div>
+  <div class="feat">
+    <h3 class="disp" style="font-size:24px;font-weight:600;margin:0">Offline downloads</h3>
+    <p style="margin:0;font-size:17px;line-height:1.6;color:#4A463D">Save tracks to this device and play them without a connection. Progress shows on every track.</p>
+  </div>
+  <div class="feat">
+    <h3 class="disp" style="font-size:24px;font-weight:600;margin:0">Playlists, radio and import</h3>
+    <p style="margin:0;font-size:17px;line-height:1.6;color:#4A463D">Paste a public Spotify playlist link, build your own playlists, or start a radio from any artist that never stops.</p>
+  </div>
+  <div class="feat">
+    <h3 class="disp" style="font-size:24px;font-weight:600;margin:0">No account</h3>
+    <p style="margin:0;font-size:17px;line-height:1.6;color:#4A463D">Install and play. There is no sign-up and no tracking. Your library stays on your machine.</p>
+  </div>
+  <div class="feat" style="border-bottom:1px solid #D6CFC0">
+    <h3 class="disp" style="font-size:24px;font-weight:600;margin:0">Open source</h3>
+    <p style="margin:0;font-size:17px;line-height:1.6;color:#4A463D">Released under the MIT license. You can read the code, fork it, and build it yourself.</p>
+  </div>
+</section>
+
+<!-- what's new -->
+<section class="wrap" style="padding-bottom:110px">
+  <p class="lbl" style="margin:0">Version 1.6.4</p>
+  <h2 class="disp" style="font-size:52px;font-weight:700;margin:14px 0 56px;line-height:1.05">What changed</h2>
+  <div class="news">
+    <div>
+      <p class="lbl" style="margin:0 0 10px;color:#1B9E4B">New in 1.6.4</p>
+      <h3 class="disp" style="font-size:22px;font-weight:600;margin:0 0 10px">Lyrics you can read again</h3>
+      <p style="margin:0;font-size:16px;line-height:1.6;color:#4A463D">The lyrics panel follows the song reliably again — it snaps to the active line, glides line-to-line, and resumes on its own after you scroll. The art folds into a compact header so the words own the whole panel, and the thick scrollbar stripe down the right side is gone.</p>
+    </div>
+    <div>
+      <p class="lbl" style="margin:0 0 10px;color:#1B9E4B">New in 1.6.3</p>
+      <h3 class="disp" style="font-size:22px;font-weight:600;margin:0 0 10px">One mark everywhere</h3>
+      <p style="margin:0;font-size:16px;line-height:1.6;color:#4A463D">The app icon is now the five-bar Resona mark — the same one the app and this site use — in paper cream on a warm-dark tile. Rendered natively at every size so it stays crisp in the taskbar, Dock and start menu.</p>
+    </div>
+    <div>
+      <p class="lbl" style="margin:0 0 10px;color:#1B9E4B">New in 1.6.2</p>
+      <h3 class="disp" style="font-size:22px;font-weight:600;margin:0 0 10px">Control playback from the taskbar</h3>
+      <p style="margin:0;font-size:16px;line-height:1.6;color:#4A463D">Hover Resona's taskbar icon on Windows and the preview carries Previous / Play / Next — Spotify-style. macOS gets the same three in the dock menu.</p>
+    </div>
+    <div>
+      <p class="lbl" style="margin:0 0 10px;color:#1B9E4B">New in 1.6.1</p>
+      <h3 class="disp" style="font-size:22px;font-weight:600;margin:0 0 10px">Songs start instantly</h3>
+      <p style="margin:0;font-size:16px;line-height:1.6;color:#4A463D">The stream resolves in the background while your pointer rests on a row, and the next queue track resolves ahead — the first click on a song no longer waits for stream resolution.</p>
+    </div>
+    <div>
+      <p class="lbl" style="margin:0 0 10px;color:#1B9E4B">New in 1.6.1</p>
+      <h3 class="disp" style="font-size:22px;font-weight:600;margin:0 0 10px">Click anywhere to play</h3>
+      <p style="margin:0;font-size:16px;line-height:1.6;color:#4A463D">The whole track row is clickable now, not just the small play button. The play, like, save and menu buttons keep their own actions.</p>
+    </div>
+    <div>
+      <h3 class="disp" style="font-size:22px;font-weight:600;margin:0 0 10px">The app that updates itself</h3>
+      <p style="margin:0;font-size:16px;line-height:1.6;color:#4A463D">Resona now installs new releases silently at launch — splash-screen progress, no dialogs. This download is the last one you make by hand.</p>
+    </div>
+    <div>
+      <h3 class="disp" style="font-size:22px;font-weight:600;margin:0 0 10px">Getting-started checklist</h3>
+      <p style="margin:0;font-size:16px;line-height:1.6;color:#4A463D">A progress ring by your profile fills as you finish six steps — search, playlist, like, radio, download, import — and each real action ticks itself off.</p>
+    </div>
+    <div>
+      <h3 class="disp" style="font-size:22px;font-weight:600;margin:0 0 10px">Real artist artwork</h3>
+      <p style="margin:0;font-size:16px;line-height:1.6;color:#4A463D">Popular artists on the home screen now show actual YouTube Music photos instead of gradient initials, plus a polished snackbar and centred play buttons.</p>
+    </div>
+  </div>
+</section>
+
+<!-- downloads -->
+<section class="wrap" style="padding-bottom:110px">
+  <p class="lbl" style="margin:0">Downloads</p>
+  <h2 class="disp" style="font-size:52px;font-weight:700;margin:14px 0 40px;line-height:1.05">Get the build for your system</h2>
+  <div style="border-bottom:1px solid #D6CFC0">
+    <div class="dlrow">
+      <div>
+        <p class="disp" style="margin:0;font-size:20px;font-weight:600">Windows</p>
+        <p style="margin:4px 0 0;font-size:14px;color:#6B665C">Windows 10 and 11, 64-bit</p>
+      </div>
+      <p class="mono" style="margin:0;font-size:14px;color:#4A463D"><span id="exeName">Resona-Setup-1.6.4.exe</span> · <span id="exeMb">150 MB</span></p>
+      <span class="pill" style="background:#15130F;color:#F2EEE6">Available</span>
+      <a class="btn btn-ink" id="dlWin" href="https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.6.4.exe" style="height:44px;padding:0 20px;font-size:15px">Download</a>
+    </div>
+    <div class="dlrow">
+      <div>
+        <p class="disp" style="margin:0;font-size:20px;font-weight:600">macOS</p>
+        <p style="margin:4px 0 0;font-size:14px;color:#6B665C">Apple Silicon and Intel</p>
+      </div>
+      <p class="mono" style="margin:0;font-size:14px;color:#4A463D" id="dmgInfo">Resona-1.6.4-arm64.dmg / -x64.dmg</p>
+      <span class="pill" style="background:#15130F;color:#F2EEE6">Available</span>
+      <span class="btn-pair">
+        <a class="btn btn-ink" id="dlMacArm" href="https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.4-arm64.dmg">Apple Silicon</a>
+        <a class="btn btn-line" id="dlMacX64" href="https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.4-x64.dmg" style="background:transparent">Intel</a>
+      </span>
+    </div>
+    <div class="dlrow">
+      <div>
+        <p class="disp" style="margin:0;font-size:20px;font-weight:600">Linux</p>
+        <p style="margin:4px 0 0;font-size:14px;color:#6B665C">AppImage and .deb</p>
+      </div>
+      <p class="mono" style="margin:0;font-size:14px;color:#4A463D" id="linuxInfo">Resona-1.6.4.AppImage / .deb</p>
+      <span class="pill" style="background:#15130F;color:#F2EEE6">Available</span>
+      <span class="btn-pair">
+        <a class="btn btn-ink" id="dlAppImage" href="https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.4.AppImage">AppImage</a>
+        <a class="btn btn-line" id="dlDeb" href="https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.4.deb" style="background:transparent">.deb</a>
+      </span>
+    </div>
+    <div class="dlrow off">
+      <div>
+        <p class="disp" style="margin:0;font-size:20px;font-weight:600">iOS and Android</p>
+        <p style="margin:4px 0 0;font-size:14px">Native app with offline mode</p>
+      </div>
+      <p style="margin:0;font-size:14px">In design</p>
+      <span class="pill" style="background:#E4DED0;color:#6B665C">Planned</span>
+      <span style="font-size:15px;padding:0 20px">Not yet</span>
+    </div>
+  </div>
+
+  <div style="margin-top:40px;background:#15130F;color:#F2EEE6;border-radius:16px;padding:28px 30px;display:flex;gap:24px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+    <div style="min-width:0;flex:1 1 420px">
+      <p class="lbl" style="margin:0;color:#9A9383">SHA-256 checksum <span style="text-transform:none;letter-spacing:0" id="sumAsset">(Windows installer)</span></p>
+      <p class="mono" style="margin:12px 0 0;font-size:14px;line-height:1.6;overflow-wrap:anywhere;color:#D9D3C4" id="checksum">Loading from the latest release…</p>
+    </div>
+    <button class="copy" id="copyBtn" aria-label="Copy the SHA-256 checksum">Copy</button>
+  </div>
+  <p style="margin:18px 0 0;font-size:15px;line-height:1.6;color:#4A463D;max-width:760px">The installers are not code-signed yet, so Windows and macOS may warn you. Check the checksum above against your download to confirm the file is the one published.</p>
+</section>
+
+<!-- faq -->
+<section id="faq" class="wrap" style="padding-bottom:120px">
+  <p class="lbl" style="margin:0">Questions</p>
+  <h2 class="disp" style="font-size:52px;font-weight:700;margin:14px 0 40px;line-height:1.05">Answers</h2>
+  <div class="faq">
+    <p class="disp" style="margin:0;font-size:20px;font-weight:600">Is it really free?</p>
+    <p style="margin:0;font-size:16px;line-height:1.6;color:#4A463D">Yes. Resona is MIT-licensed. It has no accounts, no ads and no paid tier.</p>
+  </div>
+  <div class="faq">
+    <p class="disp" style="margin:0;font-size:20px;font-weight:600">Where does the music come from?</p>
+    <p style="margin:0;font-size:16px;line-height:1.6;color:#4A463D">From YouTube Music's public catalog. Resona does not host or store any music files.</p>
+  </div>
+  <div class="faq">
+    <p class="disp" style="margin:0;font-size:20px;font-weight:600">Does it work offline?</p>
+    <p style="margin:0;font-size:16px;line-height:1.6;color:#4A463D">Songs you download inside Resona play offline. Browsing and streaming need a connection.</p>
+  </div>
+  <div class="faq">
+    <p class="disp" style="margin:0;font-size:20px;font-weight:600">Can I bring my playlists?</p>
+    <p style="margin:0;font-size:16px;line-height:1.6;color:#4A463D">Yes. Paste a public Spotify playlist link into Import. Your library is stored on this device only.</p>
+  </div>
+  <div class="faq" style="border-bottom:1px solid #D6CFC0">
+    <p class="disp" style="margin:0;font-size:20px;font-weight:600">Windows or macOS warned me about the installer. Is it safe?</p>
+    <p style="margin:0;font-size:16px;line-height:1.6;color:#4A463D">The warning appears because the installers are not code-signed yet. Verify the SHA-256 checksum above, then on Windows choose More info and Run anyway; on macOS right-click the app and choose Open.</p>
+  </div>
+</section>
+
+<!-- footer -->
+<footer class="wrap" style="border-top:1px solid #D6CFC0;padding-block:36px 48px;display:flex;flex-wrap:wrap;gap:16px 32px;align-items:center;justify-content:space-between;font-size:14px;color:#6B665C">
+  <span class="disp" style="font-weight:700;font-size:16px;color:#15130F">Resona</span>
+  <a href="https://github.com/carlsibug98-spec/Resona">GitHub</a>
+  <a href="https://github.com/carlsibug98-spec/Resona/releases">Releases</a>
+  <a href="https://github.com/carlsibug98-spec/Resona/issues">Report an issue</a>
+  <span>MIT License. Not affiliated with YouTube, Google or Spotify.</span>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var LATEST = "https://github.com/carlsibug98-spec/Resona/releases/latest/download/";
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ── OS detection: hero button + note ── */
+  var ua = navigator.userAgent;
+  var os = /Mac/i.test(ua) && !/iPhone|iPad/i.test(ua) ? "mac"
+    : /Linux|X11/i.test(ua) && !/Android/i.test(ua) ? "linux"
+    : /Windows/i.test(ua) ? "win" : "other";
+  if (os === "mac") {
+    $("heroDl").textContent = "Download for macOS";
+    $("heroDl").href = LATEST + "Resona-1.6.4-arm64.dmg";
+    $("osNote").textContent = "You're on macOS — the Apple Silicon build is the usual pick. Intel Mac? Use the Intel button below.";
+  } else if (os === "linux") {
+    $("heroDl").textContent = "Download for Linux";
+    $("heroDl").href = LATEST + "Resona-1.6.4.AppImage";
+    $("osNote").textContent = "You're on Linux — grab the AppImage, or the .deb on Debian and Ubuntu.";
+  } else if (os === "win") {
+    $("osNote").textContent = "You're on Windows — the setup file below is for you.";
+  }
+
+  /* ── live release facts (version, sizes, checksum, links) ── */
+  var fallbackSum = "Checksums for every file are on the Releases page — link below.";
+  var MB = function (b) { return Math.round(b / 1000000) + " MB"; };
+  fetch("https://api.github.com/repos/carlsibug98-spec/Resona/releases/latest")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (rel) {
+      if (!rel || !rel.assets) {
+        $("checksum").textContent = fallbackSum;
+        return;
+      }
+      var find = function (re) {
+        for (var i = 0; i < rel.assets.length; i++) if (re.test(rel.assets[i].name)) return rel.assets[i];
+        return null;
+      };
+      var exe = find(/Resona-Setup-.*\.exe$/);
+      var arm = find(/-arm64\.dmg$/);
+      var x64 = find(/-x64\.dmg$/);
+      var app = find(/\.AppImage$/);
+      var deb = find(/\.deb$/);
+
+      if (rel.tag_name) $("ver").textContent = rel.tag_name.replace(/^v/, "v");
+      if (exe) {
+        $("exeName").textContent = exe.name;
+        if (exe.digest) {
+          $("checksum").textContent = exe.digest.replace(/^sha256:/, "");
+          $("checksum").style.color = "#D9D3C4";
+        } else {
+          $("checksum").textContent = "Published on the release page — open Releases below to verify.";
+        }
+        if (exe.size) {
+          $("exeMb").textContent = MB(exe.size);
+          $("exeSize").textContent = MB(exe.size);
+        }
+        if (exe.browser_download_url) {
+          $("dlWin").href = exe.browser_download_url;
+          if (os === "win") $("heroDl").href = exe.browser_download_url;
+        }
+      }
+      if (arm && arm.browser_download_url) {
+        $("dlMacArm").href = arm.browser_download_url;
+        if (os === "mac") $("heroDl").href = arm.browser_download_url;
+        $("dmgInfo").textContent = arm.name + (x64 ? " / " + x64.name : "");
+      }
+      if (x64 && x64.browser_download_url) $("dlMacX64").href = x64.browser_download_url;
+      if (app && app.browser_download_url) {
+        $("dlAppImage").href = app.browser_download_url;
+        if (os === "linux") $("heroDl").href = app.browser_download_url;
+        $("linuxInfo").textContent = app.name + (deb ? " / " + deb.name : "");
+      }
+      if (deb && deb.browser_download_url) $("dlDeb").href = deb.browser_download_url;
+    })
+    .catch(function () {
+      $("checksum").textContent = fallbackSum;
+    });
+
+  /* ── copy checksum ── */
+  $("copyBtn").addEventListener("click", function () {
+    var text = $("checksum").textContent.trim();
+    var done = function () {
+      $("copyBtn").textContent = "Copied";
+      setTimeout(function () { $("copyBtn").textContent = "Copy"; }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, done);
+    } else {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } catch (e) {}
+      document.body.removeChild(ta);
+      done();
+    }
+  });
+})();
+</script>
+</body>
+</html>
