@@ -251,7 +251,7 @@ function GlobalShelves({ catalog, state }: { catalog: HomeCatalog | null; state:
       p.status === "fulfilled" && p.value.page.thumb ? [{ id: p.value.id, thumb: p.value.page.thumb }] : []
     );
   });
-  const thumbs = Object.fromEntries(thumbsAsync.data ?? []);
+  const thumbs = Object.fromEntries((thumbsAsync.data ?? []).map((t) => [t.id, t.thumb] as const));
   if (state === "loading" || !catalog) {
     return (
       <div className="section">
