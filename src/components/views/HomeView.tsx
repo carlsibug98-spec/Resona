@@ -314,13 +314,18 @@ function Card({
 }) {
   return (
     <div className="card-item">
-      <button className="face" onClick={onOpen} aria-label={title}>
-        {cover}
+      {/* the play disc is centred on the cover itself, not on the whole card */}
+      <div className="cover-wrap">
+        <button className="cover-btn" onClick={onOpen} aria-label={title}>
+          {cover}
+        </button>
+        <button className="fab cover-fab" onClick={onPlay} aria-label={`Play ${title}`}>
+          <Icon name="play" fill />
+        </button>
+      </div>
+      <button className="face" onClick={onOpen} tabIndex={-1}>
         <div className="t trunc">{title}</div>
         <div className="s trunc">{sub}</div>
-      </button>
-      <button className="fab" onClick={onPlay} aria-label={`Play ${title}`}>
-        <Icon name="play" fill />
       </button>
     </div>
   );

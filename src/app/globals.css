@@ -233,6 +233,13 @@ svg{display:block}
 .card-item .cov span{transition:opacity .2s}
 .card-item:hover .cov span{opacity:0}
 @media (max-width:820px){.card-item .fab{opacity:1;transform:scale(1)}}
+/* cover-anchored play disc: the wrapper is exactly the cover's size, so centring uses the cover */
+.cover-wrap{position:relative}
+.cover-btn{display:block;width:100%;padding:0;border:0;background:none;text-align:left;color:inherit;border-radius:10px}
+.card-item .cover-wrap .cover-fab{position:absolute;top:50%;left:50%;right:auto;bottom:auto;margin:0;translate:-50% -50%;width:56px;height:56px;z-index:3;background:#1f1f1f;color:#fff;border:0;box-shadow:0 12px 30px rgba(0,0,0,.45);transform:scale(.7);opacity:0;transition:opacity .25s,transform .35s cubic-bezier(.2,.9,.3,1),background .2s,color .2s}
+.card-item .cover-wrap .cover-fab:hover{background:#fff;color:#000}
+.card-item .cover-wrap .cover-fab:active{transform:scale(.92)}
+.card-item:hover .cover-wrap .cover-fab,.card-item:focus-within .cover-wrap .cover-fab{opacity:1;transform:scale(1)}
 
 /* track rows */
 .tlist{display:flex;flex-direction:column}
