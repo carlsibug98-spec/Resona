@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { CatalogArtist, CatalogRelease, HomeCatalog, Track } from "@/lib/types";
+import type { ArtistPage, CatalogArtist, CatalogRelease, HomeCatalog, Track } from "@/lib/types";
 import { useLibrary } from "@/stores/library";
 import { useUi } from "@/stores/ui";
 import { usePlayer } from "@/stores/player";
@@ -164,8 +164,9 @@ function GlobalShelf({
   );
 }
 
-/** round-cover artist card — opens the artist's real page, fab plays their charting track */
-function ArtistCard({ a }: { a: CatalogArtist }) {
+/** round-cover artist card — real YouTube Music artwork when the artist page
+ *  has resolved, hue-gradient initials until then; opens their page, fab plays their charting track */
+function ArtistCard({ a, thumb }: { a: CatalogArtist; thumb?: string }) {
   const ui = useUi();
   const player = usePlayer();
   return (
@@ -180,11 +181,15 @@ function ArtistCard({ a }: { a: CatalogArtist }) {
       >
         <div
           className="cov round"
-          style={{
-            background: `linear-gradient(135deg,hsl(${a.hue} 70% 46%),hsl(${(a.hue + 60) % 360} 55% 14%))`,
-          }}
+          style={
+            thumb
+              ? undefined
+              : {
+                  background: `linear-gradient(135deg,hsl(${a.hue} 70% 46%),hsl(${(a.hue + 60) % 360} 55% 14%))`,
+                }
+          }
         >
-          <span>{initials(a.name)}</span>
+          {thumb ? <img src={thumb} alt={a.name} loading="lazy" /> : <span>{initials(a.name)}</span>}
         </div>
         <div className="t trunc">{a.name}</div>
         <div className="s">Artist</div>
@@ -225,8 +230,28 @@ function ReleaseCard({ r, context }: { r: CatalogRelease; context: string }) {
   );
 }
 
-/** the three global shelves, fed by /api/catalog (worldwide trending chart) */
+/** the three global shelves, fed by /api/catalog (worldwide trending chart).
+ *  Artist cards load their real YouTube Music artwork through /api/artist —
+ *  the shelf renders immediately with gradient covers and the photos arrive
+ *  as each artist page resolves, so a slow lookup never leaves a gap. */
 function GlobalShelves({ catalog, state }: { catalog: HomeCatalog | null; state: string }) {
+  const artistIds = (catalog?.artists ?? [])
+    .map((a) => a.artistId)
+    .filter((x): x is string => !!x);
+  const thumbsAsync = useAsyncData(`home-artists:${artistIds.join(",")}`, async (signal) => {
+    const pages = await Promise.allSettled(
+      artistIds.map(async (id) => {
+        const r = await fetch(`/api/artist?id=${encodeURIComponent(id)}`, { signal });
+        const d = await r.json();
+        if (d.error) throw new Error("artist_failed");
+        return { id, page: d as ArtistPage };
+      })
+    );
+    return pages.flatMap((p) =>
+      p.status === "fulfilled" && p.value.page.thumb ? [{ id: p.value.id, thumb: p.value.page.thumb }] : []
+    );
+  });
+  const thumbs = Object.fromEntries(thumbsAsync.data ?? []);
   if (state === "loading" || !catalog) {
     return (
       <div className="section">
@@ -248,7 +273,7 @@ function GlobalShelves({ catalog, state }: { catalog: HomeCatalog | null; state:
       {catalog.artists.length > 0 && (
         <GlobalShelf id="hs-art" title="Popular artists" showAllMsg="Full artist pages come in the next build">
           {catalog.artists.map((a) => (
-            <ArtistCard key={a.artistId || a.name} a={a} />
+            <ArtistCard key={a.artistId || a.name} a={a} thumb={a.artistId ? thumbs[a.artistId] : undefined} />
           ))}
         </GlobalShelf>
       )}
