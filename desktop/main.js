@@ -139,6 +139,15 @@ function startServer(port, attempt) {
   const deps = path.join(serverDir, "deps");
   if (fs.existsSync(deps)) env.NODE_PATH = deps;
 
+  // the SQLite database (persistent cache + library mirror) lives in the OS
+  // user-data dir, so it survives app updates and never sits inside the
+  // read-only install dir. The directory already exists (userData), but be
+  // defensive on first launch.
+  try {
+    fs.mkdirSync(path.join(app.getPath("userData"), "data"), { recursive: true });
+  } catch {}
+  env.RESONA_DB_PATH = path.join(app.getPath("userData"), "data", "resona.db");
+
   serverProc = spawn(process.execPath, [serverJs], {
     env,
     cwd: serverDir,

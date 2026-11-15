@@ -1,5 +1,47 @@
 # Changes
 
+## Unreleased — a real database under the app (2026-11-15)
+
+Resona used to keep everything in browser storage: likes, playlists and
+history in localStorage, downloaded audio in IndexedDB, and the server's
+caches (stream resolves, searches, lyrics, credits, trending) in a plain
+in-memory Map. That Map was the painful one — every restart threw away
+resolved stream URLs, and a cold resolve can cost up to 25 seconds
+through yt-dlp.
+
+The server now runs on **SQLite** (via libsql + Drizzle ORM — libsql *is*
+SQLite in file form, and its N-API binding loads under plain Node, Bun and
+Electron-as-Node without ABI rebuilds, which better-sqlite3 can't promise
+in the packaged desktop app). The dead Prisma scaffold from the original
+template (User/Post demo models, never imported anywhere) is gone.
+
+What changed under the hood:
+
+- **Persistent server cache** — `src/lib/server/cache.ts` keeps its
+  synchronous in-memory hot path and now writes every entry to a `kv`
+  table. A restart primes the Map from disk in the background, so lyrics,
+  searches, artist pages and trending shelves come back instantly; stream
+  resolves that already succeeded are never re-paid.
+- **Library mirror** — likes, playlists and history are mirrored into
+  SQLite (`likes`, `playlists`, `playlist_tracks`, `history` tables) and
+  served by `GET /api/library`. The client hydrates from the server at
+  boot with a last-write-wins merge against localStorage, so a wiped
+  browser profile no longer wipes the library. History is bounded by a
+  real limit (500 server-side, 200 in the client store) instead of 60.
+- **Backup restore keeps both copies in step** — restoring a backup (or
+  clearing all data) pushes the result to the server too.
+- **Desktop: the database lives in the OS user-data dir**
+  (`<userData>/data/resona.db`), so it survives app updates and never
+  sits in the read-only install directory. The web/dev default is
+  `./resona.db` next to the server.
+- **Degradation is honest** — if the database can't be opened or its
+  schema can't be created, every layer falls back to the previous
+  behavior (memory-only) and logs one line. The app never refuses to
+  start over storage.
+- New tests: `tests/db-storage.test.ts` covers schema creation, library
+  round-trips, replace-all, cache expiry and the restart scenario
+  (a fresh module instance reading what the first one wrote).
+
 ## v1.6.4 — lyrics you can read again (2026-11-15)
 
 A fix release for the two things the first v1.6.x shakedown surfaced:

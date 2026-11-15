@@ -3,6 +3,14 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Track } from "@/lib/types";
+import {
+  mirrorLike,
+  mirrorUnlike,
+  mirrorPlaylist,
+  mirrorPlaylistDelete,
+  mirrorHistory,
+  pushFullLibrary,
+} from "@/lib/library-sync";
 
 export interface DownloadEntry {
   track: Track;
@@ -63,40 +71,49 @@ export const useLibrary = create<LibraryState>()(
 
       isLiked: (videoId) => videoId in get().liked,
 
-      toggleLike: (track) =>
-        set((s) => {
-          const liked = { ...s.liked };
+      toggleLike: (track) => {
+        const s = get();
+        const wasLiked = !!s.liked[track.videoId];
+        if (wasLiked) mirrorUnlike(track.videoId);
+        else mirrorLike(track, Date.now());
+        set((s2) => {
+          const liked = { ...s2.liked };
           if (liked[track.videoId]) delete liked[track.videoId];
           else liked[track.videoId] = { track, likedAt: Date.now() };
           return { liked };
-        }),
+        });
+      },
 
       createPlaylist: (name, tracks) => {
         const id = uid();
-        set((s) => ({
-          playlists: [
-            {
-              id,
-              name: name.trim() || "New playlist",
-              createdAt: Date.now(),
-              updatedAt: Date.now(),
-              tracks: tracks ? [...tracks] : [],
-            },
-            ...s.playlists,
-          ],
-        }));
+        const now = Date.now();
+        const playlist = {
+          id,
+          name: name.trim() || "New playlist",
+          createdAt: now,
+          updatedAt: now,
+          tracks: tracks ? [...tracks] : [],
+        };
+        set((s) => ({ playlists: [playlist, ...s.playlists] }));
+        mirrorPlaylist(playlist);
         return id;
       },
 
-      renamePlaylist: (id, name) =>
+      renamePlaylist: (id, name) => {
+        const now = Date.now();
         set((s) => ({
           playlists: s.playlists.map((p) =>
-            p.id === id ? { ...p, name, updatedAt: Date.now() } : p
+            p.id === id ? { ...p, name, updatedAt: now } : p
           ),
-        })),
+        }));
+        const p = get().playlists.find((p) => p.id === id);
+        if (p) mirrorPlaylist(p);
+      },
 
-      deletePlaylist: (id) =>
-        set((s) => ({ playlists: s.playlists.filter((p) => p.id !== id) })),
+      deletePlaylist: (id) => {
+        set((s) => ({ playlists: s.playlists.filter((p) => p.id !== id) }));
+        mirrorPlaylistDelete(id);
+      },
 
       addToPlaylist: (id, tracks) => {
         const list = Array.isArray(tracks) ? tracks : [tracks];
@@ -114,10 +131,12 @@ export const useLibrary = create<LibraryState>()(
             };
           }),
         }));
+        const p = get().playlists.find((p) => p.id === id);
+        if (p) mirrorPlaylist(p);
         return added;
       },
 
-      removeFromPlaylist: (id, videoId) =>
+      removeFromPlaylist: (id, videoId) => {
         set((s) => ({
           playlists: s.playlists.map((p) =>
             p.id === id
@@ -128,7 +147,10 @@ export const useLibrary = create<LibraryState>()(
                 }
               : p
           ),
-        })),
+        }));
+        const p = get().playlists.find((p) => p.id === id);
+        if (p) mirrorPlaylist(p);
+      },
 
       markDownloaded: (videoId, track, opts) =>
         set((s) => ({
@@ -151,16 +173,20 @@ export const useLibrary = create<LibraryState>()(
           return { downloads };
         }),
 
-      pushHistory: (track) =>
+      pushHistory: (track) => {
         set((s) => ({
           history: [
             { track, at: Date.now() },
             ...s.history.filter((h) => h.track.videoId !== track.videoId),
-          ].slice(0, 60),
-        })),
+          ].slice(0, 200),
+        }));
+        mirrorHistory(track, Date.now());
+      },
 
-      clearAll: () =>
-        set({ liked: {}, playlists: [], downloads: {}, history: [] }),
+      clearAll: () => {
+        set({ liked: {}, playlists: [], downloads: {}, history: [] });
+        void pushFullLibrary();
+      },
     }),
     { name: "resona-library" }
   )

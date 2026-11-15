@@ -142,9 +142,11 @@ cd desktop && npx electron-builder --win nsis
 
 | Topic | Details |
 | --- | --- |
-| **Playback** | Resona tries three sources in order: an offline copy saved in IndexedDB → a direct audio stream through a same-origin proxy (Piped/Invidious resolvers, configurable in Settings) → the official YouTube embedded player. Resolution starts while you hover a row and the next queue track resolves ahead; results are cached 30 minutes, so every start after the first is instant. |
+| **Playback** | Resona tries three sources in order: an offline copy saved in IndexedDB → a direct audio stream through a same-origin proxy (Piped/Invidious resolvers, configurable in Settings) → the official YouTube embedded player. Resolution starts while you hover a row and the next queue track resolves ahead; results are cached 30 minutes **in SQLite, so they survive restarts** — every start after the first is instant. |
 | **Downloads** | The same resolver pipeline fetches the audio, shows a progress ring in every row, and stores it in IndexedDB. Downloaded tracks play with zero network. Removing one asks for confirmation first. |
 | **Lyrics** | LRCLIB's synced LRC lines drive the karaoke panel; unsynced text and "no lyrics" states are handled honestly. |
+| **Library** | Likes, playlists and history live in localStorage *and* in the server's SQLite database (mirrored on every change, merged at boot) — a wiped browser profile no longer loses the library, and history keeps up to 500 entries instead of 60. |
+| **Database** | SQLite via libsql + Drizzle ORM: the persistent TTL cache (`kv`) and the library mirror (`likes`, `playlists`, `playlist_tracks`, `history`). One file at `RESONA_DB_PATH` — the OS user-data dir on desktop (`<userData>/data/resona.db`), `./resona.db` in dev. If the file can't be opened the app degrades to memory-only and still runs. |
 | **Home & onboarding** | First run opens the Welcome home (Getting started carousel, no quick tiles). The first like / playlist / download / import graduates you to the full home. Upgrades from earlier versions keep the full home. |
 | **Global shelves** | Popular artists / Popular albums and singles / New releases come from the worldwide trending chart via `/api/catalog` (6 h server cache, 30 min per-track resolve cache shared with the Trending view). Artist cards open real artist pages. |
 | **Starter content** | The mockup's OPM demo tracks are seeded on first run and resolved through real search — no invented video ids. Remove everything in Settings → Starter content; anything you added yourself is untouched. |
@@ -157,6 +159,7 @@ cd desktop && npx electron-builder --win nsis
 | --- | --- |
 | UI | Next.js (App Router) · React · Zustand · mockup-derived design system |
 | Music data | YouTube Music (innertube) · kworb charts (81 regions) |
+| Storage | SQLite (libsql + Drizzle ORM) for cache + library · IndexedDB for audio |
 | Playback | HTML5 audio / YouTube embedded player · resolver-proxied direct streams |
 | Lyrics | lrclib.net (time-synced) |
 | Desktop | Electron 45 + electron-builder (NSIS) |

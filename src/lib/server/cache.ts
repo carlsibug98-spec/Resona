@@ -1,24 +1,114 @@
+/**
+ * TTL cache: in-memory Map for the hot path (sync reads stay sync), now
+ * backed by SQLite so a restart starts warm. Before this, every resolved
+ * stream URL, search page, lyrics payload, artist page and trending chart
+ * was lost on each server restart — and resolving a stream can cost up to
+ * 25 seconds through yt-dlp.
+ *
+ * Writes go to both layers; reads hit the Map first and fall back to an
+ * in-memory "loaded from disk" layer filled at boot. So every existing
+ * consumer (musicbrainz, innertube, resolver, lrclib, catalog, kworb,
+ * spotify) keeps its synchronous cacheGet — no call-site changes.
+ *
+ * Failures of the SQLite layer are swallowed: cache.ts must never be the
+ * reason a request fails or the server refuses to boot.
+ */
+// explicit .ts extension: this module is imported directly by node --test,
+// which (unlike the bundler) needs the real file name
+import { dbReady, getDb } from "./db.ts";
+
 const store = new Map<string, { v: unknown; e: number }>();
 
 const MAX_ENTRIES = 800;
 
-export function cacheGet<T>(key: string): T | null {
-  const hit = store.get(key);
-  if (!hit) return null;
-  if (Date.now() > hit.e) {
-    store.delete(key);
-    return null;
+/** rows restored from SQLite at boot — second lookup layer, same shape */
+const restored = new Map<string, { v: unknown; e: number }>();
+
+let started = false;
+
+/** SQLite writes are awaited by `cached()` but never block the sync API. */
+async function persist(key: string, entry: { v: unknown; e: number }) {
+  const c = await dbReady();
+  if (!c) return;
+  try {
+    await c.client.execute({
+      sql: "INSERT OR REPLACE INTO kv (key, value, expires_at) VALUES (?, ?, ?)",
+      args: [key, JSON.stringify(entry.v), entry.e],
+    });
+  } catch {
+    /* memory-only fallback is fine */
   }
-  return hit.v as T;
+}
+
+/** Loads unexpired rows once, in the background, at first use. */
+async function primeFromDisk() {
+  const c = await dbReady();
+  if (!c) return;
+  try {
+    const rs = await c.client.execute(
+      "SELECT key, value, expires_at FROM kv WHERE expires_at > ? ORDER BY expires_at DESC",
+      [Date.now()]
+    );
+    for (const row of rs.rows) {
+      const key = String(row.key);
+      if (store.has(key) || restored.has(key)) continue;
+      try {
+        restored.set(key, {
+          v: JSON.parse(String(row.value)),
+          e: Number(row.expires_at),
+        });
+      } catch {
+        /* one corrupt row must not lose the rest */
+      }
+    }
+    const dead = await c.client.execute(
+      "DELETE FROM kv WHERE expires_at <= ?",
+      [Date.now()]
+    );
+    if (dead.rowsAffected > 0) console.log(`[db] cache: pruned ${dead.rowsAffected} expired rows`);
+  } catch {
+    /* memory-only fallback is fine */
+  }
+}
+
+function ensureStarted() {
+  if (started) return;
+  started = true;
+  void primeFromDisk();
+}
+
+export function cacheGet<T>(key: string): T | null {
+  ensureStarted();
+  const hit = store.get(key);
+  if (hit) {
+    if (Date.now() > hit.e) {
+      store.delete(key);
+      return null;
+    }
+    return hit.v as T;
+  }
+  const disk = restored.get(key);
+  if (disk) {
+    if (Date.now() > disk.e) {
+      restored.delete(key);
+      return null;
+    }
+    return disk.v as T;
+  }
+  return null;
 }
 
 export function cacheSet(key: string, value: unknown, ttlMs: number) {
+  ensureStarted();
   if (store.size > MAX_ENTRIES) {
     // evict soonest-expiring half
     const entries = [...store.entries()].sort((a, b) => a[1].e - b[1].e);
     for (let i = 0; i < entries.length / 2; i++) store.delete(entries[i][0]);
   }
-  store.set(key, { v: value, e: Date.now() + ttlMs });
+  const entry = { v: value, e: Date.now() + ttlMs };
+  store.set(key, entry);
+  restored.delete(key);
+  void persist(key, entry);
 }
 
 const inflight = new Map<string, Promise<unknown>>();

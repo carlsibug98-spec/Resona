@@ -2,6 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // native SQLite binding — must stay external so the standalone build
+  // requires it at runtime and output tracing copies the prebuilt .node
+  // binaries into .next/standalone/node_modules
+  serverExternalPackages: ["@libsql/client", "libsql"],
   /* config options here */
   // allow relocating build output (sandbox disk cleaner targets .next in the project)
   distDir: process.env.NEXT_DIST_DIR || ".next",

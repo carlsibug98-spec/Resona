@@ -4,6 +4,7 @@ import { useLibrary } from "@/stores/library";
 import { useSettings } from "@/stores/settings";
 import { HISTORY_LIMIT, parseBackupText, type ParsedBackup } from "@/lib/backup-parse";
 import { applyBackup, type RestoreMode, type Section } from "@/lib/backup-merge";
+import { pushFullLibrary } from "@/lib/library-sync";
 
 /**
  * Backup = likes, playlists and history (JSON, device-independent).
@@ -62,4 +63,6 @@ export function restoreBackup(
     HISTORY_LIMIT
   );
   useLibrary.setState(next);
+  // keep the server's SQLite copy in step with the restored library
+  void pushFullLibrary();
 }

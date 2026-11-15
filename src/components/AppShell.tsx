@@ -26,6 +26,7 @@ import { TooltipLayer } from "@/components/TooltipLayer";
 import { IconSprite } from "@/components/Icon";
 import { hueFor } from "@/lib/art";
 import { applyStarterContent } from "@/lib/seed";
+import { hydrateLibrary } from "@/lib/library-sync";
 import type { Track } from "@/lib/types";
 
 function MainView({ view }: { view: View }) {
@@ -71,6 +72,14 @@ export function AppShell() {
   // first run: seed the mockup's starter content (never overwrites real data)
   useEffect(() => {
     void applyStarterContent();
+  }, []);
+
+  // boot the library from the server's SQLite copy (merge with local, then
+  // mirror every later change). Runs after the seed so a fresh install
+  // uploads its starter content once, rather than having an empty server
+  // snapshot overwrite it.
+  useEffect(() => {
+    void hydrateLibrary();
   }, []);
 
   // the mockup's ambient hue follows the playing track
