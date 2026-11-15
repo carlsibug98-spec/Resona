@@ -7,7 +7,7 @@ import { useUi } from "@/stores/ui";
 import { Icon } from "@/components/Icon";
 import { DlButton } from "@/components/track/DlButton";
 import { MiniArt, grad } from "@/lib/art";
-import { graduate } from "@/lib/onboarding";
+import { graduate, markStep } from "@/lib/onboarding";
 import { formatDuration } from "@/lib/format";
 import type { Track } from "@/lib/types";
 
@@ -95,6 +95,7 @@ export function TrackRow({ track, index, list, contextLabel }: TrackRowProps) {
           onClick={() => {
             toggleLike(track);
             graduate();
+            if (!liked) markStep("like");
           }}
         >
           <Icon name="heart" fill={liked} />

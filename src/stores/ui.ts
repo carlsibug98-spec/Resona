@@ -37,9 +37,13 @@ interface UiState {
   nfMode: NfMode;
   modal: ModalState;
   fullPlayer: boolean;
+  /** mockup v3 queue drawer — the right-side panel with drag-to-reorder */
+  queueDrawer: boolean;
 
   setImportOpen: (v: boolean) => void;
   setFullPlayer: (v: boolean) => void;
+  setQueueDrawer: (v: boolean) => void;
+  toggleQueueDrawer: () => void;
   openPanel: (tab: PanelTab) => void;
   closePanel: () => void;
   setPanelTab: (tab: PanelTab) => void;
@@ -63,9 +67,12 @@ export const useUi = create<UiState>()((set, get) => ({
   nfMode: null,
   modal: null,
   fullPlayer: false,
+  queueDrawer: false,
 
   setImportOpen: (v) => set({ modal: v ? { kind: "import" } : null }),
   setFullPlayer: (fullPlayer) => set({ fullPlayer }),
+  setQueueDrawer: (queueDrawer) => set({ queueDrawer }),
+  toggleQueueDrawer: () => set((s) => ({ queueDrawer: !s.queueDrawer })),
   openPanel: (tab) =>
     set((s) => ({
       panel: !(s.panel && s.panelTab === tab) ? true : false,

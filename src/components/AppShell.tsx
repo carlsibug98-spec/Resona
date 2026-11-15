@@ -14,11 +14,13 @@ import { SettingsView } from "@/components/views/SettingsView";
 import { PlayerBar } from "@/components/player/PlayerBar";
 import { NowPlayingPanel } from "@/components/player/NowPlayingPanel";
 import { NowFull } from "@/components/player/NowFull";
+import { QueueDrawer } from "@/components/player/QueueDrawer";
 import { PlayerProvider } from "@/components/player/PlayerProvider";
 import { Sidebar, MobileNav } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
 import { ModalHost } from "@/components/ModalHost";
 import { ToastHost } from "@/components/ToastHost";
+import { SnackHost } from "@/components/SnackHost";
 import { IconSprite } from "@/components/Icon";
 import { hueFor } from "@/lib/art";
 import { applyStarterContent } from "@/lib/seed";
@@ -87,6 +89,8 @@ export function AppShell() {
         uiState.setNfMode(null);
       } else if (uiState.panel) {
         uiState.closePanel();
+      } else if (uiState.queueDrawer) {
+        uiState.setQueueDrawer(false);
       }
     };
     document.addEventListener("keydown", onKey);
@@ -114,8 +118,10 @@ export function AppShell() {
       <MobileNav />
       <NowPlayingPanel />
       <NowFull />
+      <QueueDrawer />
       <ModalHost />
       <ToastHost />
+      <SnackHost />
     </div>
   );
 }

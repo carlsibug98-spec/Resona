@@ -26,6 +26,8 @@ interface PlayerState {
   /** append tracks after the current queue (radio autoplay) — dedupes by videoId */
   extendQueue: (tracks: Track[]) => void;
   removeFromQueue: (index: number) => void;
+  /** drag-to-reorder (mockup v3 queue drawer): move queue[from] to queue[to] */
+  moveInQueue: (from: number, to: number) => void;
   toggle: () => void;
   /** advance to the next track; false when playback stopped at the end */
   next: () => boolean;
@@ -139,6 +141,27 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
       queue,
       index: index < s.index ? s.index - 1 : s.index,
     });
+  },
+
+  moveInQueue: (from, to) => {
+    const s = get();
+    if (from === to || from < 0 || to < 0 || from >= s.queue.length || to >= s.queue.length) return;
+    const queue = s.queue.slice();
+    const [moved] = queue.splice(from, 1);
+    queue.splice(to, 0, moved);
+    let index = s.index;
+    if (from === s.index) index = to;
+    else if (from < s.index && to >= s.index) index--;
+    else if (from > s.index && to <= s.index) index++;
+    // keep the shuffle play order coherent with the new queue layout
+    if (s.shuffle) {
+      order = shuffled(queue.length, index);
+      orderPos = 0;
+    } else {
+      order = Array.from({ length: queue.length }, (_, i) => i);
+      orderPos = index;
+    }
+    set({ queue, index });
   },
 
   toggle: () => {

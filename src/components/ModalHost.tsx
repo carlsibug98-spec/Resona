@@ -9,7 +9,7 @@ import { MiniArt } from "@/lib/art";
 import { Icon } from "@/components/Icon";
 import { removeDownloadConfirmed, startDownload } from "@/lib/useDownload";
 import { removeStarterContent } from "@/lib/seed";
-import { graduate } from "@/lib/onboarding";
+import { graduate, markStep } from "@/lib/onboarding";
 import { startRadio } from "@/lib/radio";
 import { toast } from "@/stores/toast";
 
@@ -126,6 +126,7 @@ function TrackMenuModal({
           onClick={() => {
             useLibrary.getState().toggleLike(track);
             graduate();
+            if (!liked) markStep("like");
             toast(liked ? "Removed from Liked songs" : "Added to Liked songs", !liked);
             onDone();
           }}
@@ -163,6 +164,7 @@ function TrackMenuModal({
         <button
           onClick={() => {
             onDone();
+            markStep("radio");
             void startRadio(track);
           }}
         >
@@ -296,6 +298,7 @@ function AddToPlaylistModal({ track, onDone }: { track: Track; onDone: () => voi
           onClick={() => {
             const id = createPlaylist(`My playlist ${playlists.length + 1}`, [track]);
             graduate();
+            markStep("playlist");
             toast("Playlist created", true);
             onDone();
             useUi.getState().navigate({ name: "playlist", id });
@@ -378,6 +381,7 @@ function CreatePlaylistModal({ onDone }: { onDone: () => void }) {
       onSubmit={(name) => {
         const id = useLibrary.getState().createPlaylist(name);
         graduate();
+        markStep("playlist");
         toast("Playlist created", true);
         useUi.getState().navigate({ name: "playlist", id });
       }}
@@ -523,6 +527,7 @@ function ImportModal({ onDone }: { onDone: () => void }) {
                 .getState()
                 .createPlaylist(result.name || "Imported playlist", result.tracks);
               graduate();
+              markStep("import");
               toast(`Imported ${result.tracks.length}/${result.total} tracks`, true);
               onDone();
               useUi.getState().navigate({ name: "playlist", id });

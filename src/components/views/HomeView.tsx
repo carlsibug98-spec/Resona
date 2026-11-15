@@ -12,64 +12,33 @@ import { Icon } from "@/components/Icon";
 import { SEED_MIXES, useSeedTracks, seedTrack } from "@/lib/seed";
 import { useAsyncData } from "@/lib/useFetch";
 import { toast } from "@/stores/toast";
+import { GS_STEPS, runGsStep } from "@/lib/onboarding";
 
 type Chip = "all" | "music" | "playlists";
 
-/* ───────── Getting started carousel — mockup GS_CARDS, actions wired to real features ───────── */
+/* ───────── Getting started carousel — mockup GS_CARDS, actions wired to real features.
+   Mockup v3: finished steps drop out of the carousel; when everything is
+   done the section becomes the “All set” note (tips stay in the profile menu). ───────── */
 
 function GettingStarted() {
-  const ui = useUi();
   const [page, setPage] = useState(0);
+  const doneIds = useSettings((s) => s.onboardingSteps);
+  const pending = GS_STEPS.filter((s) => !doneIds.includes(s.id));
   const perPage = 3;
-  const cards: { n: string; title: string; text: string; hue: number; run: () => void }[] = [
-    {
-      n: "01",
-      title: "Search anything",
-      text: "Find songs, artists and radios by name.",
-      hue: 30,
-      run: () => ui.navigate({ name: "search" }),
-    },
-    {
-      n: "02",
-      title: "Make a playlist",
-      text: "Put songs together for any mood or moment.",
-      hue: 150,
-      run: () => ui.openModal({ kind: "createPlaylist" }),
-    },
-    {
-      n: "03",
-      title: "Like songs",
-      text: "Tap the heart and they collect in Liked songs.",
-      hue: 345,
-      run: () => toast("Tap the heart on any track to like it"),
-    },
-    {
-      n: "04",
-      title: "Start a radio",
-      text: "Pick one artist and let the mix keep going.",
-      hue: 215,
-      run: () => toast("Open an artist to start their radio"),
-    },
-    {
-      n: "05",
-      title: "Download offline",
-      text: "Save songs to this device for listening without signal.",
-      hue: 280,
-      run: () => toast("Tap the download icon on a song to save it"),
-    },
-    {
-      n: "06",
-      title: "Import your music",
-      text: "Bring playlists over from another music app.",
-      hue: 170,
-      run: () => ui.openModal({ kind: "import" }),
-    },
-  ];
-  const pages = Math.ceil(cards.length / perPage);
+
+  if (!pending.length) {
+    return (
+      <div className="section gs">
+        <div className="empty-gs">All set. Your tips are still in the profile menu.</div>
+      </div>
+    );
+  }
+
+  const pages = Math.ceil(pending.length / perPage);
   const cur = Math.max(0, Math.min(pages - 1, page));
 
-  const chunks: (typeof cards)[] = [];
-  for (let i = 0; i < cards.length; i += perPage) chunks.push(cards.slice(i, i + perPage));
+  const chunks: (typeof pending)[] = [];
+  for (let i = 0; i < pending.length; i += perPage) chunks.push(pending.slice(i, i + perPage));
 
   return (
     <div className="section gs">
@@ -103,7 +72,7 @@ function GettingStarted() {
                   key={c.n}
                   className="gs-card"
                   style={{ "--c": `hsl(${c.hue} 70% 42%)` } as React.CSSProperties}
-                  onClick={c.run}
+                  onClick={() => runGsStep(c.id)}
                 >
                   <span className="gs-n">{c.n}</span>
                   <b>{c.title}</b>

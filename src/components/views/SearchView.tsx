@@ -8,6 +8,7 @@ import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/stores/player";
 import { useLibrary } from "@/stores/library";
 import { useSeedTracks, seedTrack, SEEDS } from "@/lib/seed";
+import { markStep } from "@/lib/onboarding";
 
 /* mockup browse tiles: genre → colour */
 const GENRES: [string, string][] = [
@@ -28,6 +29,11 @@ export function SearchView() {
   const [searched, setSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const ctrlRef = useRef<AbortController | null>(null);
+
+  // visiting search finishes the first getting-started step (mockup v3)
+  useEffect(() => {
+    markStep("search");
+  }, []);
   const player = usePlayer();
   const library = useLibrary();
   const resolved = useSeedTracks((s) => s.resolved);

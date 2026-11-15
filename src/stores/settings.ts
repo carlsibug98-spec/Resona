@@ -18,6 +18,8 @@ interface SettingsState {
   /** "new" = first-time listener: Welcome home with Getting started on
    * top (mockup NEW_USER mode). First like / playlist / download flips it. */
   onboarding: Onboarding;
+  /** mockup v3 checklist: ids of the getting-started steps already finished */
+  onboardingSteps: string[];
   lastBackupAt: number | null;
   updateCheckedAt: number | null;
 
@@ -31,12 +33,14 @@ interface SettingsState {
   setStarterContent: (v: StarterContent) => void;
   setStarterAppliedAt: (t: number | null) => void;
   setOnboarding: (v: Onboarding) => void;
+  /** record a finished checklist step; returns true when it was new */
+  markOnboardingStep: (id: string) => boolean;
   setUpdateCheckedAt: (t: number | null) => void;
 }
 
 export const useSettings = create<SettingsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       region: "Global",
       resolverInstances: "",
       showVideo: true,
@@ -46,6 +50,7 @@ export const useSettings = create<SettingsState>()(
       starterContent: "seed",
       starterAppliedAt: null,
       onboarding: "new",
+      onboardingSteps: [],
       lastBackupAt: null,
       updateCheckedAt: null,
 
@@ -59,6 +64,12 @@ export const useSettings = create<SettingsState>()(
       setStarterContent: (starterContent) => set({ starterContent }),
       setStarterAppliedAt: (starterAppliedAt) => set({ starterAppliedAt }),
       setOnboarding: (onboarding) => set({ onboarding }),
+      markOnboardingStep: (id) => {
+        const done = get().onboardingSteps;
+        if (done.includes(id)) return false;
+        set({ onboardingSteps: [...done, id] });
+        return true;
+      },
       setUpdateCheckedAt: (updateCheckedAt) => set({ updateCheckedAt }),
     }),
     {

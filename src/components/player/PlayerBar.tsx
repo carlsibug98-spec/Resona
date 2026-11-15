@@ -8,7 +8,7 @@ import { useUi } from "@/stores/ui";
 import { Icon } from "@/components/Icon";
 import { DlButton } from "@/components/track/DlButton";
 import { MiniArt } from "@/lib/art";
-import { graduate } from "@/lib/onboarding";
+import { graduate, markStep } from "@/lib/onboarding";
 import { formatDuration } from "@/lib/format";
 import { toast } from "@/stores/toast";
 import type { Track } from "@/lib/types";
@@ -60,6 +60,7 @@ export function PlayerBar() {
     if (!track) return toast("Play something first");
     toggleLike(track);
     graduate();
+    if (!liked) markStep("like");
   };
 
   return (
@@ -154,8 +155,8 @@ export function PlayerBar() {
           <Icon name="mic" />
         </button>
         <button
-          className={`iconbtn${ui.panel && ui.panelTab === "queue" ? " on" : ""}`}
-          onClick={() => ui.openPanel("queue")}
+          className={`iconbtn${ui.queueDrawer ? " on" : ""}`}
+          onClick={() => ui.toggleQueueDrawer()}
           aria-label="Queue"
           title="Queue"
         >
