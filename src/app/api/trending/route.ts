@@ -9,11 +9,13 @@ export async function GET(req: NextRequest) {
   const limitRaw = parseInt(req.nextUrl.searchParams.get("limit") || "40", 10);
   const limit = Math.min(Math.max(Number.isFinite(limitRaw) ? limitRaw : 40, 1), 100);
   try {
-    const [regions, tracks] = await Promise.all([
+    // getRegions never throws (kworb down → just ["Global"]) — only a total
+    // failure of BOTH kworb and the YouTube Charts fallback lands in the catch
+    const [regions, result] = await Promise.all([
       getRegions(),
       getTrending(region, limit),
     ]);
-    return NextResponse.json({ region, regions, tracks });
+    return NextResponse.json({ region, regions, tracks: result.tracks, source: result.source });
   } catch (e) {
     console.error("trending error:", e);
     return NextResponse.json(

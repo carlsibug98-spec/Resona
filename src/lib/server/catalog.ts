@@ -14,8 +14,8 @@ import { getTrendingDetailed, type TrendingEntry } from "./kworb";
 
 export async function getHomeCatalog(): Promise<HomeCatalog> {
   return cached("catalog:home", 1000 * 60 * 60 * 6, async () => {
-    const detailed = await getTrendingDetailed("Global", 26);
-    const music = detailed.filter((e) => isMusicEntry(e.title, e.track.artist));
+    const { entries, source } = await getTrendingDetailed("Global", 26);
+    const music = entries.filter((e) => isMusicEntry(e.title, e.track.artist));
 
     // Popular artists: group chart tracks by artist, rank by best position
     const byArtist = new Map<string, CatalogArtist>();
@@ -65,6 +65,18 @@ export async function getHomeCatalog(): Promise<HomeCatalog> {
       }
     }
 
-    return { artists, releases, newReleases };
+    return { artists, releases, newReleases, source };
+  });
+}
+
+/** Fire-and-forget warm-up: resolve the home catalog at server boot so the
+ * first visitor gets warm shelves instead of staring at "Loading what's
+ * popular worldwide…" while 26 chart titles resolve. Never throws. */
+export function warmTrending(): void {
+  void getHomeCatalog().catch((e: unknown) => {
+    console.warn(
+      "warm-up: home catalog not ready yet (%s)",
+      e instanceof Error ? e.message : e
+    );
   });
 }

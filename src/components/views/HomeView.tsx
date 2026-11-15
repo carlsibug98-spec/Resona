@@ -229,7 +229,15 @@ function ReleaseCard({ r, context }: { r: CatalogRelease; context: string }) {
  *  Artist cards load their real YouTube Music artwork through /api/artist —
  *  the shelf renders immediately with gradient covers and the photos arrive
  *  as each artist page resolves, so a slow lookup never leaves a gap. */
-function GlobalShelves({ catalog, state }: { catalog: HomeCatalog | null; state: string }) {
+function GlobalShelves({
+  catalog,
+  state,
+  onRetry,
+}: {
+  catalog: HomeCatalog | null;
+  state: string;
+  onRetry: () => void;
+}) {
   const artistIds = (catalog?.artists ?? [])
     .map((a) => a.artistId)
     .filter((x): x is string => !!x);
@@ -260,11 +268,17 @@ function GlobalShelves({ catalog, state }: { catalog: HomeCatalog | null; state:
         <p className="muted pad-note">
           Global shelves aren&apos;t available right now — your own music is still here.
         </p>
+        <button className="pill" onClick={onRetry}>Try again</button>
       </div>
     );
   }
   return (
     <>
+      {catalog.source === "charts" && (
+        <p className="muted pad-note">
+          kworb&apos;s chart site is unreachable — showing live YouTube Charts instead, same music.
+        </p>
+      )}
       {catalog.artists.length > 0 && (
         <GlobalShelf id="hs-art" title="Popular artists" showAllMsg="Full artist pages come in the next build">
           {catalog.artists.map((a) => (
@@ -369,20 +383,28 @@ export function HomeView() {
   const [chip, setChip] = useState<Chip>("all");
   const [greeting, setGreeting] = useState("Welcome back");
 
-  const catalogAsync = useAsyncData("catalog", async (signal) => {
+  // retry counters: bumping re-keys useAsyncData so a failed catalog/trending
+  // load can be retried from the UI instead of waiting out a cache TTL
+  const [catalogAttempt, setCatalogAttempt] = useState(0);
+  const [trendingAttempt, setTrendingAttempt] = useState(0);
+
+  const catalogAsync = useAsyncData(`catalog:${catalogAttempt}`, async (signal) => {
     const r = await fetch(`/api/catalog`, { signal });
+    if (!r.ok) throw new Error("catalog_failed");
     const d = await r.json();
     return {
       artists: (d.artists || []) as CatalogArtist[],
       releases: (d.releases || []) as CatalogRelease[],
       newReleases: (d.newReleases || []) as CatalogRelease[],
+      source: d.source as HomeCatalog["source"],
     } as HomeCatalog;
   });
   const catalogState = catalogAsync.state;
   const catalog = catalogState === "ready" ? catalogAsync.data : null;
 
-  const trending = useAsyncData(`trending:${region}`, async (signal) => {
+  const trending = useAsyncData(`trending:${region}:${trendingAttempt}`, async (signal) => {
     const r = await fetch(`/api/trending?region=${encodeURIComponent(region)}&limit=8`, { signal });
+    if (!r.ok) throw new Error("trending_failed");
     const d = await r.json();
     return (Array.isArray(d.tracks) ? d.tracks : []) as Track[];
   });
@@ -524,7 +546,7 @@ export function HomeView() {
         </div>
         {chips}
         <GettingStarted />
-        <GlobalShelves catalog={catalog} state={catalogState} />
+        <GlobalShelves catalog={catalog} state={catalogState} onRetry={() => setCatalogAttempt((n) => n + 1)} />
       </>
     );
   }
@@ -570,7 +592,7 @@ export function HomeView() {
         </div>
       )}
 
-      {showMusic && <GlobalShelves catalog={catalog} state={catalogState} />}
+      {showMusic && <GlobalShelves catalog={catalog} state={catalogState} onRetry={() => setCatalogAttempt((n) => n + 1)} />}
 
       {showPl && madeForYou.length > 0 && (
         <div className="section">
@@ -601,9 +623,14 @@ export function HomeView() {
           </div>
           {trendingState === "loading" && <p className="muted pad-note">Loading the chart…</p>}
           {trendingState === "error" && (
-            <p className="muted pad-note">
-              Trending isn&apos;t available right now — your own music is still here.
-            </p>
+            <div className="section" style={{ padding: 0 }}>
+              <p className="muted pad-note">
+                Trending isn&apos;t available right now — your own music is still here.
+              </p>
+              <button className="pill" onClick={() => setTrendingAttempt((n) => n + 1)}>
+                Try again
+              </button>
+            </div>
           )}
           {trendingState === "ready" && (
             <div className="tlist">

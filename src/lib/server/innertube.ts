@@ -565,3 +565,81 @@ export async function resolveMany(
   });
   return out;
 }
+
+/* ------------------------------------------------------------------ *
+ * YouTube Charts fallback (keyless, real data) — used when kworb is
+ * unreachable or resolves nothing, so the home shelves and the
+ * trending view can never go empty. browse FEmusic_charts lists the
+ * per-country chart pages ("Trending 20 …", "Top 100 Music Videos …");
+ * each page is a playlist browse full of playable videos.
+ * ------------------------------------------------------------------ */
+
+export interface ChartPage {
+  title: string;
+  browseId: string;
+}
+
+/** Pure: pick the best chart page for a worldwide feed — prefer the big
+ * "Top 100 Music Videos" / "Daily Top" pages, else the first listed. */
+export function pickChartPage(pages: ChartPage[]): ChartPage | null {
+  if (!pages.length) return null;
+  return (
+    pages.find((p) => /top\s*100/i.test(p.title)) ||
+    pages.find((p) => /daily\s*top/i.test(p.title)) ||
+    pages.find((p) => /trending/i.test(p.title)) ||
+    pages[0]
+  );
+}
+
+/** Pure: turn a chart-page browse response into playable tracks.
+ * Rows are musicResponsiveListItemRenderer (same shape as search rows). */
+export function parseChartPage(data: unknown, limit = 40): Track[] {
+  const rows = walk(data as Record<string, unknown>, "musicResponsiveListItemRenderer");
+  const tracks: Track[] = [];
+  const seen = new Set<string>();
+  for (const r of rows) {
+    let t: Track | null = null;
+    try {
+      t = parseListItem(r);
+    } catch {
+      t = null;
+    }
+    if (t && t.videoId && !seen.has(t.videoId)) {
+      seen.add(t.videoId);
+      tracks.push(t);
+      if (tracks.length >= limit) break;
+    }
+  }
+  return tracks;
+}
+
+/** Chart pages currently listed on FEmusic_charts (cached 3h). */
+export async function listChartPages(): Promise<ChartPage[]> {
+  return cached("charts:pages", 1000 * 60 * 60 * 3, async () => {
+    const data = await innertubePost("browse", { browseId: "FEmusic_charts" });
+    const items = walk(data, "musicTwoRowItemRenderer");
+    const pages: ChartPage[] = [];
+    for (const it of items) {
+      const ep = it.navigationEndpoint?.browseEndpoint;
+      const title = it.title?.runs?.map((r: { text?: string }) => r.text || "").join("") || "";
+      if (ep?.browseId && String(ep.browseId).startsWith("VL") && title) {
+        pages.push({ title, browseId: String(ep.browseId) });
+      }
+    }
+    if (!pages.length) throw new Error("charts: no chart pages listed");
+    return pages;
+  });
+}
+
+/** Trending tracks straight from YouTube Charts — the never-empty
+ * fallback for the kworb path. Throws when charts are unreachable too,
+ * so callers can show a genuine error instead of an empty shelf. */
+export async function getChartsTrending(limit = 40): Promise<Track[]> {
+  const pages = await listChartPages();
+  const page = pickChartPage(pages);
+  if (!page) throw new Error("charts: no page picked");
+  const data = await innertubePost("browse", { browseId: page.browseId });
+  const tracks = parseChartPage(data, limit);
+  if (!tracks.length) throw new Error("charts: page resolved to no tracks");
+  return tracks;
+}

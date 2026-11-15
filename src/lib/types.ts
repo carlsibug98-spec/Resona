@@ -48,6 +48,9 @@ export interface HomeCatalog {
   artists: CatalogArtist[];
   releases: CatalogRelease[];
   newReleases: CatalogRelease[];
+  /** which chart source fed the shelves — surfaced so the UI can explain
+   * itself instead of showing an inexplicably empty state */
+  source?: "kworb" | "charts";
 }
 
 export interface LyricLine {
