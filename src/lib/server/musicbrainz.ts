@@ -22,11 +22,13 @@ const UA = "Resona/1.4.0 ( https://github.com/carlsibug98-spec/Resona )";
 
 /* MusicBrainz asks anonymous clients to stay at ~1 request/second */
 let lastReq = 0;
+/* after a 503, hold off a little before the next request */
+let cooldownUntil = 0;
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 async function mbFetch(path: string): Promise<any> {
   const attempt = async (): Promise<Response> => {
-    const wait = lastReq + 1100 - Date.now();
+    const wait = Math.max(cooldownUntil, lastReq + 1100) - Date.now();
     if (wait > 0) await sleep(wait);
     lastReq = Date.now();
     return fetchWithTimeout(
@@ -38,9 +40,11 @@ async function mbFetch(path: string): Promise<any> {
     );
   };
   let res = await attempt();
-  if (res.status === 503) {
-    // rate limited — one patient retry, then give up (caller doesn't cache)
-    await sleep(2500);
+  // rate limited — patient backoff, then give up (caller doesn't cache)
+  for (const backoff of [3000, 8000]) {
+    if (res.status !== 503) break;
+    cooldownUntil = Date.now() + backoff;
+    await sleep(backoff);
     res = await attempt();
   }
   if (!res.ok) throw new Error(`musicbrainz ${res.status}`);
