@@ -5,13 +5,19 @@ import { usePlayer } from "@/stores/player";
 import { useUi } from "@/stores/ui";
 import { useSettings } from "@/stores/settings";
 import { useLyrics, lineIndexAt } from "@/lib/useLyrics";
+import { useCredits } from "@/lib/useCredits";
 import { CoverArt, MiniArt } from "@/lib/art";
 import { Icon } from "@/components/Icon";
 import { formatDuration } from "@/lib/format";
 import { toast } from "@/stores/toast";
 import type { Track } from "@/lib/types";
 
-/** full-screen now playing: art / lyrics / video modes + credits + queue card */
+/**
+ * Full-screen now playing — markup mirrors the mockup 1:1
+ * (art / lyrics / video modes, credits + next-in-queue cards, player bar).
+ * The real music video docks over the mockup's video frame; credits come
+ * from MusicBrainz.
+ */
 export function NowFull() {
   const open = useUi((s) => s.fullPlayer);
   const nfMode = useUi((s) => s.nfMode);
@@ -21,6 +27,7 @@ export function NowFull() {
   const showVideo = useSettings((s) => s.showVideo);
   const track = player.current() as Track | null;
   const lyrics = useLyrics(track, player.duration || track?.duration);
+  const credits = useCredits(track);
 
   const lines = useMemo(
     () => (lyrics.status === "synced" ? lyrics.lines : []),
@@ -30,11 +37,12 @@ export function NowFull() {
   const listRef = useRef<HTMLDivElement>(null);
   const idxRef = useRef(-2);
 
+  // new song (or fresh lyrics pane) → re-highlight from scratch
   useEffect(() => {
     idxRef.current = -2;
-  }, [track?.videoId]);
+  }, [track?.videoId, nfMode]);
 
-  // follow the active line
+  // follow the active line (mockup nfTick)
   useEffect(() => {
     if (!open || nfMode !== "lyrics" || !lines.length) return;
     const box = listRef.current;
@@ -59,6 +67,34 @@ export function NowFull() {
 
   const next = player.queue[player.index + 1] as Track | undefined;
   const toggleMode = (k: "lyrics" | "video") => setNfMode(nfMode === k ? null : k);
+
+  // the engine docks the real YouTube player over the mockup's video frame
+  const videoReal = showVideo && !!track;
+
+  // credits: MusicBrainz first, honest fallback keeps the card alive
+  const creditPersons: { name: string; role: string }[] =
+    credits.status === "ok" && credits.persons.length
+      ? [
+          ...credits.persons,
+          ...(credits.album
+            ? [
+                {
+                  name: credits.album,
+                  role: `Album${credits.year ? ` · ${credits.year}` : ""}`,
+                },
+              ]
+            : []),
+        ]
+      : track
+        ? [
+            { name: track.artist, role: "Main artist" },
+            { name: track.album || "Single", role: "Album" },
+            {
+              name: "YouTube Music",
+              role: `Source${track.views ? ` · ${track.views}` : ""}`,
+            },
+          ]
+        : [];
 
   return (
     <section
@@ -90,12 +126,22 @@ export function NowFull() {
           aria-label="Credits"
           title="Credits"
           onClick={() =>
-            document.getElementById("nfCredits")?.scrollIntoView({ behavior: "smooth", block: "center" })
+            document
+              .getElementById("nfCredits")
+              ?.scrollIntoView({ behavior: "smooth", block: "center" })
           }
         >
           <Icon name="people" />
         </button>
-        <button className="nf-tb" aria-label="Close full screen" title="Close" onClick={() => setFullPlayer(false)}>
+        <button
+          className="nf-tb"
+          aria-label="Close full screen"
+          title="Close"
+          onClick={() => {
+            setFullPlayer(false);
+            setNfMode(null);
+          }}
+        >
           <Icon name="chev-down" />
         </button>
       </header>
@@ -103,37 +149,34 @@ export function NowFull() {
       <div className="nf-body">
         <div className="nf-hero">
           <CoverArt track={track} className="nf-art" hue={track ? undefined : 0} />
-          {nfMode === "video" && !showVideo && (
-            <div className="nf-video">
-              Music video preview
-              <br />
-              <span style={{ fontSize: 12, marginTop: 8, display: "block" }}>
-                Enable “Show video” in Settings → Playback to watch the real video here.
-              </span>
-            </div>
-          )}
-          {nfMode === "lyrics" && (
-            <div className="nf-lyrics" ref={listRef}>
-              {lines.length ? (
-                lines.map((l, i) => (
-                  <button
-                    key={i}
-                    className="nf-ly"
-                    onClick={() => {
-                      player.seek(l.t);
-                      idxRef.current = -2;
-                    }}
-                  >
-                    {l.text || "♪"}
-                  </button>
-                ))
-              ) : (
-                <p className="nf-muted">
-                  {lyrics.status === "loading" ? "Looking for lyrics…" : "No lyrics for this track yet."}
-                </p>
-              )}
-            </div>
-          )}
+          <div
+            className={`nf-video${videoReal ? " nf-video-real" : ""}`}
+            data-nf-video-frame=""
+          >
+            Music video preview
+          </div>
+          <div className="nf-lyrics" ref={listRef}>
+            {lines.length ? (
+              lines.map((l, i) => (
+                <button
+                  key={i}
+                  className="nf-ly"
+                  onClick={() => {
+                    player.seek(l.t);
+                    idxRef.current = -2;
+                  }}
+                >
+                  {l.text || "♪"}
+                </button>
+              ))
+            ) : (
+              <p className="nf-muted">
+                {lyrics.status === "loading"
+                  ? "Looking for lyrics…"
+                  : "No lyrics for this track yet."}
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="nf-meta">
@@ -148,18 +191,15 @@ export function NowFull() {
             </header>
             {track ? (
               <>
-                <div className="nf-person">
-                  <b>{track.artist}</b>
-                  <span>Main artist</span>
-                </div>
-                <div className="nf-person">
-                  <b>{track.album || "Single"}</b>
-                  <span>Album</span>
-                </div>
-                <div className="nf-person">
-                  <b>YouTube Music</b>
-                  <span>Source{track.views ? ` · ${track.views} plays` : ""}</span>
-                </div>
+                {credits.status === "loading" && (
+                  <p className="nf-muted">Looking up credits…</p>
+                )}
+                {creditPersons.map((p) => (
+                  <div className="nf-person" key={`${p.name}-${p.role}`}>
+                    <b>{p.name}</b>
+                    <span>{p.role}</span>
+                  </div>
+                ))}
               </>
             ) : (
               <p className="nf-muted">Nothing playing.</p>
@@ -178,7 +218,9 @@ export function NowFull() {
                 </div>
               </div>
             ) : (
-              <p className="nf-muted">Nothing queued after this.</p>
+              <p className="nf-muted">
+                {player.queue.length ? "Nothing queued after this." : "Nothing playing."}
+              </p>
             )}
           </section>
         </div>
@@ -196,11 +238,13 @@ export function NowFull() {
           <div className="nf-btns">
             <button
               className="nf-tb"
+              aria-pressed={player.shuffle}
+              aria-label="Shuffle"
+              title={player.shuffle ? "Shuffle on" : "Shuffle off"}
               onClick={() => {
                 player.toggleShuffle();
                 toast(player.shuffle ? "Shuffle on" : "Shuffle off");
               }}
-              aria-label="Shuffle"
             >
               <Icon name="shuffle" />
             </button>
@@ -215,9 +259,22 @@ export function NowFull() {
             </button>
             <button
               className="nf-tb"
-              onClick={() => player.cycleRepeat()}
+              aria-pressed={player.repeat !== "off"}
               aria-label="Repeat"
-              style={player.repeat !== "off" ? { color: "var(--brand2)" } : undefined}
+              title={
+                player.repeat === "one"
+                  ? "Repeat one"
+                  : player.repeat === "all"
+                    ? "Repeat all"
+                    : "Repeat off"
+              }
+              onClick={() => {
+                player.cycleRepeat();
+                const mode = usePlayer.getState().repeat;
+                toast(
+                  mode === "all" ? "Repeat: all" : mode === "one" ? "Repeat: one" : "Repeat off"
+                );
+              }}
             >
               <Icon name="repeat" />
             </button>

@@ -231,6 +231,74 @@ export async function searchOne(
   }
 }
 
+/**
+ * Song radio: the YouTube Music mix ("RDAMVM…") for a seed video —
+ * the queue that auto-continues from it. Deduped, seed excluded,
+ * cached one hour.
+ */
+export async function radioFor(videoId: string): Promise<Track[]> {
+  return cached(`radio:${videoId}`, 1000 * 60 * 60, async () => {
+    const data = await innertubePost("next", {
+      videoId,
+      playlistId: `RDAMVM${videoId}`,
+    });
+    const panels = walk(data, "playlistPanelVideoRenderer");
+    const tracks: Track[] = [];
+    const seen = new Set<string>([videoId]);
+    for (const p of panels) {
+      const vid: string | undefined = p.videoId;
+      if (!vid || seen.has(vid)) continue;
+      const title: string =
+        p.title?.runs?.map((r: any) => r.text || "").join("") ||
+        p.title?.simpleText ||
+        "";
+      if (!title) continue;
+
+      // byline runs: [artist] • [views] • [album/title…] — artist links to a channel
+      const runs: any[] = [
+        ...(p.shortBylineText?.runs || []),
+        ...(p.longBylineText?.runs || []),
+      ];
+      let artist = "";
+      let artistId: string | undefined;
+      for (const run of runs) {
+        const bid = run?.navigationEndpoint?.browseEndpoint?.browseId;
+        if (bid && /^UC/.test(bid)) {
+          artistId = artistId || bid;
+          if (!artist) artist = String(run.text || "").trim();
+        }
+      }
+      if (!artist) {
+        for (const run of runs) {
+          const t = String(run?.text || "").trim();
+          if (t && t !== "•" && !/view|play|song/i.test(t)) {
+            artist = t;
+            break;
+          }
+        }
+      }
+
+      const len: string = (
+        p.lengthText?.simpleText ||
+        p.lengthText?.runs?.map((r: any) => r.text || "").join("") ||
+        ""
+      ).trim();
+
+      seen.add(vid);
+      tracks.push({
+        videoId: vid,
+        title,
+        artist: artist || "Unknown artist",
+        artistId,
+        duration: parseDuration(len),
+        durationText: len || undefined,
+        thumb: thumbFor(vid),
+      });
+    }
+    return tracks.slice(0, 40);
+  });
+}
+
 function parseTwoRow(r: any): AlbumCard | null {
   try {
     const nav =

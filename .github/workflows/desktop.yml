@@ -1,4 +1,4 @@
-name: Build Windows installer
+name: Build desktop apps
 
 on:
   workflow_dispatch:
@@ -10,11 +10,37 @@ on:
       - "scripts/stage-desktop.js"
       - "next.config.ts"
       - "package.json"
-      - "package-lock.json"
 
 jobs:
-  build-exe:
-    runs-on: windows-latest
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows installer
+            os: windows-latest
+            builder: --win --x64
+            artifact: Resona-Windows-Installer
+            paths: desktop/dist/Resona-Setup-*.exe
+          - name: macOS dmg
+            os: macos-latest
+            builder: --mac --x64 --arm64
+            artifact: Resona-macOS
+            paths: |
+              desktop/dist/*.dmg
+              desktop/dist/*.dmg.blockmap
+              desktop/dist/latest-mac.yml
+          - name: Linux AppImage + deb
+            os: ubuntu-latest
+            builder: --linux --x64
+            artifact: Resona-Linux
+            paths: |
+              desktop/dist/*.AppImage
+              desktop/dist/*.AppImage.blockmap
+              desktop/dist/*.deb
+              desktop/dist/latest-linux.yml
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -24,11 +50,11 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Install desktop packaging tools
         working-directory: desktop
-        run: npm install --no-audit --no-fund
+        run: npm install
 
       - name: Build web app (standalone)
         run: npx next build
@@ -39,18 +65,19 @@ jobs:
       - name: Stage desktop bundle
         run: node scripts/stage-desktop.js
 
-      - name: Build Windows installer
+      # Windows: set WINDOWS_CSC_LINK (base64 PFX) + WINDOWS_CSC_KEY_PASSWORD
+      # as repo secrets and electron-builder signs the installer automatically.
+      # Without them the build stays unsigned (SmartScreen warning, see SIGNING.md).
+      - name: Build desktop app
         working-directory: desktop
         env:
-          EP_NPM_VERSION: npm
-        run: npx electron-builder --win --x64 --publish never
+          CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
+        run: npx electron-builder ${{ matrix.builder }}
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Resona-Windows-Installer
-          path: |
-            desktop/dist/Resona-Setup-*.exe
-            desktop/dist/latest.yml
-            desktop/dist/*.blockmap
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.paths }}
           if-no-files-found: error
           compression-level: 0

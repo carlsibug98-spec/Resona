@@ -27,7 +27,8 @@ export type IconName =
   | "video"
   | "people"
   | "expand"
-  | "bars";
+  | "bars"
+  | "radio";
 
 /**
  * Mockup icon set — the same 24×24 symbols, drawn through the shared
@@ -78,6 +79,7 @@ const DEFS = `
 <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/></symbol>
 <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
 <symbol id="i-bars" viewBox="0 0 24 24"><path d="M5 19V11M12 19V5M19 19v-6"/></symbol>
+<symbol id="i-radio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.8"/><path d="M8.6 15.4a5 5 0 0 1 0-6.8M15.4 8.6a5 5 0 0 1 0 6.8M5.9 18.1a8.8 8.8 0 0 1 0-12.2M18.1 5.9a8.8 8.8 0 0 1 0 12.2"/></symbol>
 `;
 
 /** mounted once in AppShell — every <use> resolves against it */

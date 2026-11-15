@@ -23,9 +23,12 @@ interface PlayerState {
   playTrack: (track: Track, label?: string) => void;
   playFromQueue: (index: number) => void;
   enqueue: (track: Track, next?: boolean) => void;
+  /** append tracks after the current queue (radio autoplay) — dedupes by videoId */
+  extendQueue: (tracks: Track[]) => void;
   removeFromQueue: (index: number) => void;
   toggle: () => void;
-  next: () => void;
+  /** advance to the next track; false when playback stopped at the end */
+  next: () => boolean;
   prev: () => void;
   seek: (sec: number) => void;
   setVolume: (v: number) => void;
@@ -108,6 +111,26 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     set({ queue });
   },
 
+  extendQueue: (tracks) => {
+    const s = get();
+    if (!tracks.length || !s.queue.length) return;
+    const have = new Set(s.queue.map((t) => t.videoId));
+    const add = tracks.filter((t) => !have.has(t.videoId));
+    if (!add.length) return;
+    const queue = [...s.queue, ...add];
+    if (s.shuffle) {
+      // shuffle the additions once, then append them to the play order
+      for (let i = add.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [add[i], add[j]] = [add[j], add[i]];
+      }
+      order = [...order, ...add.map((_, i) => s.queue.length + i)];
+    } else {
+      order = Array.from({ length: queue.length }, (_, i) => i);
+    }
+    set({ queue });
+  },
+
   removeFromQueue: (index) => {
     const s = get();
     if (index === s.index) return;
@@ -136,26 +159,32 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
 
   next: () => {
     const s = get();
-    if (!s.queue.length) return;
+    if (!s.queue.length) return false;
     let idx: number;
     if (s.repeat === "one") {
       idx = s.index;
     } else {
-      orderPos += 1;
-      if (orderPos >= order.length) {
-        if (s.repeat === "all") {
+      const nextPos = orderPos + 1;
+      if (nextPos >= order.length) {
+        if (s.repeat === "all" && order.length) {
           orderPos = 0;
+          idx = order[0];
         } else {
+          // end of queue — stop here; orderPos stays valid so radio
+          // autoplay can extend the queue and call next() again
           engine.pause();
           set({ isPlaying: false, position: 0 });
-          return;
+          return false;
         }
+      } else {
+        orderPos = nextPos;
+        idx = order[orderPos] ?? s.index + 1;
       }
-      idx = order[orderPos] ?? s.index + 1;
     }
     const safe = Math.max(0, Math.min(idx, s.queue.length - 1));
     set({ index: safe, position: 0, duration: s.queue[safe].duration || 0 });
     engine.load(s.queue[safe]).catch(() => {});
+    return true;
   },
 
   prev: () => {

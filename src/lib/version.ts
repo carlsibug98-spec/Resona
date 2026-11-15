@@ -3,7 +3,7 @@
  * APP_VERSION is the single source of truth for /api/version; keep it in
  * sync with package.json and desktop/package.json when cutting a release.
  */
-export const APP_VERSION = "1.3.0";
+export const APP_VERSION = "1.4.0";
 
 export const RELEASES_URL = "https://github.com/carlsibug98-spec/Resona/releases";
 

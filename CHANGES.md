@@ -1,5 +1,61 @@
 # Changes
 
+## v1.4.0 — real video, real credits, radio, macOS & Linux (2026-11-15)
+
+The full-screen now playing view was rebuilt against the mockup once more and
+now delivers everything the mockup promised — with real data behind it.
+
+### Full-screen now playing (the focus of this release)
+
+- **Real music videos**: the Video button now plays the song's actual music
+  video inside the app. Playback hands over to the visible YouTube player at
+  the current position and hands back to audio when you leave video mode —
+  seek, shuffle, repeat, next/previous and the queue all keep working either
+  way. The mockup's 9:16 "Music video preview" panel widens to the video's
+  16:9 shape while a real video is docked, and returns to the exact mockup
+  look when video is unavailable or turned off. If YouTube refuses a video
+  (blocked embed), Resona drops back to audio with a toast instead of
+  skipping the song.
+- **Real credits**: the Credits card is filled from MusicBrainz — main artist,
+  performers, writers (composer/lyricist via the linked work), producers,
+  engineers, plus album and year. Requests are throttled to MusicBrainz's
+  1/sec etiquette, cached 24 h (hits), 30 min (not found) and never cached
+  when the lookup itself fails. Unknown tracks keep the honest fallback card
+  (artist · album · source/plays).
+- **Exactness pass**: all three hero panes (art / video / lyrics) render like
+  the mockup with CSS-only visibility switching; shuffle and repeat buttons
+  use the mockup's own pressed styling plus toasts; lyrics re-highlight from
+  scratch when the pane is opened; the mockup's aria-pressed states, titles
+  and close behaviours are matched 1:1.
+
+### Radio / autoplay
+
+- **Start radio** in any track's ⋯ menu: the YouTube Music mix for that song
+  becomes your queue (up to 40 tracks, deduped, seed first).
+- **Autoplay radio**: when the queue runs out, Resona keeps playing similar
+  songs automatically (Settings → Playback → Autoplay radio, on by default;
+  honours shuffle and repeat, dedupes against the queue).
+
+### Desktop & distribution
+
+- **macOS builds**: `.dmg` for Apple Silicon and Intel (unsigned —
+  right-click → Open on first launch).
+- **Linux builds**: `.AppImage` and `.deb` (x64).
+- yt-dlp is bundled per-platform (Windows `yt-dlp.exe`, macOS universal
+  `yt-dlp_macos`, Linux `yt-dlp`) so direct streams work out of the box.
+- **Code-signing pipeline**: add `WINDOWS_CSC_LINK` + `WINDOWS_CSC_KEY_PASSWORD`
+  repo secrets and CI signs the Windows installer automatically — no secret,
+  no change. `SIGNING.md` documents both routes (free SignPath Foundation for
+  open source, or Certum's open-source certificate from ~€25/49).
+- CI builds all three platforms in one matrix; artifacts per OS.
+
+### Housekeeping
+
+- Settings migration: `showVideo` flips on once for pre-1.4 installs (the
+  button now plays real video); `autoplayRadio` added.
+- Version bump 1.3.0 → 1.4.0 (app, desktop, website, update checker).
+- 59 unit tests pass; tsc and eslint clean.
+
 ## v1.3.0 — mockup implementation release (2026-11-14)
 
 The approved UI mockup (`resona-mockup (5).html`) is now the app. Every screen was

@@ -49,6 +49,9 @@ export class PlayerEngine {
 
   currentVideoId: string | null = null;
   currentIsAudio = false;
+  private currentTrack: Track | null = null;
+  private videoMode = false;
+  private wasAudioBeforeVideo = true;
 
   onState: Listener = () => {};
   onEnded: () => void = () => {};
@@ -182,6 +185,20 @@ export class PlayerEngine {
           },
           onError: (e: any) => {
             const code = e?.data;
+            // while the real video is on screen: embedded playback refused
+            // for this video/environment — drop back to audio instead of skipping
+            if (
+              this.videoMode &&
+              (code === 2 || code === 5 || code === 100 || code === 101 || code === 150 || code === 153)
+            ) {
+              const pos = this.getState().position;
+              this.videoMode = false;
+              this.onError("This video can't play here — back to audio");
+              if (this.wasAudioBeforeVideo && this.currentTrack) {
+                void this.load(this.currentTrack, pos);
+              }
+              return;
+            }
             if (code === 153 || code === 2 || code === 5) {
               this.onError(
                 "YouTube refused playback in this browser environment — try opening the app in a normal browser tab"
@@ -202,7 +219,27 @@ export class PlayerEngine {
   }
 
   async load(track: Track, startSec = 0): Promise<void> {
+    this.currentTrack = track;
     this.currentVideoId = track.videoId;
+
+    // video mode active: keep the visible YouTube player as the source
+    if (this.videoMode) {
+      this.currentIsAudio = false;
+      this.stopAudio();
+      this.startTick();
+      try {
+        const yt = await this.ensureYT();
+        yt.loadVideoById({
+          videoId: track.videoId,
+          startSeconds: Math.floor(startSec),
+        });
+        yt.playVideo();
+      } catch {
+        /* ensureYT onError path reports and the store skips forward */
+      }
+      return;
+    }
+
     // downloaded copy first — enables offline listening
     const local = await idbGetAudio(track.videoId).catch(() => null);
     if (local) {
@@ -248,6 +285,52 @@ export class PlayerEngine {
       startSeconds: Math.floor(startSec),
     });
     yt.playVideo();
+  }
+
+  getVideoMode(): boolean {
+    return this.videoMode;
+  }
+
+  /**
+   * Real music video: hand playback to the YouTube IFrame player at the
+   * current position. Falls back to audio when the embed can't load.
+   */
+  async enterVideoMode(): Promise<void> {
+    if (this.videoMode || !this.currentTrack || !this.currentVideoId) return;
+    this.videoMode = true;
+    this.wasAudioBeforeVideo = this.currentIsAudio;
+    const pos = this.getState().position;
+    this.stopAudio();
+    this.currentIsAudio = false;
+    this.startTick();
+    try {
+      const yt = await this.ensureYT();
+      // already playing this exact video (audio path failed earlier)? just show it
+      if (yt.getVideoId?.() === this.currentVideoId && yt.getPlayerState?.() === 1) {
+        return;
+      }
+      yt.loadVideoById({
+        videoId: this.currentVideoId,
+        startSeconds: Math.floor(pos),
+      });
+      yt.playVideo();
+    } catch {
+      this.videoMode = false;
+      this.onError("Video unavailable right now — continuing with audio");
+      if (this.currentTrack) await this.load(this.currentTrack, pos);
+    }
+  }
+
+  /**
+   * Leave video mode: resume audio at the video's position. When audio
+   * never worked for this track the hidden YouTube player keeps playing.
+   */
+  async exitVideoMode(): Promise<void> {
+    if (!this.videoMode) return;
+    this.videoMode = false;
+    if (!this.wasAudioBeforeVideo) return;
+    const pos = this.getState().position;
+    if (this.currentTrack) await this.load(this.currentTrack, pos);
   }
 
   async play(): Promise<void> {

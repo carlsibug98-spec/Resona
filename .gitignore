@@ -61,8 +61,3 @@ server.log
 /db/
 *.exe
 *.blockmap
-
-# sandbox-only artifacts
-/examples/
-/tool-results/
-.zscripts/dev.pid

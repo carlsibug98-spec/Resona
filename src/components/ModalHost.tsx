@@ -9,6 +9,7 @@ import { MiniArt } from "@/lib/art";
 import { Icon } from "@/components/Icon";
 import { removeDownloadConfirmed, startDownload } from "@/lib/useDownload";
 import { removeStarterContent } from "@/lib/seed";
+import { startRadio } from "@/lib/radio";
 import { toast } from "@/stores/toast";
 
 /**
@@ -156,6 +157,14 @@ function TrackMenuModal({
           }}
         >
           <Icon name="queue" /> Add to queue
+        </button>
+        <button
+          onClick={() => {
+            onDone();
+            void startRadio(track);
+          }}
+        >
+          <Icon name="radio" /> Start radio
         </button>
         <button
           onClick={() => {

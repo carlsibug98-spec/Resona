@@ -1,56 +1,54 @@
 #!/usr/bin/env bash
-# Publishes a Resona release to GitHub.
-#
-#   ./scripts/gh-release.sh 1.3.0
-#
-# Requires: the installer built at desktop/dist/Resona-Setup-<version>.exe
-# and a token with repo access in /tmp/.ghtoken (never echoed).
-#
-# IMPORTANT: latest.yml must be uploaded — it is the feed the desktop app's
-# auto-updater reads to notice and download new versions.
+# Creates GitHub Release v1.2.0 for carlsibug98-spec/Resona and uploads assets.
+# Token is read from /tmp/.ghtoken (never echoed).
 set -euo pipefail
-
-VERSION="${1:?usage: gh-release.sh <version> e.g. gh-release.sh 1.3.0}"
 TOKEN=$(cat /tmp/.ghtoken)
 REPO="carlsibug98-spec/Resona"
 API="https://api.github.com/repos/$REPO"
 AUTH="Authorization: Bearer $TOKEN"
 
-EXE="desktop/dist/Resona-Setup-$VERSION.exe"
-LATEST_YML="desktop/dist/latest.yml"
-[ -f "$EXE" ] || { echo "missing $EXE — build it first (npx electron-builder --win nsis)"; exit 1; }
+BODY=$(cat <<'MD'
+## What's new in v1.2.0
 
-BODY=$(cat <<MD
-## What's new in v$VERSION
-
-- **Downloads that just work** — the app now keeps its own downloader (yt-dlp) up to date automatically, with a live fallback fleet of community instances (approach ported from OpenSpot).
-- **Self-updating desktop app** — on launch it checks GitHub releases, downloads any newer build in the background, and installs it on restart. No more manual reinstalling.
-- **Honest download UI** — the button disappears on servers that truly can't download, shows setup progress on first run, and removing an offline copy now asks first.
-- Partial restore with merge/replace, mobile now-playing screen, and all earlier v1.2.x fixes.
+- **Brand-new Home screen** modeled on the Spotify desktop experience — quick-access tiles (Liked Songs, Chill Hits, Focus Flow...), *Made For You* and *Recently played* shelves, All/Music/Podcasts filter chips
+- **Two-panel sidebar** — navigation plus a persistent library panel with Liked Songs and recent playlists
+- **Full-width player bar** — shuffle, repeat, seekable progress, volume, like/unlike, context info
+- **Performance fix** — trending data is cached server-side for 6 h; the home screen now opens instantly
+- **Fixes** — build errors resolved, lyrics view and import flow polished
 
 ## Install (Windows 10 / 11, 64-bit)
 
-1. Download \`Resona-Setup-$VERSION.exe\` below
+1. Download `Resona-Setup-1.2.0.exe` below (~155 MB)
 2. If SmartScreen shows a warning: click **More info → Run anyway** (the installer is not code-signed yet)
 3. Follow the setup wizard — a desktop shortcut is created automatically
 
-Updating from v1.2.x: install this once over your current copy (your library and offline music are kept). From v1.3.0 on, Resona updates itself automatically - future releases install on restart.
+**Verify (SHA-256):**
+`90e0a9327578e05147d6f9b437369c67553c4bdf00febf0a9ce17066f1682e84`
+
+## Files
+
+| File | Purpose |
+| --- | --- |
+| `Resona-Setup-1.2.0.exe` | Windows installer |
+| `INSTALL-GUIDE.txt` | Step-by-step install & troubleshooting guide |
+
+Resona is **free forever**, MIT-licensed, no account required. It is not affiliated with YouTube, Google or Spotify.
 MD
 )
 
-python3 - "$BODY" "$VERSION" <<'PY' > /tmp/release.json
+python3 - "$BODY" <<'PY' > /tmp/release.json
 import json, sys
 print(json.dumps({
-    "tag_name": "v" + sys.argv[2],
-    "target_commitish": "v" + sys.argv[2],
-    "name": f"Resona v{sys.argv[2]}",
+    "tag_name": "v1.2.0",
+    "target_commitish": "main",
+    "name": "Resona v1.2.0 — Spotify-style Home",
     "body": sys.argv[1],
     "draft": False,
     "prerelease": False,
 }))
 PY
 
-echo "== creating release v$VERSION =="
+echo "== creating release =="
 RESP=$(curl -s -X POST -H "$AUTH" -H "Accept: application/vnd.github+json" "$API/releases" -d @/tmp/release.json)
 echo "$RESP" | python3 -c "
 import json,sys
@@ -63,7 +61,7 @@ else:
 cat /tmp/rel_info.txt
 if grep -q ERR /tmp/rel_info.txt; then exit 1; fi
 RELID=$(grep -o 'release id: [0-9]*' /tmp/rel_info.txt | grep -o '[0-9]*$')
-UPURL=$(grep -o 'upload_url: .*' /tmp/rel_info.txt | cut -d ' ' -f2)
+UPURL=$(grep -o 'upload_url: .*' /tmp/rel_info.txt | cut -d' ' -f2)
 
 upload () {
   local f="$1" name="$2" ctype="$3"
@@ -83,23 +81,7 @@ else:
 "
 }
 
-upload "$EXE" "Resona-Setup-$VERSION.exe" "application/octet-stream"
+upload "/home/z/my-project/download/Resona-Setup-1.2.0.exe" "Resona-Setup-1.2.0.exe" "application/octet-stream"
+upload "/home/z/my-project/download/INSTALL-GUIDE.txt" "INSTALL-GUIDE.txt" "text/plain"
 
-# differential update map (optional - full download works without it)
-if [ -f "desktop/dist/Resona-Setup-$VERSION.exe.blockmap" ]; then
-  upload "desktop/dist/Resona-Setup-$VERSION.exe.blockmap" "Resona-Setup-$VERSION.exe.blockmap" "application/octet-stream"
-fi
-
-# the auto-updater feed — without this, installed apps never see the update
-if [ -f "$LATEST_YML" ]; then
-  upload "$LATEST_YML" "latest.yml" "text/yaml"
-else
-  echo "WARNING: $LATEST_YML not found — the in-app auto-updater will NOT see this release."
-  echo "         Build with the publish config present so electron-builder emits latest.yml."
-fi
-
-if [ -f "download/INSTALL-GUIDE.txt" ]; then
-  upload "download/INSTALL-GUIDE.txt" "INSTALL-GUIDE.txt" "text/plain"
-fi
-
-echo "== release v$VERSION done =="
+echo "== release done =="

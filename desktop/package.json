@@ -1,14 +1,11 @@
 {
   "name": "resona",
   "productName": "Resona",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Resona \u2014 free music streaming desktop app",
   "main": "main.js",
   "author": "Resona",
   "license": "MIT",
-  "dependencies": {
-    "electron-updater": "^6.6.2"
-  },
   "devDependencies": {
     "electron": "^45.3.2",
     "electron-builder": "^26.18.0",
@@ -26,19 +23,10 @@
       "package.json"
     ],
     "afterPack": "afterpack.cjs",
-    "publish": {
-      "provider": "github",
-      "owner": "carlsibug98-spec",
-      "repo": "Resona"
-    },
     "extraResources": [
       {
         "from": "staging/server",
         "to": "server"
-      },
-      {
-        "from": "staging/yt-dlp.exe",
-        "to": "yt-dlp.exe"
       }
     ],
     "win": {
@@ -51,13 +39,55 @@
         }
       ],
       "icon": "build/icon.png",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": false,
+      "extraResources": [
+        {
+          "from": "staging/yt-dlp.exe",
+          "to": "yt-dlp.exe"
+        }
+      ]
     },
     "nsis": {
       "oneClick": true,
       "perMachine": false,
       "deleteAppDataOnUninstall": false,
       "artifactName": "Resona-Setup-${version}.exe"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.music",
+      "icon": "build/icon.png",
+      "artifactName": "Resona-${version}-${arch}.dmg",
+      "identity": null,
+      "extraResources": [
+        {
+          "from": "staging/yt-dlp",
+          "to": "yt-dlp"
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "AudioVideo",
+      "icon": "build/icon.png",
+      "artifactName": "Resona-${version}.${ext}",
+      "extraResources": [
+        {
+          "from": "staging/yt-dlp",
+          "to": "yt-dlp"
+        }
+      ]
     }
   }
 }

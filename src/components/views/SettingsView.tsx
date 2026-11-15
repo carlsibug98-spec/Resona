@@ -113,7 +113,10 @@ export function SettingsView() {
 
         <div className="sec">
           <h3>Playback</h3>
-          <p>Video plays in the full-screen now playing view.</p>
+          <p>
+            The video button in full-screen now playing plays the song's real
+            music video. Turn it off to keep full-screen audio-only.
+          </p>
           <div className="seg">
             <button className={!settings.showVideo ? "on" : ""} onClick={() => settings.setShowVideo(false)}>
               Audio only
@@ -121,6 +124,25 @@ export function SettingsView() {
             <button className={settings.showVideo ? "on" : ""} onClick={() => settings.setShowVideo(true)}>
               Show video
             </button>
+          </div>
+          <div className="status" style={{ marginTop: 14 }}>
+            <span>
+              <b>Autoplay radio</b>&nbsp;&nbsp;When the queue ends, keep playing similar songs
+            </span>
+            <span className="grp">
+              <button
+                className={`btn2 ghost${settings.autoplayRadio ? " on" : ""}`}
+                onClick={() => settings.setAutoplayRadio(true)}
+              >
+                On
+              </button>
+              <button
+                className={`btn2 ghost${!settings.autoplayRadio ? " on" : ""}`}
+                onClick={() => settings.setAutoplayRadio(false)}
+              >
+                Off
+              </button>
+            </span>
           </div>
         </div>
 

@@ -52,25 +52,30 @@ if (fs.existsSync(nm)) {
   fs.renameSync(nm, deps);
 }
 
-// optional: bundle yt-dlp.exe so streams work out of the box on Windows
-const ytdlp = path.join(staging, "yt-dlp.exe");
-if (!fs.existsSync(ytdlp) && process.platform !== "win32") {
+// optional: bundle yt-dlp so direct streams work out of the box
+// (Windows: yt-dlp.exe · macOS: yt-dlp_macos · Linux: yt-dlp)
+const isWin = process.platform === "win32";
+const isMac = process.platform === "darwin";
+const ytdlpName = isWin ? "yt-dlp.exe" : "yt-dlp";
+const ytdlpUrl = isWin
+  ? "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
+  : isMac
+    ? "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos"
+    : "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp";
+const ytdlp = path.join(staging, ytdlpName);
+if (!fs.existsSync(ytdlp)) {
   try {
-    execFileSync("curl", [
-      "-sL", "-o", ytdlp, "--max-time", "180",
-      "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe",
-    ]);
+    if (isWin) {
+      execFileSync("powershell", [
+        "-Command",
+        `Invoke-WebRequest -Uri "${ytdlpUrl}" -OutFile "${ytdlp}"`,
+      ]);
+    } else {
+      execFileSync("curl", ["-sL", "-o", ytdlp, "--max-time", "180", ytdlpUrl]);
+      fs.chmodSync(ytdlp, 0o755);
+    }
   } catch {
-    console.warn("yt-dlp.exe download failed — continuing without it.");
-  }
-} else if (process.platform === "win32" && !fs.existsSync(ytdlp)) {
-  try {
-    execFileSync("powershell", [
-      "-Command",
-      `Invoke-WebRequest -Uri "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" -OutFile "${ytdlp}"`,
-    ]);
-  } catch {
-    console.warn("yt-dlp.exe download failed — continuing without it.");
+    console.warn(`download of ${ytdlpName} failed — continuing without it.`);
   }
 }
 

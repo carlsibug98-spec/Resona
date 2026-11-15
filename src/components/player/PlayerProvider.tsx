@@ -9,6 +9,29 @@ import { useUi } from "@/stores/ui";
 import { toast } from "@/stores/toast";
 import type { Track } from "@/lib/types";
 
+/**
+ * When the queue runs out, keep the music going: pull the song radio for
+ * the last track and continue. Toggleable in Settings → Playback.
+ */
+async function maybeStartRadio() {
+  const settings = useSettings.getState();
+  if (!settings.autoplayRadio) return;
+  const p = usePlayer.getState();
+  const seed = p.current();
+  if (!seed) return;
+  try {
+    const res = await fetch(`/api/radio?videoId=${encodeURIComponent(seed.videoId)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const tracks: Track[] = Array.isArray(data?.tracks) ? data.tracks : [];
+    if (!tracks.length) return;
+    usePlayer.getState().extendQueue(tracks);
+    usePlayer.getState().next();
+  } catch {
+    /* offline or rate-limited — playback stays stopped */
+  }
+}
+
 export function PlayerProvider() {
   const hostRef = useRef<HTMLDivElement>(null);
   const bound = useRef(false);
@@ -32,9 +55,10 @@ export function PlayerProvider() {
       if (p.repeat === "one") {
         engine.seek(0);
         engine.play();
-      } else {
-        p.next();
+        return;
       }
+      if (p.next()) return;
+      void maybeStartRadio();
     };
     engine.onError = (msg) => {
       toast(msg);
@@ -110,6 +134,37 @@ export function PlayerProvider() {
   const nfMode = useUi((s) => s.nfMode);
   // the real YouTube video docks into the mockup's video slot
   const visibleVideo = showVideo && fullPlayer && nfMode === "video" && !!track;
+
+  // hand playback to the visible video (and back to audio when leaving)
+  useEffect(() => {
+    if (visibleVideo) void engine.enterVideoMode();
+    else void engine.exitVideoMode();
+  }, [visibleVideo]);
+
+  // keep the persistent iframe glued to the mockup's video frame —
+  // the frame lives in a scrollable body, so track it every frame
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host || !visibleVideo) return;
+    let raf = 0;
+    const sync = () => {
+      const frame = document.querySelector<HTMLElement>("[data-nf-video-frame]");
+      if (frame) {
+        const r = frame.getBoundingClientRect();
+        host.style.left = `${r.left}px`;
+        host.style.top = `${r.top}px`;
+        host.style.width = `${r.width}px`;
+        host.style.height = `${r.height}px`;
+        host.classList.add("docked");
+      }
+      raf = requestAnimationFrame(sync);
+    };
+    raf = requestAnimationFrame(sync);
+    return () => {
+      cancelAnimationFrame(raf);
+      host.classList.remove("docked");
+    };
+  }, [visibleVideo]);
 
   return (
     <div
