@@ -3,10 +3,53 @@
 import { useEffect, useState } from "react";
 import { useUi, type View } from "@/stores/ui";
 import { useLibrary } from "@/stores/library";
+import { useSettings } from "@/stores/settings";
 import { Icon, type IconName } from "@/components/Icon";
 import { plGrad } from "@/lib/art";
+import { toast } from "@/stores/toast";
 
 type LibChip = "all" | "playlists" | "liked" | "downloads";
+
+/** mockup first-time sidebar cards: import promo (dismissible for the
+ * session), create-playlist nudge, find-artists nudge */
+function NewUserCards() {
+  const ui = useUi();
+  const [hideImport, setHideImport] = useState(false);
+  return (
+    <div className="nu-cards">
+      {!hideImport && (
+        <div className="nu-promo">
+          <button
+            className="nu-x"
+            onClick={() => setHideImport(true)}
+            aria-label="Dismiss"
+          >
+            <Icon name="x" className="xs" />
+          </button>
+          <h3>Bring your music from other apps</h3>
+          <p>Import your playlists, songs and artists in one step.</p>
+          <button className="pill" onClick={() => ui.openModal({ kind: "import" })}>
+            Import library
+          </button>
+        </div>
+      )}
+      <div className="nu-side-card">
+        <h4>Create your first playlist</h4>
+        <p>It&apos;s easy, we&apos;ll help you put songs together.</p>
+        <button className="pill" onClick={() => ui.openModal({ kind: "createPlaylist" })}>
+          Create playlist
+        </button>
+      </div>
+      <div className="nu-side-card">
+        <h4>Let&apos;s find some artists to follow</h4>
+        <p>We&apos;ll keep you updated on new releases.</p>
+        <button className="pill" onClick={() => toast("Artist follows arrive with the next build")}>
+          Find artists
+        </button>
+      </div>
+    </div>
+  );
+}
 
 /** desktop sidebar: main nav card + your-library card — mockup verbatim */
 export function Sidebar() {
@@ -15,6 +58,7 @@ export function Sidebar() {
   const likedCount = useLibrary((s) => Object.keys(s.liked).length);
   const playlists = useLibrary((s) => s.playlists);
   const downloads = useLibrary((s) => s.downloads);
+  const isNew = useSettings((s) => s.onboarding) === "new";
   const [chip, setChip] = useState<LibChip>("all");
 
   const dlCount = Object.values(downloads).filter((d) => d.complete).length;
@@ -25,11 +69,12 @@ export function Sidebar() {
     ...(dlCount > 0 ? ([["downloads", "Downloads"]] as [LibChip, string][]) : []),
   ];
 
-  const showLiked = chip === "all" || chip === "liked" || chip === "playlists";
+  const showLiked = (chip === "all" || chip === "liked" || chip === "playlists") && (!isNew || likedCount > 0);
   const showPlaylists = chip === "all" || chip === "playlists";
   const showDownloads = (chip === "all" || chip === "downloads") && dlCount > 0;
 
   const rows: React.ReactNode[] = [];
+  if (isNew) rows.push(<NewUserCards key="nu" />);
   if (showLiked) {
     rows.push(
       <button

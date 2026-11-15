@@ -8,6 +8,7 @@ import { useUi } from "@/stores/ui";
 import { Icon } from "@/components/Icon";
 import { DlButton } from "@/components/track/DlButton";
 import { MiniArt } from "@/lib/art";
+import { graduate } from "@/lib/onboarding";
 import { formatDuration } from "@/lib/format";
 import { toast } from "@/stores/toast";
 import type { Track } from "@/lib/types";
@@ -58,6 +59,7 @@ export function PlayerBar() {
   const toggleLikeCurrent = () => {
     if (!track) return toast("Play something first");
     toggleLike(track);
+    graduate();
   };
 
   return (

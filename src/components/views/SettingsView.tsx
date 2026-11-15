@@ -7,6 +7,7 @@ import { useLibrary } from "@/stores/library";
 import { useUi } from "@/stores/ui";
 import { exportLibrary, parseBackup, restoreBackup, type ParsedBackup } from "@/lib/backup";
 import type { RestoreMode, Section } from "@/lib/backup-merge";
+import { graduate } from "@/lib/onboarding";
 import { APP_VERSION, checkForUpdate, RELEASES_URL, type UpdateInfo } from "@/lib/update-check";
 import { Icon } from "@/components/Icon";
 import { toast } from "@/stores/toast";
@@ -253,6 +254,7 @@ export function SettingsView() {
                   className="btn2"
                   onClick={() => {
                     restoreBackup(pending, ["liked", "playlists", "history"], mode);
+                    graduate();
                     toast(mode === "merge" ? "Backup merged" : "Backup restored", true);
                     setPending(null);
                   }}

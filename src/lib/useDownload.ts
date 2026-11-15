@@ -4,6 +4,7 @@ import { useDownloadProgress } from "@/stores/download-progress";
 import { useLibrary } from "@/stores/library";
 import { useUi } from "@/stores/ui";
 import { deleteDownloadedAudio, downloadTrack } from "@/lib/downloads";
+import { graduate } from "@/lib/onboarding";
 import { toast } from "@/stores/toast";
 import type { Track } from "@/lib/types";
 
@@ -27,6 +28,7 @@ export async function startDownload(track: Track): Promise<void> {
   switch (status) {
     case "offline-saved":
       toast(`“${track.title}” is available offline`, true);
+      graduate();
       break;
     case "stream-only":
       toast(

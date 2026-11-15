@@ -9,6 +9,7 @@ import { MiniArt } from "@/lib/art";
 import { Icon } from "@/components/Icon";
 import { removeDownloadConfirmed, startDownload } from "@/lib/useDownload";
 import { removeStarterContent } from "@/lib/seed";
+import { graduate } from "@/lib/onboarding";
 import { startRadio } from "@/lib/radio";
 import { toast } from "@/stores/toast";
 
@@ -124,6 +125,7 @@ function TrackMenuModal({
         <button
           onClick={() => {
             useLibrary.getState().toggleLike(track);
+            graduate();
             toast(liked ? "Removed from Liked songs" : "Added to Liked songs", !liked);
             onDone();
           }}
@@ -293,6 +295,7 @@ function AddToPlaylistModal({ track, onDone }: { track: Track; onDone: () => voi
         <button
           onClick={() => {
             const id = createPlaylist(`My playlist ${playlists.length + 1}`, [track]);
+            graduate();
             toast("Playlist created", true);
             onDone();
             useUi.getState().navigate({ name: "playlist", id });
@@ -374,6 +377,7 @@ function CreatePlaylistModal({ onDone }: { onDone: () => void }) {
       onDone={onDone}
       onSubmit={(name) => {
         const id = useLibrary.getState().createPlaylist(name);
+        graduate();
         toast("Playlist created", true);
         useUi.getState().navigate({ name: "playlist", id });
       }}
@@ -518,6 +522,7 @@ function ImportModal({ onDone }: { onDone: () => void }) {
               const id = useLibrary
                 .getState()
                 .createPlaylist(result.name || "Imported playlist", result.tracks);
+              graduate();
               toast(`Imported ${result.tracks.length}/${result.total} tracks`, true);
               onDone();
               useUi.getState().navigate({ name: "playlist", id });

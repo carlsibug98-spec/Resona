@@ -1,7 +1,6 @@
 import type { Track } from "@/lib/types";
 import { cached, fetchWithTimeout, mapPool } from "./cache";
 import { searchOne } from "./innertube";
-
  
 
 const TRENDING_URL = "https://kworb.net/youtube/trending.html";
@@ -75,12 +74,32 @@ export async function getRegions(): Promise<string[]> {
   return ["Global", ...regions];
 }
 
-export async function getTrending(region = "Global", limit = 40): Promise<Track[]> {
-  // The expensive part is resolving every kworb row to a real video via innertube
-  // (40+ upstream searches). Cache the RESOLVED tracks, not just the raw rows,
-  // so a warm home visit costs zero upstream requests.
+export interface TrendingEntry {
+  rank: number;
+  movement: string;
+  title: string;
+  track: Track;
+}
+
+/** per-query micro-cache so overlapping passes (trending view, home
+ * catalog) never resolve the same cleaned title twice within 30 min */
+async function resolveRow(query: string): Promise<Track | null> {
+  const key = `kworb:q:${query}`;
+  const hit = await cached(key, 1000 * 60 * 30, async () => {
+    let t = await searchOne(query, "videos");
+    if (!t) t = await searchOne(query, "songs");
+    return t as Track | null;
+  });
+  return hit ?? null;
+}
+
+/** ranked trending rows (movement kept) resolved to real playable tracks */
+export async function getTrendingDetailed(
+  region = "Global",
+  limit = 40
+): Promise<TrendingEntry[]> {
   return cached(
-    `kworb:trending-resolved:${region}:${limit}`,
+    `kworb:detailed:${region}:${limit}`,
     1000 * 60 * 60 * 6,
     async () => {
       const rows = await getTrendingRows();
@@ -98,31 +117,28 @@ export async function getTrending(region = "Global", limit = 40): Promise<Track[
       }
       if (!selected.length) selected = rows.slice(0, limit);
 
-      const queries = selected.map((r) => ({
-        key: String(r.rank),
-        query: cleanQuery(r.title),
-        filter: "videos" as const,
-      }));
-
-      const resolved = new Map<string, Track | null>();
-      await mapPool(queries, 4, async (q) => {
-        let t = await searchOne(q.query, "videos");
-        if (!t) t = await searchOne(q.query, "songs");
-        resolved.set(q.key, t);
+      const resolved = new Map<number, Track | null>();
+      await mapPool(selected, 6, async (r) => {
+        resolved.set(r.rank, await resolveRow(cleanQuery(r.title)));
       });
 
-      const tracks: Track[] = [];
+      const out: TrendingEntry[] = [];
       const seen = new Set<string>();
       for (const r of selected) {
-        const t = resolved.get(String(r.rank));
+        const t = resolved.get(r.rank);
         if (t && !seen.has(t.videoId)) {
           seen.add(t.videoId);
-          tracks.push(t);
+          out.push({ rank: r.rank, movement: r.movement, title: r.title, track: t });
         }
       }
-      return tracks;
+      return out;
     }
   );
+}
+
+export async function getTrending(region = "Global", limit = 40): Promise<Track[]> {
+  const detailed = await getTrendingDetailed(region, limit);
+  return detailed.map((e) => e.track);
 }
 
 export async function getDailyTop(limit = 40): Promise<Track[]> {

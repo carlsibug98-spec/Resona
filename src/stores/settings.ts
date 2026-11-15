@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 type StarterContent = "seed" | "cleared";
+type Onboarding = "new" | "done";
 
 interface SettingsState {
   region: string;
@@ -14,6 +15,9 @@ interface SettingsState {
   lySize: 0 | 1 | 2;
   starterContent: StarterContent;
   starterAppliedAt: number | null;
+  /** "new" = first-time listener: Welcome home with Getting started on
+   * top (mockup NEW_USER mode). First like / playlist / download flips it. */
+  onboarding: Onboarding;
   lastBackupAt: number | null;
   updateCheckedAt: number | null;
 
@@ -26,6 +30,7 @@ interface SettingsState {
   setLySize: (s: 0 | 1 | 2) => void;
   setStarterContent: (v: StarterContent) => void;
   setStarterAppliedAt: (t: number | null) => void;
+  setOnboarding: (v: Onboarding) => void;
   setUpdateCheckedAt: (t: number | null) => void;
 }
 
@@ -40,6 +45,7 @@ export const useSettings = create<SettingsState>()(
       lySize: 1,
       starterContent: "seed",
       starterAppliedAt: null,
+      onboarding: "new",
       lastBackupAt: null,
       updateCheckedAt: null,
 
@@ -52,11 +58,12 @@ export const useSettings = create<SettingsState>()(
       setLySize: (lySize) => set({ lySize }),
       setStarterContent: (starterContent) => set({ starterContent }),
       setStarterAppliedAt: (starterAppliedAt) => set({ starterAppliedAt }),
+      setOnboarding: (onboarding) => set({ onboarding }),
       setUpdateCheckedAt: (updateCheckedAt) => set({ updateCheckedAt }),
     }),
     {
       name: "resona-settings",
-      version: 1,
+      version: 2,
       migrate: (persisted: unknown, version: number) => {
         const s = (persisted || {}) as Record<string, unknown>;
         // v1.4.0: the video button now plays the real music video and
@@ -65,6 +72,10 @@ export const useSettings = create<SettingsState>()(
           if (s.showVideo === false) s.showVideo = true;
           if (s.autoplayRadio === undefined) s.autoplayRadio = true;
         }
+        // v1.5.0: onboarding flag for the Welcome home. Anyone upgrading
+        // from an earlier install is an established listener — they keep
+        // the full home. Only brand-new installs start as "new".
+        if (version < 2 && s.onboarding === undefined) s.onboarding = "done";
         return s as unknown as SettingsState;
       },
     }

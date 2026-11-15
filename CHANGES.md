@@ -1,5 +1,60 @@
 # Changes
 
+## v1.5.0 — a home that welcomes you (2026-11-15)
+
+The home screen was rebuilt against the updated mockup. New listeners now get
+a proper first-run experience, and everyone gets real global shelves.
+
+### New-user home (first run)
+
+- **Welcome home**: a fresh install opens on "Welcome to Resona" with the
+  Getting started carousel on top — six gradient cards (search, playlists,
+  likes, radio, downloads, import), three per page with arrows and dots.
+  No quick tiles: "Liked songs" and "Recently played" only appear once the
+  listener actually has some.
+- **Getting started cards do the real thing**: Search anything opens Search,
+  Make a playlist opens the create dialog, Import your music opens the
+  import modal; the like/radio/download cards explain themselves with the
+  mockup's toasts.
+- **First-time sidebar cards**: the purple "Bring your music from other
+  apps" import promo (dismissible for the session), "Create your first
+  playlist" and "Let's find some artists to follow", exactly as the mockup.
+- **Graduation**: the first thing you save yourself — liking a song,
+  creating a playlist, finishing a download, importing or restoring a
+  library — switches you to the full home. Playing music alone keeps the
+  welcome alive, and the starter library seeding never graduates anyone.
+  Existing 1.4 installs upgrade straight to the full home.
+
+### Global shelves (everyone)
+
+- **Popular artists, Popular albums and singles, New releases**: three
+  single-row shelves with arrow buttons (85 % smooth scroll) and Show all,
+  built from the worldwide trending chart — the same source as the Trending
+  view, resolved to real playable tracks. Artist cards are round and open
+  the artist's real page; the play button starts their charting track.
+  New-release cards wear the green NEW badge with "Today".
+- The shelves slot between "Jump back in" and "Made for you" on the full
+  home (Music/All filter), and sit right under Getting started for new
+  listeners. `/api/catalog` serves them from a 6 h server cache; failing
+  gracefully hides the sections instead of breaking the home.
+
+### Download site
+
+- The GitHub Pages download site was redesigned: warm paper palette,
+  equalizer hero, three-step install, dark screenshot band, features,
+  what's-new, a downloads table with per-platform buttons (Windows, macOS
+  Apple Silicon/Intel, Linux AppImage/.deb), a live SHA-256 checksum with
+  copy, and FAQ. Version label, file names, sizes, checksums and download
+  links now pull live from the GitHub releases API, so the page keeps
+  itself up to date.
+
+### Misc
+
+- `onboarding` setting (v2 settings migration: upgrades start as returning
+  listeners), kworb resolver gained a 30 min per-query cache shared by the
+  trending view and the catalog, and trending rows keep their movement data
+  (`NEW` badges) through resolution.
+
 ## v1.4.0 — real video, real credits, radio, macOS & Linux (2026-11-15)
 
 The full-screen now playing view was rebuilt against the mockup once more and

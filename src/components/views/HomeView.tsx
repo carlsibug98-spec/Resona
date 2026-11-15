@@ -1,19 +1,276 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { Track } from "@/lib/types";
+import { useEffect, useRef, useState } from "react";
+import type { CatalogArtist, CatalogRelease, HomeCatalog, Track } from "@/lib/types";
 import { useLibrary } from "@/stores/library";
 import { useUi } from "@/stores/ui";
 import { usePlayer } from "@/stores/player";
 import { useSettings } from "@/stores/settings";
 import { TrackRow, TrackTableHead } from "@/components/track/TrackRow";
-import { MiniArt, CoverArt, plGrad } from "@/lib/art";
+import { MiniArt, CoverArt, plGrad, initials } from "@/lib/art";
 import { Icon } from "@/components/Icon";
 import { SEED_MIXES, useSeedTracks, seedTrack } from "@/lib/seed";
 import { useAsyncData } from "@/lib/useFetch";
 import { toast } from "@/stores/toast";
 
 type Chip = "all" | "music" | "playlists";
+
+/* ───────── Getting started carousel — mockup GS_CARDS, actions wired to real features ───────── */
+
+function GettingStarted() {
+  const ui = useUi();
+  const [page, setPage] = useState(0);
+  const perPage = 3;
+  const cards: { n: string; title: string; text: string; hue: number; run: () => void }[] = [
+    {
+      n: "01",
+      title: "Search anything",
+      text: "Find songs, artists and radios by name.",
+      hue: 30,
+      run: () => ui.navigate({ name: "search" }),
+    },
+    {
+      n: "02",
+      title: "Make a playlist",
+      text: "Put songs together for any mood or moment.",
+      hue: 150,
+      run: () => ui.openModal({ kind: "createPlaylist" }),
+    },
+    {
+      n: "03",
+      title: "Like songs",
+      text: "Tap the heart and they collect in Liked songs.",
+      hue: 345,
+      run: () => toast("Tap the heart on any track to like it"),
+    },
+    {
+      n: "04",
+      title: "Start a radio",
+      text: "Pick one artist and let the mix keep going.",
+      hue: 215,
+      run: () => toast("Open an artist to start their radio"),
+    },
+    {
+      n: "05",
+      title: "Download offline",
+      text: "Save songs to this device for listening without signal.",
+      hue: 280,
+      run: () => toast("Tap the download icon on a song to save it"),
+    },
+    {
+      n: "06",
+      title: "Import your music",
+      text: "Bring playlists over from another music app.",
+      hue: 170,
+      run: () => ui.openModal({ kind: "import" }),
+    },
+  ];
+  const pages = Math.ceil(cards.length / perPage);
+  const cur = Math.max(0, Math.min(pages - 1, page));
+
+  const chunks: (typeof cards)[] = [];
+  for (let i = 0; i < cards.length; i += perPage) chunks.push(cards.slice(i, i + perPage));
+
+  return (
+    <div className="section gs">
+      <div className="gs-head">
+        <h2>Getting started</h2>
+        <div className="gs-arrows">
+          <button
+            className="iconbtn"
+            disabled={cur === 0}
+            onClick={() => setPage(cur - 1)}
+            aria-label="Previous"
+          >
+            <Icon name="back" />
+          </button>
+          <button
+            className="iconbtn"
+            disabled={cur >= pages - 1}
+            onClick={() => setPage(cur + 1)}
+            aria-label="Next"
+          >
+            <Icon name="fwd" />
+          </button>
+        </div>
+      </div>
+      <div className="gs-viewport">
+        <div className="gs-track" style={{ transform: `translateX(-${cur * 100}%)` }}>
+          {chunks.map((ch, i) => (
+            <div className="gs-page" key={i}>
+              {ch.map((c) => (
+                <button
+                  key={c.n}
+                  className="gs-card"
+                  style={{ "--c": `hsl(${c.hue} 70% 42%)` } as React.CSSProperties}
+                  onClick={c.run}
+                >
+                  <span className="gs-n">{c.n}</span>
+                  <b>{c.title}</b>
+                  <span>{c.text}</span>
+                  <em>Try it</em>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="gs-dots">
+        {chunks.map((_, i) => (
+          <span key={i} className={`gs-dot${i === cur ? " on" : ""}`} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ───────── single-row shelves with arrows (mockup .hscroll) ───────── */
+function GlobalShelf({
+  id,
+  title,
+  showAllMsg,
+  children,
+}: {
+  id: string;
+  title: string;
+  showAllMsg: string;
+  children: React.ReactNode;
+}) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const scroll = (d: number) => {
+    const el = rowRef.current;
+    if (el) el.scrollBy({ left: d * el.clientWidth * 0.85, behavior: "smooth" });
+  };
+  return (
+    <div className="section">
+      <div className="section-h">
+        <h2>{title}</h2>
+        <div className="hr-right">
+          <div className="gs-arrows">
+            <button className="iconbtn" onClick={() => scroll(-1)} aria-label="Scroll left">
+              <Icon name="back" />
+            </button>
+            <button className="iconbtn" onClick={() => scroll(1)} aria-label="Scroll right">
+              <Icon name="fwd" />
+            </button>
+          </div>
+          <button onClick={() => toast(showAllMsg)}>Show all</button>
+        </div>
+      </div>
+      <div className="shelf hscroll" id={id} ref={rowRef}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** round-cover artist card — opens the artist's real page, fab plays their charting track */
+function ArtistCard({ a }: { a: CatalogArtist }) {
+  const ui = useUi();
+  const player = usePlayer();
+  return (
+    <div className="card-item">
+      <button
+        className="face"
+        onClick={() =>
+          a.artistId
+            ? ui.navigate({ name: "artist", id: a.artistId, label: a.name })
+            : toast(`${a.name}: artist page coming soon`)
+        }
+      >
+        <div
+          className="cov round"
+          style={{
+            background: `linear-gradient(135deg,hsl(${a.hue} 70% 46%),hsl(${(a.hue + 60) % 360} 55% 14%))`,
+          }}
+        >
+          <span>{initials(a.name)}</span>
+        </div>
+        <div className="t trunc">{a.name}</div>
+        <div className="s">Artist</div>
+      </button>
+      <button
+        className="fab"
+        aria-label={`Play ${a.name}`}
+        onClick={() => player.playTrack(a.track, `Popular artists · ${a.name}`)}
+      >
+        <Icon name="play" fill />
+      </button>
+    </div>
+  );
+}
+
+/** release / new-release card — cover, type line, green New badge */
+function ReleaseCard({ r, context }: { r: CatalogRelease; context: string }) {
+  const player = usePlayer();
+  return (
+    <div className="card-item">
+      {r.when && <span className="new-badge">New</span>}
+      <button className="face" onClick={() => player.playTrack(r.track, context)}>
+        <CoverArt track={r.track} className="cov" />
+        <div className="t trunc">{r.track.title}</div>
+        <div className="s trunc">
+          {r.type} · {r.track.artist}
+          {r.when ? ` · ${r.when}` : ""}
+        </div>
+      </button>
+      <button
+        className="fab"
+        aria-label={`Play ${r.track.title}`}
+        onClick={() => player.playTrack(r.track, context)}
+      >
+        <Icon name="play" fill />
+      </button>
+    </div>
+  );
+}
+
+/** the three global shelves, fed by /api/catalog (worldwide trending chart) */
+function GlobalShelves({ catalog, state }: { catalog: HomeCatalog | null; state: string }) {
+  if (state === "loading" || !catalog) {
+    return (
+      <div className="section">
+        <p className="muted pad-note">Loading what&apos;s popular worldwide…</p>
+      </div>
+    );
+  }
+  if (state === "error" || (!catalog.artists.length && !catalog.releases.length && !catalog.newReleases.length)) {
+    return (
+      <div className="section">
+        <p className="muted pad-note">
+          Global shelves aren&apos;t available right now — your own music is still here.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <>
+      {catalog.artists.length > 0 && (
+        <GlobalShelf id="hs-art" title="Popular artists" showAllMsg="Full artist pages come in the next build">
+          {catalog.artists.map((a) => (
+            <ArtistCard key={a.artistId || a.name} a={a} />
+          ))}
+        </GlobalShelf>
+      )}
+      {catalog.releases.length > 0 && (
+        <GlobalShelf id="hs-rel" title="Popular albums and singles" showAllMsg="Full discography comes in the next build">
+          {catalog.releases.map((r) => (
+            <ReleaseCard key={r.track.videoId} r={r} context="Popular albums and singles" />
+          ))}
+        </GlobalShelf>
+      )}
+      {catalog.newReleases.length > 0 && (
+        <GlobalShelf id="hs-new" title="New releases" showAllMsg="New releases update every Friday">
+          {catalog.newReleases.map((r) => (
+            <ReleaseCard key={r.track.videoId} r={r} context="New releases" />
+          ))}
+        </GlobalShelf>
+      )}
+    </>
+  );
+}
+
+/* ───────── home ───────── */
 
 function QTile({
   label,
@@ -74,9 +331,23 @@ export function HomeView() {
   const player = usePlayer();
   const library = useLibrary();
   const region = useSettings((s) => s.region);
+  const isNew = useSettings((s) => s.onboarding) === "new";
   const resolvedSeeds = useSeedTracks((s) => s.resolved);
   const [chip, setChip] = useState<Chip>("all");
   const [greeting, setGreeting] = useState("Welcome back");
+
+  const catalogAsync = useAsyncData("catalog", async (signal) => {
+    const r = await fetch(`/api/catalog`, { signal });
+    const d = await r.json();
+    return {
+      artists: (d.artists || []) as CatalogArtist[],
+      releases: (d.releases || []) as CatalogRelease[],
+      newReleases: (d.newReleases || []) as CatalogRelease[],
+    } as HomeCatalog;
+  });
+  const catalogState = catalogAsync.state;
+  const catalog = catalogState === "ready" ? catalogAsync.data : null;
+
   const trending = useAsyncData(`trending:${region}`, async (signal) => {
     const r = await fetch(`/api/trending?region=${encodeURIComponent(region)}&limit=8`, { signal });
     const d = await r.json();
@@ -92,11 +363,7 @@ export function HomeView() {
   }, []);
 
   const history = library.history.map((h) => h.track);
-  const likedTracks = Object.values(library.liked)
-    .sort((a, b) => b.likedAt - a.likedAt)
-    .map((l) => l.track);
   const playlists = library.playlists;
-  const dlCount = Object.values(library.downloads).filter((d) => d.complete).length;
 
   const mixTracks = (keys: string[]): Track[] =>
     keys.map((k) => seedTrack(k)).filter((t): t is Track => !!t);
@@ -195,6 +462,40 @@ export function HomeView() {
     })),
   ].slice(0, 4);
 
+  const chips = (
+    <div className="chips flush">
+      {(
+        [
+          ["all", "All"],
+          ["music", "Music"],
+          ["playlists", "Playlists"],
+        ] as [Chip, string][]
+      ).map(([k, l]) => (
+        <button key={k} className={`chip${chip === k ? " on" : ""}`} onClick={() => setChip(k)}>
+          {l}
+        </button>
+      ))}
+    </div>
+  );
+
+  /* first-time listener — mockup new-user home: Getting started on top,
+     no quick tiles, then the three global shelves */
+  if (isNew) {
+    return (
+      <>
+        <div className="hero">
+          <div>
+            <h1>Welcome to Resona</h1>
+            <p className="muted">Let&apos;s get you started. Everything here is optional.</p>
+          </div>
+        </div>
+        {chips}
+        <GettingStarted />
+        <GlobalShelves catalog={catalog} state={catalogState} />
+      </>
+    );
+  }
+
   return (
     <>
       <div className="hero">
@@ -204,27 +505,15 @@ export function HomeView() {
         </div>
       </div>
 
-      <div className="chips flush">
-        {(
-          [
-            ["all", "All"],
-            ["music", "Music"],
-            ["playlists", "Playlists"],
-          ] as [Chip, string][]
-        ).map(([k, l]) => (
-          <button key={k} className={`chip${chip === k ? " on" : ""}`} onClick={() => setChip(k)}>
-            {l}
-          </button>
-        ))}
-      </div>
+      {chips}
 
       <div className="section">
-        <div className="quick">
-          {tiles.map((t) => (
-            <QTile key={t.key} label={t.label} art={t.art} onOpen={t.onOpen} />
-          ))}
-        </div>
+        <div className="quick">{tiles.map((t) => (
+          <QTile key={t.key} label={t.label} art={t.art} onOpen={t.onOpen} />
+        ))}</div>
       </div>
+
+      {showMusic && <GettingStarted />}
 
       {showMusic && historyCards.length > 0 && (
         <div className="section">
@@ -246,6 +535,8 @@ export function HomeView() {
           </div>
         </div>
       )}
+
+      {showMusic && <GlobalShelves catalog={catalog} state={catalogState} />}
 
       {showPl && madeForYou.length > 0 && (
         <div className="section">

@@ -7,6 +7,7 @@ import { useUi } from "@/stores/ui";
 import { Icon } from "@/components/Icon";
 import { DlButton } from "@/components/track/DlButton";
 import { MiniArt, grad } from "@/lib/art";
+import { graduate } from "@/lib/onboarding";
 import { formatDuration } from "@/lib/format";
 import type { Track } from "@/lib/types";
 
@@ -91,7 +92,10 @@ export function TrackRow({ track, index, list, contextLabel }: TrackRowProps) {
         <button
           className={`like${liked ? " on" : ""}`}
           aria-label={liked ? "Unlike" : "Like"}
-          onClick={() => toggleLike(track)}
+          onClick={() => {
+            toggleLike(track);
+            graduate();
+          }}
         >
           <Icon name="heart" fill={liked} />
         </button>
