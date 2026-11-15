@@ -6,9 +6,16 @@ import { TrackRow, TrackTableHead } from "@/components/track/TrackRow";
 import { CoverArt } from "@/lib/art";
 import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/stores/player";
+import { useUi } from "@/stores/ui";
 import { useLibrary } from "@/stores/library";
 import { useSeedTracks, seedTrack, SEEDS } from "@/lib/seed";
 import { markStep } from "@/lib/onboarding";
+
+interface ArtistHit {
+  artistId: string;
+  name: string;
+  thumb?: string;
+}
 
 /* mockup browse tiles: genre → colour */
 const GENRES: [string, string][] = [
@@ -25,8 +32,10 @@ const GENRES: [string, string][] = [
 export function SearchView() {
   const [q, setQ] = useState("");
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [artists, setArtists] = useState<ArtistHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const ctrlRef = useRef<AbortController | null>(null);
 
@@ -49,12 +58,16 @@ export function SearchView() {
       const d = await r.json();
       if (ctrl.signal.aborted) return [];
       const list: Track[] = Array.isArray(d.tracks) ? d.tracks : [];
+      const hits: ArtistHit[] = Array.isArray(d.artists) ? d.artists : [];
       setTracks(list);
+      setArtists(hits);
+      setShowAll(false);
       setSearched(true);
       return list;
     } catch {
       if (!ctrl.signal.aborted) {
         setTracks([]);
+        setArtists([]);
         setSearched(true);
       }
       return [];
@@ -70,7 +83,9 @@ export function SearchView() {
     if (query.length < 2) {
       ctrlRef.current?.abort();
       setTracks([]);
+      setArtists([]);
       setSearched(false);
+      setShowAll(false);
       setLoading(false);
       return;
     }
@@ -98,9 +113,10 @@ export function SearchView() {
     });
   }, [q, library.liked, library.playlists, library.history, resolved]);
 
-  const hits = tracks.slice(0, 30);
+  const hits = showAll ? tracks : tracks.slice(0, 12);
   const top = localHits[0] ?? hits[0];
   const topIsLocal = localHits.length > 0;
+  const navigate = useUi((s) => s.navigate);
 
   return (
     <>
@@ -170,6 +186,34 @@ export function SearchView() {
             </>
           )}
 
+          {artists.length > 0 && (
+            <>
+              <div className="section-h s20">
+                <h2>Artists</h2>
+              </div>
+              <div className="shelf hscroll">
+                {artists.map((a) => (
+                  <div className="card-item" key={a.artistId}>
+                    <button
+                      className="face"
+                      onClick={() => navigate({ name: "artist", id: a.artistId, label: a.name })}
+                    >
+                      <span className="cov round">
+                        {a.thumb ? (
+                          <img src={a.thumb} alt={a.name} loading="lazy" />
+                        ) : (
+                          <span>{a.name.slice(0, 1).toUpperCase()}</span>
+                        )}
+                      </span>
+                      <span className="t trunc">{a.name}</span>
+                      <span className="s">Artist</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
           {hits.length > 0 ? (
             <>
               <p className="muted kicker-s">Top result</p>
@@ -194,6 +238,11 @@ export function SearchView() {
               </button>
               <div className="section-h s20">
                 <h2>Songs</h2>
+                {tracks.length > hits.length && !showAll && (
+                  <button className="btn2 ghost sm" onClick={() => setShowAll(true)}>
+                    Show all {tracks.length} results
+                  </button>
+                )}
               </div>
               <div className="tlist">
                 <TrackTableHead />
@@ -202,7 +251,7 @@ export function SearchView() {
                 ))}
               </div>
             </>
-          ) : localHits.length === 0 ? (
+          ) : localHits.length === 0 && artists.length === 0 ? (
             <div className="empty">
               <Icon name="search" />
               <h3>No results for “{q.trim()}”</h3>

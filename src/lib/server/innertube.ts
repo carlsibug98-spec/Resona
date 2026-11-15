@@ -1,5 +1,5 @@
 import type { AlbumCard, ArtistPage, Track } from "@/lib/types";
-import { cacheGet, cacheSet, cached, fetchWithTimeout, mapPool } from "./cache";
+import { cacheGet, cacheSet, cached, fetchWithTimeout, mapPool } from "./cache.ts";
 
 const YT_MUSIC = "https://music.youtube.com/youtubei/v1";
 
@@ -171,6 +171,84 @@ export async function searchTracks(
   return cached(`search:${filter}:${query}`, 1000 * 60 * 30, () =>
     searchTracksRaw(query, filter)
   );
+}
+
+export interface ArtistHit {
+  artistId: string;
+  name: string;
+  thumb?: string;
+}
+
+/**
+ * Artist results for a search query. The `artists` filter returns rows whose
+ * artist page navigation is NOT on the title run (it's a watch link there) —
+ * the artist browseId lives in the second column's artist-page run or in the
+ * row menu's "Go to artist" item. The row thumbnail doubles as the artist
+ * avatar, so no extra request is needed.
+ */
+export async function searchArtists(query: string): Promise<ArtistHit[]> {
+  return cached(`search:artists:${query}`, 1000 * 60 * 30, async () => {
+    const data = await innertubePost("search", { query, filter: "artists" });
+    const out: ArtistHit[] = [];
+    const seen = new Set<string>();
+    for (const item of walk(data, "musicResponsiveListItemRenderer")) {
+      const cols = (item?.flexColumns || []).map(
+        (c: any) => c.musicResponsiveListItemFlexColumnRenderer
+      );
+      const title: string | undefined = cols?.[0]?.text?.runs?.[0]?.text;
+      if (!title) continue;
+
+      // candidate artist navigations: any run in cols[1..] pointing at an
+      // artist page, else the menu's "Go to artist"
+      let artistId: string | undefined;
+      for (const col of cols.slice(1)) {
+        for (const run of col?.text?.runs || []) {
+          const nav = run.navigationEndpoint?.browseEndpoint;
+          const pageType =
+            nav?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig
+              ?.pageType;
+          if (pageType === "MUSIC_PAGE_TYPE_ARTIST" && nav?.browseId?.startsWith("UC")) {
+            artistId = nav.browseId;
+          }
+        }
+      }
+      if (!artistId) {
+        for (const m of item?.menu?.menuRenderer?.items || []) {
+          const nav = m.menuNavigationItemRenderer?.navigationEndpoint?.browseEndpoint;
+          const pageType =
+            nav?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig
+              ?.pageType;
+          if (pageType === "MUSIC_PAGE_TYPE_ARTIST" && nav?.browseId?.startsWith("UC")) {
+            artistId = nav.browseId;
+          }
+        }
+      }
+      if (!artistId || seen.has(artistId)) continue;
+      seen.add(artistId);
+
+      // name: prefer the artist-page run's text (the actual artist), fall
+      // back to the row title (top result rows are named after the song)
+      let name = title;
+      for (const col of cols.slice(1)) {
+        for (const run of col?.text?.runs || []) {
+          const nav = run.navigationEndpoint?.browseEndpoint;
+          if (
+            nav?.browseId === artistId &&
+            run.text?.trim() &&
+            run.text.trim() !== "•"
+          ) {
+            name = run.text.trim();
+          }
+        }
+      }
+
+      const thumb: string | undefined =
+        item?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails?.slice(-1)?.[0]?.url;
+      out.push({ artistId, name, thumb });
+      if (out.length >= 6) break;
+    }
+    return out;
+  });
 }
 
 /**

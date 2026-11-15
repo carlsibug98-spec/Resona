@@ -61,3 +61,7 @@ server.log
 /db/
 *.exe
 *.blockmap
+
+# local sqlite database (dev server default path)
+resona.db
+resona.db-*

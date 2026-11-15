@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePlayer } from "@/stores/player";
 import { useUi } from "@/stores/ui";
 import { useLibrary } from "@/stores/library";
+import { CLIENT_HISTORY_LIMIT } from "@/lib/library-sync";
 import { Icon } from "@/components/Icon";
 import { MiniArt } from "@/lib/art";
 import { prefetchStream } from "@/lib/prefetch";
@@ -48,9 +49,10 @@ export function QueueDrawer() {
 
   const now = index >= 0 && index < queue.length ? queue[index] : undefined;
   const upcoming = queue.map((t, i) => ({ t, i })).slice(index + 1);
+  // same cap as the Library history view — the two lists must not disagree
   const recent = history
     .filter((h) => h.track.videoId !== now?.videoId)
-    .slice(0, 50);
+    .slice(0, CLIENT_HISTORY_LIMIT);
 
 
   const onPointerDown = (e: React.PointerEvent) => {

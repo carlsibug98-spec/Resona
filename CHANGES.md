@@ -42,6 +42,31 @@ What changed under the hood:
   round-trips, replace-all, cache expiry and the restart scenario
   (a fresh module instance reading what the first one wrote).
 
+### UI fixes from the audit (same build)
+
+Ten findings from the v1.6.4 UI audit, all addressed:
+
+- Artist names in track rows are now buttons (when the artist has a
+  page) — underline on hover, opens the artist page; the ⋯ row menu
+  gains a "Go to artist" item too.
+- Search results now include an **Artists** row (round covers, from
+  YouTube Music's artist filter) above Songs, and a result count with
+  "Show all N results" instead of a silent 30-item cap.
+- Settings and Trending moved into the main sidebar nav (they were
+  reachable only through the account menu / home shelf).
+- Recently played in the queue drawer and the Library history view now
+  share one cap (200), so the lists agree.
+- Long titles and artist names carry a tooltip everywhere they truncate
+  (player bar, full-screen player, track rows).
+- Touch devices (`hover: none`) see row play buttons and the ⋯ menu
+  without hovering, and shelf play covers stay visible.
+- `prefers-reduced-motion` now also stops the equalizer animation,
+  shelf covers and smooth scrolling — not just the two backgrounds.
+- Light theme: the green "New" badge was only 1.9:1 against a white
+  card; it now uses a darker green (3.5:1) with white text.
+- Every `<img>` in the app has an alt attribute (the new artist-search
+  cards included).
+
 ## v1.6.4 — lyrics you can read again (2026-11-15)
 
 A fix release for the two things the first v1.6.x shakedown surfaced:

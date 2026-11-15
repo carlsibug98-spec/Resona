@@ -145,6 +145,8 @@ export function Sidebar() {
     { view: { name: "home" }, label: "Home", icon: "home" },
     { view: { name: "search" }, label: "Search", icon: "search" },
     { view: { name: "library", tab: "liked" }, label: "Library", icon: "library" },
+    { view: { name: "trending" }, label: "Trending", icon: "bars" },
+    { view: { name: "settings" }, label: "Settings", icon: "gear" },
   ];
 
   return (

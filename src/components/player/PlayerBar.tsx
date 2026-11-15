@@ -74,8 +74,8 @@ export function PlayerBar() {
           <MiniArt track={track} className="mini-inner" />
         </button>
         <div className="meta">
-          <b className="trunc">{track ? track.title : "Nothing playing"}</b>
-          <span className="trunc">{track ? track.artist : "Pick a track to start"}</span>
+          <b className="trunc" title={track ? track.title : undefined}>{track ? track.title : "Nothing playing"}</b>
+          <span className="trunc" title={track ? track.artist : undefined}>{track ? track.artist : "Pick a track to start"}</span>
         </div>
         <button
           className="iconbtn"

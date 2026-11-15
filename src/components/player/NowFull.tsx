@@ -102,7 +102,7 @@ export function NowFull() {
       aria-label="Now playing, full screen"
     >
       <header className="nf-top">
-        <span className="nf-title trunc">{track ? track.title : "Now playing"}</span>
+        <span className="nf-title trunc" title={track ? track.title : undefined}>{track ? track.title : "Now playing"}</span>
         <button
           className="nf-tb"
           aria-pressed={nfMode === "lyrics"}
@@ -180,8 +180,8 @@ export function NowFull() {
         </div>
 
         <div className="nf-meta">
-          <h1 className="trunc">{track ? track.title : "Nothing playing"}</h1>
-          <div className="nf-a trunc">{track ? track.artist : "Pick a track to start"}</div>
+          <h1 className="trunc" title={track ? track.title : undefined}>{track ? track.title : "Nothing playing"}</h1>
+          <div className="nf-a trunc" title={track ? track.artist : undefined}>{track ? track.artist : "Pick a track to start"}</div>
         </div>
 
         <div className="nf-cards">
@@ -230,8 +230,8 @@ export function NowFull() {
         <div className="nf-np">
           <MiniArt track={track} className="mini" />
           <div className="nf-npmeta">
-            <b className="trunc">{track?.title ?? ""}</b>
-            <span className="trunc">{track?.artist ?? ""}</span>
+            <b className="trunc" title={track?.title}>{track?.title ?? ""}</b>
+            <span className="trunc" title={track?.artist}>{track?.artist ?? ""}</span>
           </div>
         </div>
         <div className="nf-ctrl">

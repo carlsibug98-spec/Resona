@@ -114,11 +114,37 @@ export function TrackRow({ track, index, list, contextLabel }: TrackRowProps) {
       <div className="who">
         <MiniArt track={track} className="mini" />
         <div className="grow">
-          <div className="title trunc">{track.title}</div>
-          <div className="artist trunc sub">{track.artist}</div>
+          <div className="title trunc" title={track.title}>{track.title}</div>
+          {track.artistId ? (
+            <button
+              className="artist trunc sub"
+              title={`Go to ${track.artist}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                useUi.getState().navigate({ name: "artist", id: track.artistId!, label: track.artist });
+              }}
+            >
+              {track.artist}
+            </button>
+          ) : (
+            <div className="artist trunc sub">{track.artist}</div>
+          )}
         </div>
       </div>
-      <div className="artistcol trunc muted" aria-hidden="true">{track.artist}</div>
+      {track.artistId ? (
+        <button
+          className="artistcol trunc"
+          title={`Go to ${track.artist}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            useUi.getState().navigate({ name: "artist", id: track.artistId!, label: track.artist });
+          }}
+        >
+          {track.artist}
+        </button>
+      ) : (
+        <div className="artistcol trunc muted" aria-hidden="true">{track.artist}</div>
+      )}
       <div className="likecol">
         <button
           className={`like${liked ? " on" : ""}`}

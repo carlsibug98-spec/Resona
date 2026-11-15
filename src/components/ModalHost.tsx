@@ -178,6 +178,16 @@ function TrackMenuModal({
         >
           <Icon name="plus" /> Add to playlist
         </button>
+        {track.artistId && (
+          <button
+            onClick={() => {
+              onDone();
+              useUi.getState().navigate({ name: "artist", id: track.artistId!, label: track.artist });
+            }}
+          >
+            <Icon name="mic" /> Go to artist
+          </button>
+        )}
         {fromPlaylistId && (
           <button
             onClick={() => {
