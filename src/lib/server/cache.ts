@@ -21,6 +21,8 @@ export function cacheSet(key: string, value: unknown, ttlMs: number) {
   store.set(key, { v: value, e: Date.now() + ttlMs });
 }
 
+const inflight = new Map<string, Promise<unknown>>();
+
 export async function cached<T>(
   key: string,
   ttlMs: number,
@@ -28,9 +30,23 @@ export async function cached<T>(
 ): Promise<T> {
   const hit = cacheGet<T>(key);
   if (hit !== null) return hit;
-  const v = await fn();
-  cacheSet(key, v, ttlMs);
-  return v;
+  // share one computation between concurrent callers: a hover prefetch and
+  // the click that follows it must not spawn two yt-dlp runs for the same id
+  const pending = inflight.get(key);
+  if (pending) return pending as Promise<T>;
+  const promise = (async () => {
+    const v = await fn();
+    cacheSet(key, v, ttlMs);
+    return v;
+  })();
+  inflight.set(key, promise);
+  try {
+    return await promise;
+  } finally {
+    // a rejection is not cached (same as before) — drop the slot so the
+    // next caller can retry; never clobber a newer computation's slot
+    if (inflight.get(key) === promise) inflight.delete(key);
+  }
 }
 
 export async function mapPool<T, R>(

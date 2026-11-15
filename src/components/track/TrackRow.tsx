@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { useDurations } from "@/stores/durations";
 import { usePlayer } from "@/stores/player";
 import { useLibrary } from "@/stores/library";
@@ -8,6 +9,7 @@ import { Icon } from "@/components/Icon";
 import { DlButton } from "@/components/track/DlButton";
 import { MiniArt, grad } from "@/lib/art";
 import { graduate, markStep } from "@/lib/onboarding";
+import { prefetchStream } from "@/lib/prefetch";
 import { formatDuration } from "@/lib/format";
 import type { Track } from "@/lib/types";
 
@@ -70,8 +72,37 @@ export function TrackRow({ track, index, list, contextLabel }: TrackRowProps) {
     player.playQueue(queue, start, contextLabel || "");
   };
 
+  // start resolving the stream while the pointer is over the row, so the
+  // click plays instantly instead of waiting for yt-dlp/Piped
+  const pfTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const schedulePrefetch = () => {
+    if (pfTimer.current) return;
+    pfTimer.current = setTimeout(() => {
+      pfTimer.current = null;
+      prefetchStream(track.videoId);
+    }, 450);
+  };
+  const cancelPrefetch = () => {
+    if (pfTimer.current) {
+      clearTimeout(pfTimer.current);
+      pfTimer.current = null;
+    }
+  };
+
+  /** whole row is clickable — buttons inside keep their own handlers */
+  const onRowClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("button, a")) return;
+    play();
+  };
+
   return (
-    <div className={`trow${playing ? " playing" : ""}`}>
+    <div
+      className={`trow${playing ? " playing" : ""}`}
+      onClick={onRowClick}
+      onPointerEnter={schedulePrefetch}
+      onPointerLeave={cancelPrefetch}
+      onPointerDown={() => prefetchStream(track.videoId)}
+    >
       <div className="n">
         <span className="num">{playing ? <Eq /> : index + 1}</span>
         <span className="pb">
@@ -87,7 +118,7 @@ export function TrackRow({ track, index, list, contextLabel }: TrackRowProps) {
           <div className="artist trunc sub">{track.artist}</div>
         </div>
       </div>
-      <div className="artistcol trunc muted">{track.artist}</div>
+      <div className="artistcol trunc muted" aria-hidden="true">{track.artist}</div>
       <div className="likecol">
         <button
           className={`like${liked ? " on" : ""}`}

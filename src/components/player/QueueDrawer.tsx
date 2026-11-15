@@ -5,6 +5,7 @@ import { usePlayer } from "@/stores/player";
 import { useUi } from "@/stores/ui";
 import { Icon } from "@/components/Icon";
 import { MiniArt } from "@/lib/art";
+import { prefetchStream } from "@/lib/prefetch";
 import { toast } from "@/stores/toast";
 
 interface DragState {
@@ -44,6 +45,8 @@ export function QueueDrawer() {
   const onPointerDown = (e: React.PointerEvent) => {
     const row = (e.target as HTMLElement).closest<HTMLElement>(".qd-row");
     if (!row || e.button !== 0) return;
+    // resolve while the finger is down — the tap that follows plays instantly
+    prefetchStream(queue[Number(row.dataset.idx)]?.videoId);
     const from = Number(row.dataset.idx);
     const d: DragState = {
       el: row,

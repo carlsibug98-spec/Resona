@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import type { RepeatMode, Track } from "@/lib/types";
 import { engine } from "@/lib/player-engine";
+import { prefetchStream } from "@/lib/prefetch";
 import { useDurations } from "@/stores/durations";
 
 interface PlayerState {
@@ -57,6 +58,14 @@ function shuffled(n: number, first: number): number[] {
 let order: number[] = [];
 let orderPos = 0;
 
+/** resolve the next-up stream in the background so the transition is instant */
+function prefetchUpcoming(queue: Track[]) {
+  if (queue.length < 2) return;
+  const upcoming = order[orderPos + 1];
+  const t = (upcoming !== undefined ? queue[upcoming] : undefined) ?? queue[0];
+  if (t) prefetchStream(t.videoId);
+}
+
 export const usePlayer = create<PlayerState>()((set, get) => ({
   queue: [],
   index: -1,
@@ -90,6 +99,7 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
       duration: track.duration || 0,
     });
     engine.load(track).catch(() => {});
+    prefetchUpcoming(tracks);
   },
 
   playTrack: (track, label = "") => {
@@ -103,6 +113,7 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     orderPos = 0;
     set({ index, position: 0, duration: s.queue[index].duration || 0 });
     engine.load(s.queue[index]).catch(() => {});
+    prefetchUpcoming(s.queue);
   },
 
   enqueue: (track, next = false) => {
@@ -207,6 +218,7 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     const safe = Math.max(0, Math.min(idx, s.queue.length - 1));
     set({ index: safe, position: 0, duration: s.queue[safe].duration || 0 });
     engine.load(s.queue[safe]).catch(() => {});
+    prefetchUpcoming(s.queue);
     return true;
   },
 
@@ -223,6 +235,7 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     const safe = Math.max(0, Math.min(idx, s.queue.length - 1));
     set({ index: safe, position: 0, duration: s.queue[safe].duration || 0 });
     engine.load(s.queue[safe]).catch(() => {});
+    prefetchUpcoming(s.queue);
   },
 
   seek: (sec) => {

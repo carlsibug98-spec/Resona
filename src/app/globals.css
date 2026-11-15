@@ -246,7 +246,7 @@ svg{display:block}
 /* track rows */
 .tlist{display:flex;flex-direction:column}
 .trow,.thead{display:grid;grid-template-columns:40px minmax(0,2.4fr) minmax(0,1.6fr) 44px 44px 58px 36px;gap:12px}
-.trow{align-items:center;padding:8px 12px;border-radius:10px;font-size:14px;transition:background .12s}
+.trow{align-items:center;padding:8px 12px;border-radius:10px;font-size:14px;transition:background .12s;cursor:pointer}
 .trow:hover{background:var(--hover)}
 .trow .n{color:var(--muted);text-align:center;font-variant-numeric:tabular-nums;position:relative;height:24px;display:grid;place-items:center}
 .trow .n .pb{position:absolute;inset:0;display:grid;place-items:center;opacity:0}

@@ -10,6 +10,7 @@ import { TrackRow, TrackTableHead } from "@/components/track/TrackRow";
 import { MiniArt, CoverArt, plGrad, initials } from "@/lib/art";
 import { Icon } from "@/components/Icon";
 import { SEED_MIXES, useSeedTracks, seedTrack } from "@/lib/seed";
+import { prefetchStream } from "@/lib/prefetch";
 import { useAsyncData } from "@/lib/useFetch";
 import { toast } from "@/stores/toast";
 import { GS_STEPS, runGsStep } from "@/lib/onboarding";
@@ -167,6 +168,7 @@ function ArtistCard({ a, thumb }: { a: CatalogArtist; thumb?: string }) {
         className="fab"
         aria-label={`Play ${a.name}`}
         onClick={() => player.playTrack(a.track, `Popular artists · ${a.name}`)}
+        onPointerDown={() => prefetchStream(a.track.videoId)}
       >
         <Icon name="play" fill />
       </button>
@@ -192,6 +194,7 @@ function ReleaseCard({ r, context }: { r: CatalogRelease; context: string }) {
         className="fab"
         aria-label={`Play ${r.track.title}`}
         onClick={() => player.playTrack(r.track, context)}
+        onPointerDown={() => prefetchStream(r.track.videoId)}
       >
         <Icon name="play" fill />
       </button>
@@ -299,12 +302,15 @@ function Card({
   sub,
   onOpen,
   onPlay,
+  prefetchId,
 }: {
   cover: React.ReactNode;
   title: string;
   sub: string;
   onOpen: () => void;
   onPlay: () => void;
+  /** song id to resolve while the listener reaches for the fab */
+  prefetchId?: string;
 }) {
   return (
     <div className="card-item">
@@ -313,7 +319,12 @@ function Card({
         <button className="cover-btn" onClick={onOpen} aria-label={title}>
           {cover}
         </button>
-        <button className="fab cover-fab" onClick={onPlay} aria-label={`Play ${title}`}>
+        <button
+          className="fab cover-fab"
+          onClick={onPlay}
+          onPointerDown={() => prefetchStream(prefetchId)}
+          aria-label={`Play ${title}`}
+        >
           <Icon name="play" fill />
         </button>
       </div>
@@ -529,6 +540,7 @@ export function HomeView() {
                 sub={t.artist}
                 onOpen={() => player.playTrack(t, "Jump back in")}
                 onPlay={() => player.playQueue(historyCards, Math.max(0, historyCards.indexOf(t)), "Jump back in")}
+                prefetchId={t.videoId}
               />
             ))}
           </div>
