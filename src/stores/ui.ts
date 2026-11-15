@@ -39,6 +39,9 @@ interface UiState {
   fullPlayer: boolean;
   /** mockup v3 queue drawer — the right-side panel with drag-to-reorder */
   queueDrawer: boolean;
+  /** width of the docked queue column, px (drag its left edge to change) */
+  queueWidth: number;
+  setQueueWidth: (w: number) => void;
 
   setImportOpen: (v: boolean) => void;
   setFullPlayer: (v: boolean) => void;
@@ -68,6 +71,8 @@ export const useUi = create<UiState>()((set, get) => ({
   modal: null,
   fullPlayer: false,
   queueDrawer: false,
+  queueWidth: 340,
+  setQueueWidth: (queueWidth) => set({ queueWidth }),
 
   setImportOpen: (v) => set({ modal: v ? { kind: "import" } : null }),
   setFullPlayer: (fullPlayer) => set({ fullPlayer }),

@@ -78,11 +78,23 @@ export function markStep(id: GsStepId): void {
   }
 }
 
-/** scroll the carousel to the first pending card and pulse it (mockup pulseNext) */
+/** fired on window; the Getting started carousel listens and jumps to its first pending card */
+export const GS_NEXT_EVENT = "resona:gs-next";
+let gsNextPending = false;
+
+/** true once if a "See what's next" request is waiting for the home view to mount */
+export function consumeGsNextPending(): boolean {
+  const was = gsNextPending;
+  gsNextPending = false;
+  return was;
+}
+
+/**
+ * "See what's next" from the snackbar: go home (the carousel lives there),
+ * then the carousel moves to the first step that isn't done yet and pulses it.
+ */
 export function pulseNext(): void {
-  const first = document.querySelector(".gs-card");
-  if (!first) return;
-  first.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
-  first.classList.add("pulse");
-  setTimeout(() => first.classList.remove("pulse"), 1400);
+  gsNextPending = true;
+  useUi.getState().navigate({ name: "home" });
+  window.dispatchEvent(new Event(GS_NEXT_EVENT));
 }

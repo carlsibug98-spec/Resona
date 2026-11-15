@@ -5,6 +5,7 @@ import { useUi, type View } from "@/stores/ui";
 import { useLibrary } from "@/stores/library";
 import { useSettings } from "@/stores/settings";
 import { Icon, type IconName } from "@/components/Icon";
+import { Logo } from "@/components/Logo";
 import { plGrad } from "@/lib/art";
 import { toast } from "@/stores/toast";
 
@@ -144,18 +145,8 @@ export function Sidebar() {
 
   return (
     <>
-      {/* mockup v3: wordmark with the logo dot above the nav */}
       <div className="brandrow">
-        <span className="logo-dot">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-            <path d="M4 10v4" />
-            <path d="M8 6v12" />
-            <path d="M12 3v18" />
-            <path d="M16 6v12" />
-            <path d="M20 10v4" />
-          </svg>
-        </span>
-        Resona
+        <Logo />
       </div>
       <nav className="card nav" aria-label="Main">
         {navItems.map((item) => (

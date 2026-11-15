@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, type CSSProperties } from "react";
 import { useUi, type View } from "@/stores/ui";
 import { usePlayer } from "@/stores/player";
 import { HomeView } from "@/components/views/HomeView";
@@ -97,17 +97,37 @@ export function AppShell() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  // overlay scrollbars: a scroll area shows its thumb only while it's moving
+  // (the hover rule lives in CSS), then fades back out
+  useEffect(() => {
+    const timers = new WeakMap<HTMLElement, number>();
+    const onScroll = (e: Event) => {
+      const el = e.target;
+      if (!(el instanceof HTMLElement)) return;
+      el.classList.add("is-scrolling");
+      const prev = timers.get(el);
+      if (prev) window.clearTimeout(prev);
+      timers.set(el, window.setTimeout(() => el.classList.remove("is-scrolling"), 800));
+    };
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    return () => document.removeEventListener("scroll", onScroll, { capture: true });
+  }, []);
+
   return (
-    <div className="app">
+    <div
+      className={`app${ui.queueDrawer ? " qd-open" : ""}`}
+      style={{ "--qdw": `${ui.queueWidth}px` } as CSSProperties}
+    >
       <IconSprite />
       <PlayerProvider />
+
+      <TopBar />
 
       <aside className="side">
         <Sidebar />
       </aside>
 
       <main className="main" id="main">
-        <TopBar />
         <div className="content" key={viewKey}>
           <MainView view={view} />
         </div>

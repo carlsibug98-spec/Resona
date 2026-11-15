@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePlayer } from "@/stores/player";
 import { useUi } from "@/stores/ui";
+import { useLibrary } from "@/stores/library";
 import { Icon } from "@/components/Icon";
 import { MiniArt } from "@/lib/art";
 import { prefetchStream } from "@/lib/prefetch";
-import { toast } from "@/stores/toast";
 
 interface DragState {
   el: HTMLElement;
@@ -19,33 +19,65 @@ interface DragState {
   timer: ReturnType<typeof setTimeout> | null;
 }
 
+type QueueTab = "queue" | "recent";
+
 /**
- * Mockup v3 queue drawer — the right-side panel with Now playing + the
- * next-up list. Tap a row to play it; press and hold (350ms), then drag
- * up or down to reorder — a drop line shows where the song will land.
+ * The queue, docked as the right-hand column of the app grid (Spotify-style):
+ * the main column makes room for it. Drag its left edge to resize. Tap a row
+ * to play it; press and hold (350ms), then drag up or down to reorder.
  */
 export function QueueDrawer() {
   const open = useUi((s) => s.queueDrawer);
   const setQueueDrawer = useUi((s) => s.setQueueDrawer);
+  const setQueueWidth = useUi((s) => s.setQueueWidth);
   const queue = usePlayer((s) => s.queue);
   const index = usePlayer((s) => s.index);
   const playFromQueue = usePlayer((s) => s.playFromQueue);
+  const playTrack = usePlayer((s) => s.playTrack);
   const moveInQueue = usePlayer((s) => s.moveInQueue);
+  const history = useLibrary((s) => s.history);
 
-  const now = index >= 0 && index < queue.length ? queue[index] : undefined;
-  const upcoming = queue.map((t, i) => ({ t, i })).slice(index + 1);
-
-  const dragRef = useRef<DragState | null>(null);
-  const justDragged = useRef(false);
-  const listRef = useRef<HTMLDivElement>(null);
+  const [tab, setTab] = useState<QueueTab>("queue");
+  const [resizing, setResizing] = useState(false);
   const [liftId, setLiftId] = useState<number | null>(null);
   const [dy, setDy] = useState(0);
   const [dropTop, setDropTop] = useState<number | null>(null);
 
+  const dragRef = useRef<DragState | null>(null);
+  const justDragged = useRef(false);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const now = index >= 0 && index < queue.length ? queue[index] : undefined;
+  const upcoming = queue.map((t, i) => ({ t, i })).slice(index + 1);
+  const recent = history
+    .filter((h) => h.track.videoId !== now?.videoId)
+    .slice(0, 50);
+
+  // drag the left edge: the app grid's queue column follows the pointer
+  useEffect(() => {
+    if (!resizing) return;
+    const onMove = (e: PointerEvent) => {
+      const app = document.querySelector(".app")?.getBoundingClientRect();
+      if (!app) return;
+      // leave room for the sidebar (300px) and a usable main column (360px)
+      const max = Math.max(260, app.width - 16 - 300 - 360 - 16);
+      setQueueWidth(Math.max(260, Math.min(max, Math.round(app.right - 8 - e.clientX))));
+    };
+    const onUp = () => setResizing(false);
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    document.body.style.cursor = "col-resize";
+    return () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.body.style.cursor = "";
+    };
+  }, [resizing, setQueueWidth]);
+
   const onPointerDown = (e: React.PointerEvent) => {
-    const row = (e.target as HTMLElement).closest<HTMLElement>(".qd-row");
+    const row = (e.target as HTMLElement).closest<HTMLElement>(".qd-row[data-idx]");
     if (!row || e.button !== 0) return;
-    // resolve while the finger is down — the tap that follows plays instantly
+    // resolve while the finger is down, so the tap that follows plays instantly
     prefetchStream(queue[Number(row.dataset.idx)]?.videoId);
     const from = Number(row.dataset.idx);
     const d: DragState = {
@@ -72,7 +104,7 @@ export function QueueDrawer() {
     if (!d || e.pointerId !== d.pid) return;
     const delta = e.clientY - d.startY;
     if (!d.active) {
-      // moved before the hold timer fired — it's a tap or a scroll, not a drag
+      // moved before the hold timer fired: a tap or a scroll, not a drag
       if (Math.abs(delta) > 8) {
         if (d.timer) clearTimeout(d.timer);
         dragRef.current = null;
@@ -82,7 +114,9 @@ export function QueueDrawer() {
     setDy(delta);
     const list = listRef.current;
     if (!list) return;
-    const others = Array.from(list.querySelectorAll<HTMLElement>(".qd-row")).filter((r) => r !== d.el);
+    const others = Array.from(list.querySelectorAll<HTMLElement>(".qd-row[data-idx]")).filter(
+      (r) => r !== d.el
+    );
     const centre = d.el.offsetTop + d.el.offsetHeight / 2 + delta;
     const k = others.filter((r) => r.offsetTop + r.offsetHeight / 2 < centre).length;
     // X = the queue index the song will sit in front of (queue.length = "at the end")
@@ -104,11 +138,11 @@ export function QueueDrawer() {
     if (d.timer) clearTimeout(d.timer);
     dragRef.current = null;
     setDropTop(null);
-    if (!d.active) return; // a tap — the click handler plays it
+    if (!d.active) return; // a tap: the click handler plays it
     setLiftId(null);
     setDy(0);
     if (d.to !== d.from) moveInQueue(d.from, d.to);
-    // suppress the click that follows the pointerup so a drop never plays
+    // swallow the click that follows the pointer-up, so a drop never plays
     justDragged.current = true;
     setTimeout(() => {
       justDragged.current = false;
@@ -124,10 +158,23 @@ export function QueueDrawer() {
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
     >
+      <div
+        className={`qd-resize${resizing ? " active" : ""}`}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize queue"
+        onPointerDown={(e) => {
+          e.preventDefault();
+          setResizing(true);
+        }}
+      />
+
       <div className="qd-h">
         <div className="qd-tabs">
-          <button className="on">Queue</button>
-          <button onClick={() => toast("Recently played is in the history tab of your library")}>
+          <button className={tab === "queue" ? "on" : ""} onClick={() => setTab("queue")}>
+            Queue
+          </button>
+          <button className={tab === "recent" ? "on" : ""} onClick={() => setTab("recent")}>
             Recently played
           </button>
         </div>
@@ -135,6 +182,7 @@ export function QueueDrawer() {
           <Icon name="x" />
         </button>
       </div>
+
       <div className="qd-sec">
         <h4>Now playing</h4>
         {now ? (
@@ -149,39 +197,67 @@ export function QueueDrawer() {
           <span className="muted">Nothing playing</span>
         )}
       </div>
-      <div className="qd-sec" style={{ flex: 1 }}>
-        <h4>Next in queue</h4>
-        <div className={`qd-list${liftId !== null ? " dragging" : ""}`} ref={listRef}>
-          {upcoming.length === 0 && (
-            <div className="muted" style={{ padding: 8 }}>
-              Queue is empty. Add songs with the ⋯ menu.
-            </div>
-          )}
-          {upcoming.map(({ t, i }) => (
-            <div
-              key={i}
-              data-idx={i}
-              className={`qd-row${liftId === i ? " lift" : ""}`}
-              style={liftId === i ? { transform: `translateY(${dy}px)` } : undefined}
-              onClick={() => {
-                if (justDragged.current) return;
-                playFromQueue(i);
-              }}
-            >
-              <MiniArt track={t} className="mini" />
-              <div className="grow">
-                <b className="trunc">{t.title}</b>
-                <span className="sub2 trunc">{t.artist}</span>
+
+      {tab === "queue" ? (
+        <div className="qd-sec" style={{ flex: 1 }}>
+          <h4>Next in queue</h4>
+          <div className={`qd-list${liftId !== null ? " dragging" : ""}`} ref={listRef}>
+            {upcoming.length === 0 && (
+              <div className="muted" style={{ padding: 8 }}>
+                Queue is empty. Add songs with the ⋯ menu.
               </div>
-              <span className="grip" aria-hidden="true">
-                ⋮⋮
-              </span>
-            </div>
-          ))}
-          {dropTop !== null && <div className="qd-drop" style={{ top: dropTop, display: "block" }} />}
+            )}
+            {upcoming.map(({ t, i }) => (
+              <div
+                key={i}
+                data-idx={i}
+                className={`qd-row${liftId === i ? " lift" : ""}`}
+                style={liftId === i ? { transform: `translateY(${dy}px)` } : undefined}
+                onClick={() => {
+                  if (justDragged.current) return;
+                  playFromQueue(i);
+                }}
+              >
+                <MiniArt track={t} className="mini" />
+                <div className="grow">
+                  <b className="trunc">{t.title}</b>
+                  <span className="sub2 trunc">{t.artist}</span>
+                </div>
+                <span className="grip" aria-hidden="true">
+                  ⋮⋮
+                </span>
+              </div>
+            ))}
+            {dropTop !== null && <div className="qd-drop" style={{ top: dropTop, display: "block" }} />}
+          </div>
+          <p className="qd-hint">Press and hold a song, then drag it up or down.</p>
         </div>
-        <p className="qd-hint">Press and hold a song, then drag it up or down.</p>
-      </div>
+      ) : (
+        <div className="qd-sec" style={{ flex: 1 }}>
+          <h4>Recently played</h4>
+          <div className="qd-list">
+            {recent.length === 0 && (
+              <div className="muted" style={{ padding: 8 }}>
+                Nothing played yet. Tracks you play show up here.
+              </div>
+            )}
+            {recent.map((h) => (
+              <div
+                key={`${h.track.videoId}-${h.at}`}
+                className="qd-row"
+                onClick={() => playTrack(h.track, "Recently played")}
+                onPointerDown={() => prefetchStream(h.track.videoId)}
+              >
+                <MiniArt track={h.track} className="mini" />
+                <div className="grow">
+                  <b className="trunc">{h.track.title}</b>
+                  <span className="sub2 trunc">{h.track.artist}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

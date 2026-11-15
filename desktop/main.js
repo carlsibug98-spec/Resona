@@ -5,7 +5,7 @@
  * window. Designed to fail fast and LOUD: every attempt is logged to
  * <userData>/server.log and real errors are shown instead of a vague timeout.
  */
-const { app, BrowserWindow, shell, dialog } = require("electron");
+const { app, BrowserWindow, shell, dialog, ipcMain } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const { spawn } = require("child_process");
 const path = require("path");
@@ -24,6 +24,18 @@ let splash = null;
 let serverProc = null;
 let serverReady = false;
 let quitting = false;
+
+// window controls for the custom header (see desktop/preload.js)
+const winOf = (e) => BrowserWindow.fromWebContents(e.sender);
+ipcMain.on("win:minimize", (e) => winOf(e)?.minimize());
+ipcMain.on("win:toggle-max", (e) => {
+  const w = winOf(e);
+  if (!w) return;
+  if (w.isMaximized()) w.unmaximize();
+  else w.maximize();
+});
+ipcMain.on("win:close", (e) => winOf(e)?.close());
+ipcMain.handle("win:is-max", (e) => winOf(e)?.isMaximized() ?? false);
 let logFile = null;
 // last lines of server output, for the error dialog
 const tail = [];
@@ -256,13 +268,18 @@ async function createWindow(port) {
     minHeight: 600,
     backgroundColor: "#0a0a0a",
     autoHideMenuBar: true,
+    // frameless: the app's own header draws the title row and the window controls
+    frame: false,
     show: false,
     title: "Resona",
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      preload: path.join(__dirname, "preload.js"),
     },
   });
+  win.on("maximize", () => win.webContents.send("win:max-changed", true));
+  win.on("unmaximize", () => win.webContents.send("win:max-changed", false));
   win.once("ready-to-show", () => {
     closeSplash();
     win.show();

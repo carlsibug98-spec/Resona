@@ -13,7 +13,7 @@ import { SEED_MIXES, useSeedTracks, seedTrack } from "@/lib/seed";
 import { prefetchStream } from "@/lib/prefetch";
 import { useAsyncData } from "@/lib/useFetch";
 import { toast } from "@/stores/toast";
-import { GS_STEPS, runGsStep } from "@/lib/onboarding";
+import { GS_NEXT_EVENT, GS_STEPS, consumeGsNextPending, runGsStep } from "@/lib/onboarding";
 
 type Chip = "all" | "music" | "playlists";
 
@@ -23,9 +23,32 @@ type Chip = "all" | "music" | "playlists";
 
 function GettingStarted() {
   const [page, setPage] = useState(0);
+  const rootRef = useRef<HTMLDivElement>(null);
   const doneIds = useSettings((s) => s.onboardingSteps);
   const pending = GS_STEPS.filter((s) => !doneIds.includes(s.id));
   const perPage = 3;
+
+  // "See what's next": the first pending step is always on page 0, so the
+  // carousel only needs to scroll the card into view and pulse it
+  const pulseFirst = () => {
+    window.setTimeout(() => {
+      const card = rootRef.current?.querySelector<HTMLElement>(".gs-card");
+      if (!card) return;
+      card.scrollIntoView({ behavior: "smooth", block: "center" });
+      card.classList.add("pulse");
+      window.setTimeout(() => card.classList.remove("pulse"), 1400);
+    }, 80);
+  };
+  useEffect(() => {
+    if (consumeGsNextPending()) pulseFirst();
+    const onNext = () => {
+      consumeGsNextPending();
+      setPage(0);
+      pulseFirst();
+    };
+    window.addEventListener(GS_NEXT_EVENT, onNext);
+    return () => window.removeEventListener(GS_NEXT_EVENT, onNext);
+  }, []);
 
   if (!pending.length) {
     return (
@@ -42,7 +65,7 @@ function GettingStarted() {
   for (let i = 0; i < pending.length; i += perPage) chunks.push(pending.slice(i, i + perPage));
 
   return (
-    <div className="section gs">
+    <div className="section gs" ref={rootRef}>
       <div className="gs-head">
         <h2>Getting started</h2>
         <div className="gs-arrows">
