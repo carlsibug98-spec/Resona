@@ -67,7 +67,10 @@ export function TopBar() {
     if (!gsOpen) return;
     const place = () => {
       const r = avatarRef.current?.getBoundingClientRect();
-      if (r) setPopPos({ top: r.bottom + 10, right: Math.max(8, window.innerWidth - r.right) });
+      if (!r) return;
+      // on phones the panel is nearly full width, so pin it to the screen's right margin
+      const right = window.innerWidth <= 820 ? 8 : Math.max(8, window.innerWidth - r.right);
+      setPopPos({ top: r.bottom + 10, right });
     };
     place();
     window.addEventListener("resize", place);

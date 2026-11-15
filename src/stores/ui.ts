@@ -45,6 +45,7 @@ interface UiState {
   /** Spotify-style: the library folds into an icon rail */
   libCollapsed: boolean;
   toggleLib: () => void;
+  setLibCollapsed: (v: boolean) => void;
   togglePanel: () => void;
 
   setImportOpen: (v: boolean) => void;
@@ -79,6 +80,7 @@ export const useUi = create<UiState>()((set, get) => ({
   setQueueWidth: (queueWidth) => set({ queueWidth }),
   libCollapsed: false,
   toggleLib: () => set((s) => ({ libCollapsed: !s.libCollapsed })),
+  setLibCollapsed: (libCollapsed) => set({ libCollapsed }),
   togglePanel: () => set((s) => (s.panel ? { panel: false } : { panel: true, queueDrawer: false })),
 
   setImportOpen: (v) => set({ modal: v ? { kind: "import" } : null }),

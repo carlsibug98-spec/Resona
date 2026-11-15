@@ -30,10 +30,6 @@ export function SearchView() {
   const inputRef = useRef<HTMLInputElement>(null);
   const ctrlRef = useRef<AbortController | null>(null);
 
-  // visiting search finishes the first getting-started step (mockup v3)
-  useEffect(() => {
-    markStep("search");
-  }, []);
   const player = usePlayer();
   const library = useLibrary();
   const resolved = useSeedTracks((s) => s.resolved);
@@ -69,6 +65,8 @@ export function SearchView() {
 
   useEffect(() => {
     const query = q.trim();
+    // the first real search finishes the first getting-started step
+    if (query.length >= 2) markStep("search");
     if (query.length < 2) {
       ctrlRef.current?.abort();
       setTracks([]);

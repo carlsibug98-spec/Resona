@@ -98,6 +98,14 @@ export function AppShell() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  // narrow windows: opening the queue or now-playing folds the library to its rail,
+  // so the main column keeps a usable width
+  useEffect(() => {
+    if ((ui.queueDrawer || ui.panel) && window.innerWidth < 1180) {
+      useUi.getState().setLibCollapsed(true);
+    }
+  }, [ui.queueDrawer, ui.panel]);
+
   // overlay scrollbars: a scroll area shows its thumb only while it's moving
   // (the hover rule lives in CSS), then fades back out
   useEffect(() => {
