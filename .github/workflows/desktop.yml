@@ -73,7 +73,9 @@ jobs:
         env:
           CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
-        run: npx electron-builder ${{ matrix.builder }}
+        # --publish never: resolve publish config so the electron-updater
+        # metadata (latest*.yml) is generated without publishing anywhere
+        run: npx electron-builder ${{ matrix.builder }} --publish never
 
       - uses: actions/upload-artifact@v4
         with:
