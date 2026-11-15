@@ -61,6 +61,7 @@ export function Sidebar() {
   const downloads = useLibrary((s) => s.downloads);
   const isNew = useSettings((s) => s.onboarding) === "new";
   const [chip, setChip] = useState<LibChip>("all");
+  const collapsed = ui.libCollapsed;
 
   const dlCount = Object.values(downloads).filter((d) => d.complete).length;
   const chips: [LibChip, string][] = [
@@ -75,11 +76,12 @@ export function Sidebar() {
   const showDownloads = (chip === "all" || chip === "downloads") && dlCount > 0;
 
   const rows: React.ReactNode[] = [];
-  if (isNew) rows.push(<NewUserCards key="nu" />);
+  if (isNew && !collapsed) rows.push(<NewUserCards key="nu" />);
   if (showLiked) {
     rows.push(
       <button
         key="liked"
+        data-tip={collapsed ? "Liked songs" : undefined}
         className={`row-lib${view.name === "library" && view.tab === "liked" ? " on" : ""}`}
         onClick={() => ui.navigate({ name: "library", tab: "liked" })}
       >
@@ -98,6 +100,7 @@ export function Sidebar() {
       rows.push(
         <button
           key={p.id}
+          data-tip={collapsed ? p.name : undefined}
           className={`row-lib${view.name === "playlist" && view.id === p.id ? " on" : ""}`}
           onClick={() => ui.navigate({ name: "playlist", id: p.id, label: p.name })}
         >
@@ -116,6 +119,7 @@ export function Sidebar() {
     rows.push(
       <button
         key="downloads"
+        data-tip={collapsed ? "Downloads" : undefined}
         className={`row-lib${view.name === "library" && view.tab === "downloads" ? " on" : ""}`}
         onClick={() => ui.navigate({ name: "library", tab: "downloads" })}
       >
@@ -148,7 +152,7 @@ export function Sidebar() {
       <div className="brandrow">
         <Logo />
       </div>
-      <nav className="card nav" aria-label="Main">
+      {!collapsed && <nav className="card nav" aria-label="Main">
         {navItems.map((item) => (
           <button
             key={item.label}
@@ -159,28 +163,38 @@ export function Sidebar() {
             {item.label}
           </button>
         ))}
-      </nav>
+      </nav>}
       <section className="card lib">
         <div className="lib-head">
-          <b>
-            <Icon name="library" className="sm" /> Your Library
-          </b>
           <button
-            className="iconbtn"
-            onClick={() => useUi.getState().openModal({ kind: "createPlaylist" })}
-            aria-label="Create playlist"
-            title="Create playlist"
+            className="lib-toggle"
+            onClick={() => ui.toggleLib()}
+            aria-label={collapsed ? "Expand Your Library" : "Collapse Your Library"}
+            data-tip={collapsed ? "Expand Your Library" : "Collapse Your Library"}
           >
-            <Icon name="plus" className="sm" />
+            <Icon name="library" className="sm" />
+            {!collapsed && <span>Your Library</span>}
           </button>
-        </div>
-        <div className="chips">
-          {chips.map(([k, label]) => (
-            <button key={k} className={`chip${chip === k ? " on" : ""}`} onClick={() => setChip(k)}>
-              {label}
+          {!collapsed && (
+            <button
+              className="iconbtn"
+              onClick={() => useUi.getState().openModal({ kind: "createPlaylist" })}
+              aria-label="Create playlist"
+              data-tip="Create playlist"
+            >
+              <Icon name="plus" className="sm" />
             </button>
-          ))}
+          )}
         </div>
+        {!collapsed && (
+          <div className="chips">
+            {chips.map(([k, label]) => (
+              <button key={k} className={`chip${chip === k ? " on" : ""}`} onClick={() => setChip(k)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="liblist">{rows}</div>
       </section>
     </>

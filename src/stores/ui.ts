@@ -42,6 +42,10 @@ interface UiState {
   /** width of the docked queue column, px (drag its left edge to change) */
   queueWidth: number;
   setQueueWidth: (w: number) => void;
+  /** Spotify-style: the library folds into an icon rail */
+  libCollapsed: boolean;
+  toggleLib: () => void;
+  togglePanel: () => void;
 
   setImportOpen: (v: boolean) => void;
   setFullPlayer: (v: boolean) => void;
@@ -73,16 +77,20 @@ export const useUi = create<UiState>()((set, get) => ({
   queueDrawer: false,
   queueWidth: 340,
   setQueueWidth: (queueWidth) => set({ queueWidth }),
+  libCollapsed: false,
+  toggleLib: () => set((s) => ({ libCollapsed: !s.libCollapsed })),
+  togglePanel: () => set((s) => (s.panel ? { panel: false } : { panel: true, queueDrawer: false })),
 
   setImportOpen: (v) => set({ modal: v ? { kind: "import" } : null }),
   setFullPlayer: (fullPlayer) => set({ fullPlayer }),
-  setQueueDrawer: (queueDrawer) => set({ queueDrawer }),
-  toggleQueueDrawer: () => set((s) => ({ queueDrawer: !s.queueDrawer })),
+  setQueueDrawer: (queueDrawer) => set(queueDrawer ? { queueDrawer, panel: false } : { queueDrawer }),
+  toggleQueueDrawer: () => set((s) => (s.queueDrawer ? { queueDrawer: false } : { queueDrawer: true, panel: false })),
   openPanel: (tab) =>
-    set((s) => ({
-      panel: !(s.panel && s.panelTab === tab) ? true : false,
-      panelTab: tab,
-    })),
+    set((s) => {
+      const open = !(s.panel && s.panelTab === tab);
+      // the now-playing panel and the queue share the right-hand column
+      return { panel: open, panelTab: tab, queueDrawer: open ? false : s.queueDrawer };
+    }),
   closePanel: () => set({ panel: false }),
   setPanelTab: (panelTab) => set({ panelTab }),
   setNfMode: (nfMode) => set({ nfMode }),

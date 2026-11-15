@@ -7,6 +7,7 @@ import { useLibrary } from "@/stores/library";
 import { Icon } from "@/components/Icon";
 import { MiniArt } from "@/lib/art";
 import { prefetchStream } from "@/lib/prefetch";
+import { RightResizer } from "@/components/RightResizer";
 
 interface DragState {
   el: HTMLElement;
@@ -29,7 +30,6 @@ type QueueTab = "queue" | "recent";
 export function QueueDrawer() {
   const open = useUi((s) => s.queueDrawer);
   const setQueueDrawer = useUi((s) => s.setQueueDrawer);
-  const setQueueWidth = useUi((s) => s.setQueueWidth);
   const queue = usePlayer((s) => s.queue);
   const index = usePlayer((s) => s.index);
   const playFromQueue = usePlayer((s) => s.playFromQueue);
@@ -38,7 +38,6 @@ export function QueueDrawer() {
   const history = useLibrary((s) => s.history);
 
   const [tab, setTab] = useState<QueueTab>("queue");
-  const [resizing, setResizing] = useState(false);
   const [liftId, setLiftId] = useState<number | null>(null);
   const [dy, setDy] = useState(0);
   const [dropTop, setDropTop] = useState<number | null>(null);
@@ -53,26 +52,6 @@ export function QueueDrawer() {
     .filter((h) => h.track.videoId !== now?.videoId)
     .slice(0, 50);
 
-  // drag the left edge: the app grid's queue column follows the pointer
-  useEffect(() => {
-    if (!resizing) return;
-    const onMove = (e: PointerEvent) => {
-      const app = document.querySelector(".app")?.getBoundingClientRect();
-      if (!app) return;
-      // leave room for the sidebar (300px) and a usable main column (360px)
-      const max = Math.max(260, app.width - 16 - 300 - 360 - 16);
-      setQueueWidth(Math.max(260, Math.min(max, Math.round(app.right - 8 - e.clientX))));
-    };
-    const onUp = () => setResizing(false);
-    document.addEventListener("pointermove", onMove);
-    document.addEventListener("pointerup", onUp);
-    document.body.style.cursor = "col-resize";
-    return () => {
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onUp);
-      document.body.style.cursor = "";
-    };
-  }, [resizing, setQueueWidth]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     const row = (e.target as HTMLElement).closest<HTMLElement>(".qd-row[data-idx]");
@@ -158,16 +137,7 @@ export function QueueDrawer() {
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
     >
-      <div
-        className={`qd-resize${resizing ? " active" : ""}`}
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Resize queue"
-        onPointerDown={(e) => {
-          e.preventDefault();
-          setResizing(true);
-        }}
-      />
+      <RightResizer />
 
       <div className="qd-h">
         <div className="qd-tabs">

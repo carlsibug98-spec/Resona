@@ -21,6 +21,7 @@ import { TopBar } from "@/components/TopBar";
 import { ModalHost } from "@/components/ModalHost";
 import { ToastHost } from "@/components/ToastHost";
 import { SnackHost } from "@/components/SnackHost";
+import { TooltipLayer } from "@/components/TooltipLayer";
 import { IconSprite } from "@/components/Icon";
 import { hueFor } from "@/lib/art";
 import { applyStarterContent } from "@/lib/seed";
@@ -115,7 +116,7 @@ export function AppShell() {
 
   return (
     <div
-      className={`app${ui.queueDrawer ? " qd-open" : ""}`}
+      className={`app${ui.queueDrawer || ui.panel ? " qd-open" : ""}${ui.libCollapsed ? " lib-collapsed" : ""}`}
       style={{ "--qdw": `${ui.queueWidth}px` } as CSSProperties}
     >
       <IconSprite />
@@ -123,7 +124,7 @@ export function AppShell() {
 
       <TopBar />
 
-      <aside className="side">
+      <aside className={`side${ui.libCollapsed ? " collapsed" : ""}`}>
         <Sidebar />
       </aside>
 
@@ -142,6 +143,7 @@ export function AppShell() {
       <ModalHost />
       <ToastHost />
       <SnackHost />
+      <TooltipLayer />
     </div>
   );
 }

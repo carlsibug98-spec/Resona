@@ -7,6 +7,7 @@ import { useSettings } from "@/stores/settings";
 import { useLyrics, lineIndexAt, type LyricsState } from "@/lib/useLyrics";
 import { MiniArt, CoverArt } from "@/lib/art";
 import { Icon } from "@/components/Icon";
+import { RightResizer } from "@/components/RightResizer";
 import { formatDuration } from "@/lib/format";
 import type { LyricLine, Track } from "@/lib/types";
 
@@ -211,6 +212,7 @@ export function NowPlayingPanel() {
 
   return (
     <section className={`npp open sz${lySize}${lm ? " lm" : ""}`} aria-label="Now playing">
+      <RightResizer />
       <div className="npp-bg" aria-hidden="true" />
       <div className="npp-h">
         <button className="iconbtn" onClick={closePanel} aria-label="Close">

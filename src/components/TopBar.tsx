@@ -82,7 +82,7 @@ export function TopBar() {
           style={{ opacity: canBack ? 1 : 0.35 }}
           onClick={() => ui.back()}
           aria-label="Back"
-          title="Back"
+          data-tip="Back"
         >
           <Icon name="back" />
         </button>
@@ -91,11 +91,11 @@ export function TopBar() {
           style={{ opacity: canForward ? 1 : 0.35, cursor: canForward ? "pointer" : "default" }}
           onClick={() => canForward && ui.forward()}
           aria-label="Forward"
-          title="Forward"
+          data-tip="Forward"
         >
           <Icon name="fwd" />
         </button>
-        <button className="iconbtn" onClick={() => ui.navigate({ name: "home" })} aria-label="Home" title="Home">
+        <button className="iconbtn" onClick={() => ui.navigate({ name: "home" })} aria-label="Home" data-tip="Home">
           <Icon name="home" />
         </button>
       </div>

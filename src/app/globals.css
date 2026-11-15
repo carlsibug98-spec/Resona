@@ -355,7 +355,7 @@ svg{display:block}
 .dlstate.ok{color:var(--ok)}
 
 /* ───────── now playing / lyrics ───────── */
-.npp{--lysz:30px;position:fixed;inset:8px 8px 96px 8px;border-radius:var(--r);z-index:40;display:none;flex-direction:column;overflow:hidden;background:#0d0d10;color:#fff;box-shadow:0 30px 80px rgba(0,0,0,.6);isolation:isolate}
+.npp{--lysz:30px;position:relative;grid-column:3;grid-row:2;min-width:0;min-height:0;border-radius:var(--r);z-index:5;display:none;flex-direction:column;overflow:hidden;background:#0d0d10;color:#fff;box-shadow:0 30px 80px rgba(0,0,0,.6);isolation:isolate}
 .npp.open{display:flex;animation:up .28s cubic-bezier(.2,.9,.3,1)}
 .npp.sz0{--lysz:23px}.npp.sz1{--lysz:30px}.npp.sz2{--lysz:40px}
 @keyframes up{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
@@ -479,7 +479,8 @@ svg{display:block}
   .mnav button{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--muted);padding:6px 0}
   .mnav button.on{color:var(--text)}
   .mnav .ic{width:22px;height:22px}
-  .npp{inset:0;border-radius:0;z-index:70}
+  .npp{position:fixed;grid-column:auto;grid-row:auto;inset:0;border-radius:0;z-index:70}
+  .npp .qd-resize{display:none}
   .npp-h{padding:10px 12px}
   .npp-body,.npp.lm .npp-body{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);gap:8px;padding:0 16px 8px}
   .npp-art{flex-direction:row;align-items:center;gap:12px;justify-content:flex-start}
@@ -756,3 +757,42 @@ img.cov{object-fit:cover}
 ::-webkit-scrollbar-thumb{background-color:transparent;border:3px solid transparent;background-clip:padding-box;border-radius:999px;transition:background-color .35s ease}
 :hover::-webkit-scrollbar-thumb,.is-scrolling::-webkit-scrollbar-thumb{background-color:var(--sb-thumb)}
 ::-webkit-scrollbar-thumb:hover{background-color:var(--sb-thumb-hi)}
+
+/* ───────── Spotify-style windowed view ───────── */
+
+/* collapsible library: the sidebar folds into a 72px icon rail */
+.lib-toggle{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700;color:var(--muted);height:32px;border-radius:999px;padding:0 8px;margin-left:-8px;transition:color .15s,background .15s}
+.lib-toggle:hover{color:var(--text);background:var(--hover)}
+.lib-toggle:active{transform:scale(.97)}
+.lib-head{padding-right:8px}
+@media (min-width:821px){
+  .app.lib-collapsed{grid-template-columns:72px minmax(0,1fr)}
+  .app.lib-collapsed.qd-open{grid-template-columns:72px minmax(0,1fr) var(--qdw,340px)}
+}
+.side.collapsed .brandrow{display:flex;justify-content:center;padding:14px 0 6px}
+.side.collapsed .logo-word{display:none}
+.side.collapsed .lib{align-items:stretch}
+.side.collapsed .lib-head{justify-content:center;padding:6px 0 8px}
+.side.collapsed .lib-toggle{margin:0;padding:0;width:40px;height:40px;justify-content:center;border-radius:50%}
+.side.collapsed .liblist{padding:0 6px 8px;scrollbar-width:none}
+.side.collapsed .liblist::-webkit-scrollbar{display:none}
+.side.collapsed .row-lib{justify-content:center;padding:6px 0;gap:0}
+.side.collapsed .row-lib .txt,.side.collapsed .pad-note{display:none}
+.side.collapsed .row-lib .mini{width:44px;height:44px}
+
+/* the right-hand column: its resize handle sits on the inner edge */
+.npp .qd-resize{left:0;width:10px}
+.npp .qd-resize::after{left:4px}
+@media (min-width:821px){
+  .npp-body,.npp.lm .npp-body{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:14px;padding:4px 16px 14px}
+  .npp-art .cov,.npp.lm .npp-art .cov{width:min(100%,240px);font-size:72px}
+  .npp-art h2,.npp.lm .npp-art h2{font-size:20px}
+  .npp-h{padding:12px 14px}
+}
+
+/* hover tooltips: one fixed layer, so lists and the header never clip them */
+.tip{position:fixed;z-index:400;pointer-events:none;padding:6px 10px;border-radius:8px;background:var(--text);color:var(--bg);font-size:12px;font-weight:600;line-height:1.2;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.35);animation:tipin .14s ease-out}
+.tip-right{transform:translateY(-50%)}
+.tip-bottom{transform:translateX(-50%)}
+@keyframes tipin{from{opacity:0}to{opacity:1}}
+

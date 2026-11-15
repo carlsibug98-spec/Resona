@@ -95,21 +95,21 @@ export function PlayerBar() {
               player.toggleShuffle();
               toast(player.shuffle ? "Shuffle on" : "Shuffle off");
             }}
-            aria-label="Shuffle"
+            aria-label="Shuffle" data-tip="Shuffle"
           >
             <Icon name="shuffle" />
           </button>
-          <button className="iconbtn keep" onClick={() => player.prev()} aria-label="Previous">
+          <button className="iconbtn keep" onClick={() => player.prev()} aria-label="Previous" data-tip="Previous">
             <Icon name="prev" fill />
           </button>
           <button
             className="playbtn"
             onClick={() => player.toggle()}
-            aria-label={player.isPlaying ? "Pause" : "Play"}
+            aria-label={player.isPlaying ? "Pause" : "Play"} data-tip={player.isPlaying ? "Pause" : "Play"}
           >
             <Icon name={player.isPlaying ? "pause" : "play"} className={player.isPlaying ? "pause" : ""} />
           </button>
-          <button className="iconbtn keep" onClick={() => player.next()} aria-label="Next">
+          <button className="iconbtn keep" onClick={() => player.next()} aria-label="Next" data-tip="Next">
             <Icon name="next" fill />
           </button>
           <button
@@ -120,7 +120,7 @@ export function PlayerBar() {
               toast(mode === "all" ? "Repeat: all" : mode === "one" ? "Repeat: one" : "Repeat off");
             }}
             aria-label="Repeat"
-            title={player.repeat === "one" ? "Repeat one" : player.repeat === "all" ? "Repeat all" : "Repeat off"}
+            data-tip={player.repeat === "one" ? "Repeat one" : player.repeat === "all" ? "Repeat all" : "Repeat off"}
           >
             <Icon name="repeat" />
           </button>
@@ -137,7 +137,7 @@ export function PlayerBar() {
           className="iconbtn"
           onClick={() => ui.setFullPlayer(true)}
           aria-label="Full screen now playing"
-          title="Full screen"
+          data-tip="Full screen"
         >
           <Icon name="expand" />
         </button>
@@ -150,15 +150,26 @@ export function PlayerBar() {
             ui.setNfMode("lyrics");
           }}
           aria-label="Lyrics"
-          title="Lyrics"
+          data-tip="Lyrics"
         >
           <Icon name="mic" />
+        </button>
+        <button
+          className={`iconbtn${ui.panel ? " on" : ""}`}
+          onClick={() => ui.togglePanel()}
+          aria-label={ui.panel ? "Hide Now Playing view" : "Show Now Playing view"}
+          data-tip={ui.panel ? "Hide Now Playing view" : "Show Now Playing view"}
+        >
+          <svg className="ic" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="16" rx="2" />
+            <path d="M15 4v16" />
+          </svg>
         </button>
         <button
           className={`iconbtn${ui.queueDrawer ? " on" : ""}`}
           onClick={() => ui.toggleQueueDrawer()}
           aria-label="Queue"
-          title="Queue"
+          data-tip="Queue"
         >
           <Icon name="queue" />
         </button>
