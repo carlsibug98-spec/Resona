@@ -102,6 +102,15 @@ export interface TrendingResult {
   source: TrendingSource;
 }
 
+/** flattened view over the detailed result — just the playable tracks */
+export async function getTrending(region = "Global", limit = 40): Promise<{
+  tracks: Track[];
+  source: TrendingSource;
+}> {
+  const { entries, source } = await getTrendingDetailed(region, limit);
+  return { tracks: entries.map((e) => e.track), source };
+}
+
 /** per-query micro-cache so overlapping passes (trending view, home
  * catalog) never resolve the same cleaned title twice within 30 min */
 async function resolveRow(query: string): Promise<Track | null> {
@@ -199,11 +208,6 @@ export async function getTrendingDetailed(
     );
     return { entries, source: "charts" };
   }
-}
-
-export async function getTrending(region = "Global", limit = 40): Promise<TrendingResult> {
-  const { entries, source } = await getTrendingDetailed(region, limit);
-  return { tracks: entries.map((e) => e.track), source };
 }
 
 export async function getDailyTop(limit = 40): Promise<Track[]> {

@@ -12,6 +12,78 @@ const CONTEXT = {
   },
 };
 
+/* ── client rotation ────────────────────────────────────────────────────
+ * music.youtube.com gates the WEB_REMIX client on some networks/regions
+ * (429s or empty shelves). The same endpoints answer for the IOS and
+ * ANDROID music clients, so a request that fails or parses empty is
+ * retried once with each fallback context before giving up. */
+const CLIENT_CONTEXTS: Record<string, unknown>[] = [
+  CONTEXT,
+  {
+    client: {
+      clientName: "IOS",
+      clientVersion: "19.29.1",
+      deviceMake: "Apple",
+      deviceModel: "iPhone16,2",
+      osName: "iPhone",
+      osVersion: "17.5.1.21F90",
+      hl: "en",
+      gl: "US",
+    },
+  },
+  {
+    client: {
+      clientName: "ANDROID",
+      clientVersion: "7.40.52",
+      androidSdkVersion: 34,
+      osName: "Android",
+      osVersion: "14",
+      hl: "en",
+      gl: "US",
+    },
+  },
+];
+
+export async function innertubePost(
+  endpoint: string,
+  body: Record<string, unknown>,
+  clientIndex = 0
+): Promise<any> {
+  const context = CLIENT_CONTEXTS[clientIndex] || CONTEXT;
+  const res = await fetchWithTimeout(
+    `${YT_MUSIC}/${endpoint}?prettyPrint=false`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ context, ...body }),
+    },
+    12000
+  );
+  if (!res.ok) throw new Error(`innertube ${endpoint} ${res.status}`);
+  return res.json();
+}
+
+/** POST that rotates through the fallback clients. `isOk` lets callers
+ *  treat a structurally-empty 200 (bot-gated shelf) as a failure worth
+ *  retrying on the next client; the last error rethrows. */
+async function innertubeRotating(
+  endpoint: string,
+  body: Record<string, unknown>,
+  isOk: (data: any) => boolean
+): Promise<any> {
+  let lastErr: unknown = null;
+  for (let i = 0; i < CLIENT_CONTEXTS.length; i++) {
+    try {
+      const data = await innertubePost(endpoint, body, i);
+      if (isOk(data)) return data;
+      lastErr = new Error(`innertube ${endpoint}: client #${i} answered but parsed empty`);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(`innertube ${endpoint} failed`);
+}
+
  
 
 function walk(o: any, key: string, depth = 0): any[] {
@@ -129,28 +201,15 @@ function parseListItem(r: any): Track | null {
   }
 }
 
-export async function innertubePost(
-  endpoint: string,
-  body: Record<string, unknown>
-): Promise<any> {
-  const res = await fetchWithTimeout(
-    `${YT_MUSIC}/${endpoint}?prettyPrint=false`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ context: CONTEXT, ...body }),
-    },
-    12000
-  );
-  if (!res.ok) throw new Error(`innertube ${endpoint} ${res.status}`);
-  return res.json();
-}
-
 export async function searchTracksRaw(
   query: string,
   filter: "songs" | "videos" = "songs"
 ): Promise<Track[]> {
-  const data = await innertubePost("search", { query, filter });
+  const data = await innertubeRotating(
+    "search",
+    { query, filter },
+    (d) => walk(d, "musicResponsiveListItemRenderer").length > 0
+  );
   const items = walk(data, "musicResponsiveListItemRenderer");
   const seen = new Set<string>();
   const tracks: Track[] = [];
@@ -248,6 +307,27 @@ export async function searchArtists(query: string): Promise<ArtistHit[]> {
       if (out.length >= 6) break;
     }
     return out;
+  });
+}
+
+/** Query completions for the search box dropdown, straight from YouTube
+ *  Music's suggestion service. Short-lived cache — typing produces a
+ *  burst of near-identical prefixes. */
+export async function getSuggestions(input: string): Promise<string[]> {
+  const q = input.trim();
+  if (!q) return [];
+  return cached(`suggest:${q.toLowerCase()}`, 1000 * 60 * 10, async () => {
+    try {
+      const data = await innertubePost("music/get_search_suggestions", { input: q });
+      const out: string[] = [];
+      for (const s of walk(data, "searchSuggestionRenderer")) {
+        const text = s.suggestion?.runs?.map((r: any) => r.text || "").join("") || "";
+        if (text && text.trim()) out.push(text.trim());
+      }
+      return out.slice(0, 8);
+    } catch {
+      return [];
+    }
   });
 }
 

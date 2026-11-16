@@ -251,6 +251,15 @@ export function NowPlayingPanel() {
   return (
     <section className={`npp open sz${lySize}${lm ? " lm" : ""}`} aria-label="Now playing">
       <RightResizer />
+      {/* Spotify-style edge chevron: hides the Now Playing view in one click */}
+      <button
+        className="npp-edge"
+        onClick={closePanel}
+        aria-label="Hide Now Playing view"
+        data-tip="Hide Now Playing view"
+      >
+        <Icon name="chev-right" />
+      </button>
       <div className="npp-bg" aria-hidden="true" />
       <div className="npp-h">
         <button className="iconbtn" onClick={closePanel} aria-label="Close">

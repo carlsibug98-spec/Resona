@@ -1,5 +1,42 @@
 # Changes
 
+## v1.6.6 — search that works everywhere, Spotify-style search box (2026-11-16)
+
+The v1.6.5 Windows zip was staged on Linux and shipped Linux native modules
+(`@libsql/linux-x64-gnu`, `sharp-linux-x64`) — on Windows the database import
+threw at module load and took **every** server API route down with it: search
+answered "No results" for anything, and home/trending shelves never loaded.
+v1.6.6 fixes the failure and the packaging:
+
+- **A broken database can never kill the app again** — `db.ts` loads libsql
+  through a safe require; a missing or wrong-OS native binding degrades to
+  memory-only (verified by poisoning the import in a live server test:
+  search still answers 200 with full results)
+- **Search: client rotation + honest errors** — YouTube Music requests now
+  rotate WEB_REMIX → IOS → ANDROID clients when one is bot-gated or parses
+  empty; when the source is truly unreachable the UI says "Search is
+  unreachable right now" with a retry button instead of a fake "No results"
+- **Spotify-style search dropdown** — while typing: live query suggestions
+  plus top artist/song rows with artwork ("Song · Artist" subtitles),
+  ↑↓ / Enter keyboard navigation with the hint bar, on outside-click
+  dismiss; when idle: Recent searches with per-item and bulk clear
+- **Now Playing view edge chevrons** (Spotify parity) — a chevron on the
+  panel's inner edge hides it; while hidden, a chevron riding the main
+  content's right edge brings it back. The library's collapse to an icon
+  rail was already in — both now match the reference behaviour
+- **Dedicated data folder on Windows: `C:\Resona`** — database and
+  `server.log` live there (created on first launch, falls back to
+  `%LOCALAPPDATA%\Resona` when the drive root is not writable); other
+  platforms keep the OS user-data dir
+- **Trending route type bug fixed** — `getTrending`'s return shape
+  disagreed with `TrendingResult` (a pre-existing type error on main that
+  broke the trending view's data path)
+- **CI repaired** — `test.yml` now installs dependencies before running
+  the suite (the libsql-dependent tests failed on every runner before)
+- **Release packaging fixed** — the Windows release is the NSIS installer
+  **exe** + `latest.yml` from the windows-latest CI artifact (never a
+  sandbox-built zip), so auto-update works again
+
 ## v1.6.5 — a real database, nav refresh, never-empty shelves (2026-11-15)
 
 The `feat/sqlite-drizzle-storage` branch merged to main. Highlights since v1.6.4:

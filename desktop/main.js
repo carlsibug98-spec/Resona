@@ -110,6 +110,35 @@ function log(line) {
   } catch {}
 }
 
+/** Dedicated data dir — C:\Resona on Windows (created on first launch;
+ *  falls back to %LOCALAPPDATA%\Resona when the drive root is not
+ *  writable, e.g. no admin rights). Other platforms keep the OS
+ *  user-data dir. The database and logs both live here, so everything
+ *  the app keeps sits in one predictable place that survives updates
+ *  and never sits inside the read-only install dir. */
+function resonaDataDir() {
+  if (process.platform === "win32") {
+    try {
+      const home = process.env.USERPROFILE || app.getPath("home");
+      if (home && /^[a-z]:/i.test(home)) {
+        const root = path.join(home.slice(0, 2), "Resona");
+        fs.mkdirSync(root, { recursive: true });
+        // write probe: the root may exist but be unwritable
+        const probe = path.join(root, ".write-test");
+        fs.writeFileSync(probe, "ok");
+        fs.unlinkSync(probe);
+        return root;
+      }
+    } catch {}
+    try {
+      const fallback = path.join(process.env.LOCALAPPDATA || app.getPath("userData"), "Resona");
+      fs.mkdirSync(fallback, { recursive: true });
+      return fallback;
+    } catch {}
+  }
+  return app.getPath("userData");
+}
+
 function pickPort() {
   // random high port avoids conflicts with anything on a fixed port
   return 30000 + Math.floor(Math.random() * 25000);
@@ -139,14 +168,14 @@ function startServer(port, attempt) {
   const deps = path.join(serverDir, "deps");
   if (fs.existsSync(deps)) env.NODE_PATH = deps;
 
-  // the SQLite database (persistent cache + library mirror) lives in the OS
-  // user-data dir, so it survives app updates and never sits inside the
-  // read-only install dir. The directory already exists (userData), but be
-  // defensive on first launch.
+  // the SQLite database (persistent cache + library mirror) lives in the
+  // dedicated data dir (see resonaDataDir) — one predictable place that
+  // survives app updates and never sits inside the read-only install dir.
+  const baseDir = resonaDataDir();
   try {
-    fs.mkdirSync(path.join(app.getPath("userData"), "data"), { recursive: true });
+    fs.mkdirSync(path.join(baseDir, "data"), { recursive: true });
   } catch {}
-  env.RESONA_DB_PATH = path.join(app.getPath("userData"), "data", "resona.db");
+  env.RESONA_DB_PATH = path.join(baseDir, "data", "resona.db");
 
   serverProc = spawn(process.execPath, [serverJs], {
     env,
@@ -388,7 +417,9 @@ if (!gotLock) {
 
   app.whenReady().then(async () => {
     try {
-      logFile = path.join(app.getPath("userData"), "server.log");
+      // logs land beside the database in the dedicated data dir (C:\Resona
+      // on Windows, OS user-data dir elsewhere) — see startServer()
+      logFile = path.join(resonaDataDir(), "server.log");
       fs.mkdirSync(path.dirname(logFile), { recursive: true });
       try {
         fs.appendFileSync(logFile, `\n===== launch ${new Date().toISOString()} =====\n`);

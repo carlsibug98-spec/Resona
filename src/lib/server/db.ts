@@ -5,18 +5,19 @@
  * Node, Bun and Electron-as-Node without ABI rebuilds, which better-sqlite3
  * cannot promise in the packaged desktop app.
  *
- * The database file lives at RESONA_DB_PATH (desktop main.js points it at the
- * OS user-data dir); the default is ./resona.db next to the server. Under
- * `node --test` everything stays in memory unless RESONA_DB_PATH is set
- * explicitly (the storage tests do exactly that).
- *
- * Every failure here degrades to "no database, memory only" — a broken or
- * read-only database location must never take the app down with it.
+ * The `@libsql/client` import is DYNAMIC and wrapped in try/catch: the
+ * package's native binding (`@libsql/<platform>/index.node`) is resolved at
+ * require time, and a build staged on the wrong OS (e.g. Linux natives
+ * shipped inside a Windows zip) would otherwise throw at module load —
+ * taking every API route that touches the cache (search, trending, lyrics,
+ * catalog, …) down with a 500. Here a missing native just means "no
+ * database, memory only", exactly like any other open failure.
  */
 import fs from "node:fs";
 import path from "node:path";
-import { createClient, type Client } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
+import { createRequire } from "node:module";
+import type { Client } from "@libsql/client";
+import type { drizzle as drizzleFn } from "drizzle-orm/libsql";
 import { integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 /** generic TTL cache rows — the persistent twin of server/cache.ts's Map */
@@ -58,7 +59,7 @@ export const history = sqliteTable("history", {
 
 export type Db = {
   client: Client;
-  db: ReturnType<typeof drizzle>;
+  db: ReturnType<typeof drizzleFn>;
   /** resolves once the schema exists; always resolves, even on failure */
   ready: Promise<void>;
 };
@@ -104,19 +105,45 @@ export function dbEnabled(): boolean {
   return true;
 }
 
+/** Synchronous module loader that works in CJS (Next server bundle) and ESM
+ *  (node --test) alike, and never throws — a missing module resolves null.
+ *  This is the load-bearing try/catch: `libsql/index.js` resolves its native
+ *  binding with a bare `require("@libsql/<platform>")` at module load, so a
+ *  wrong-OS build (Linux natives inside the Windows package) makes the
+ *  import itself throw. Catching it here keeps every API route alive. */
+function safeRequire<T>(id: string): T | null {
+  try {
+    const req: NodeRequire =
+      typeof require === "function"
+        ? require
+        : createRequire(import.meta.url);
+    return req(id) as T;
+  } catch {
+    return null;
+  }
+}
+
 function open(): Db | null {
   const file = process.env.RESONA_DB_PATH || path.join(process.cwd(), "resona.db");
+  const clientMod = safeRequire<typeof import("@libsql/client")>("@libsql/client");
+  const drizzleMod = safeRequire<typeof import("drizzle-orm/libsql")>("drizzle-orm/libsql");
+  if (!clientMod || !drizzleMod) {
+    console.error(
+      "[db] libsql/drizzle unavailable (missing package or wrong-OS native binding) — continuing memory-only"
+    );
+    return null;
+  }
   let client: Client;
   try {
     fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
-    client = createClient({ url: "file:" + file });
+    client = clientMod.createClient({ url: "file:" + file });
   } catch (e) {
     console.error("[db] cannot open", file, "— continuing memory-only:", e);
     return null;
   }
   const c: Db = {
     client,
-    db: drizzle(client),
+    db: drizzleMod.drizzle(client),
     ready: (async () => {
       try {
         await client.executeMultiple(

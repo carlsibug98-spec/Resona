@@ -19,6 +19,7 @@ import { PlayerProvider } from "@/components/player/PlayerProvider";
 import { TaskbarControls } from "@/components/TaskbarControls";
 import { Sidebar, MobileNav } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
+import { Icon } from "@/components/Icon";
 import { ModalHost } from "@/components/ModalHost";
 import { ToastHost } from "@/components/ToastHost";
 import { SnackHost } from "@/components/SnackHost";
@@ -153,6 +154,21 @@ export function AppShell() {
           <MainView view={view} />
         </div>
       </main>
+
+      {/* Spotify-style: with the Now Playing view hidden, a chevron riding
+          the main content's right edge brings it back. It lives outside the
+          scrolling .main (absolute vs the app grid) so it never scrolls away
+          and never gets clipped by the content's overflow. */}
+      {!ui.panel && !ui.queueDrawer && (
+        <button
+          className="npp-show"
+          onClick={() => useUi.getState().openPanel("queue")}
+          aria-label="Show Now Playing view"
+          data-tip="Show Now Playing view"
+        >
+          <Icon name="chev-left" />
+        </button>
+      )}
 
       <PlayerBar />
 
