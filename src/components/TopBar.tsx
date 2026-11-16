@@ -10,6 +10,7 @@ import { useUpdateAvailable } from "@/lib/useUpdate";
 import { Icon } from "@/components/Icon";
 import { LogoMark } from "@/components/Logo";
 import { WindowControls, useIsDesktop } from "@/components/WindowControls";
+import { SearchOverlay } from "@/components/SearchOverlay";
 import { exportLibrary } from "@/lib/backup";
 import { GS_STEPS, runGsStep } from "@/lib/onboarding";
 
@@ -115,10 +116,9 @@ export function TopBar() {
         <LogoMark size={24} />
       </span>
 
-      <button className="topsearch" onClick={() => ui.navigate({ name: "search" })} aria-label="Search">
-        <Icon name="search" />
-        <span>What do you want to play?</span>
-      </button>
+      {/* Spotify-style: the top search is a real input; focusing it opens a
+          dropdown over the current page (SearchOverlay) — no navigation */}
+      <SearchOverlay />
 
       <div className="top-right">
         <button className="pill" onClick={() => ui.openModal({ kind: "import" })}>

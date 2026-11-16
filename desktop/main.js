@@ -382,12 +382,23 @@ async function createWindow(port) {
   win.once("ready-to-show", () => {
     closeSplash();
     win.show();
-    // the thumbnail toolbar attaches to a shown window; apply the last known state
+    // the thumbnail toolbar attaches to a shown window; apply the last known
+    // state, then re-apply on a short backoff — Windows occasionally drops
+    // the toolbar when it is set in the same tick as the first show, and
+    // frameless windows need it re-applied after the window settles.
     applyTaskbarControls();
+    for (const ms of [400, 1200, 3500]) setTimeout(applyTaskbarControls, ms);
   });
-  // Windows drops the thumbnail toolbar when the window returns from fullscreen
+  // Windows drops the thumbnail toolbar when the window returns from
+  // fullscreen/minimize, and on some builds on every focus change of a
+  // frameless window — re-apply in all of those cases.
   win.on("restore", () => applyTaskbarControls());
   win.on("leave-full-screen", () => applyTaskbarControls());
+  win.on("focus", () => applyTaskbarControls());
+  win.webContents.on("did-finish-load", () => {
+    applyTaskbarControls();
+    setTimeout(applyTaskbarControls, 1000);
+  });
   // open external links in the system browser
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (!url.startsWith(`http://127.0.0.1:${port}`)) shell.openExternal(url);

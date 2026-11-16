@@ -123,11 +123,52 @@ export function PlayerProvider() {
         navigator.mediaSession.setActionHandler("nexttrack", () =>
           usePlayer.getState().next()
         );
+        // seek + stop complete the transport: the Windows SMTC overlay
+        // (taskbar media flyout, hardware keys) becomes fully functional
+        try {
+          navigator.mediaSession.setActionHandler("seekbackward", () => {
+            const s = usePlayer.getState();
+            s.seek(Math.max(0, s.position - 10));
+          });
+          navigator.mediaSession.setActionHandler("seekforward", () => {
+            const s = usePlayer.getState();
+            s.seek(s.position + 10);
+          });
+          navigator.mediaSession.setActionHandler("seekto", (details) => {
+            const t = (details as { seekTime?: number }).seekTime;
+            if (typeof t === "number") usePlayer.getState().seek(t);
+          });
+          navigator.mediaSession.setActionHandler("stop", () => {
+            const s = usePlayer.getState();
+            if (s.isPlaying) s.toggle();
+          });
+        } catch {
+          /* older overlays without seek/stop */
+        }
       } catch {
         /* media session not fully supported */
       }
     }
   }, [track?.videoId]);
+
+  // position state feeds the SMTC overlay's scrubber; refreshed in coarse
+  // steps so it stays cheap while playing
+  const position = usePlayer((s) => s.position);
+  const duration = usePlayer((s) => s.duration);
+  useEffect(() => {
+    if (!track || !("mediaSession" in navigator)) return;
+    if (typeof navigator.mediaSession.setPositionState !== "function") return;
+    if (!duration || !Number.isFinite(duration) || duration <= 0) return;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration,
+        playbackRate: 1,
+        position: Math.min(position, duration),
+      });
+    } catch {
+      /* overlays tolerate a missing position state */
+    }
+  }, [track?.videoId, duration, Math.floor(position / 5)]);
 
   const showVideo = useSettings((s) => s.showVideo);
   const fullPlayer = useUi((s) => s.fullPlayer);

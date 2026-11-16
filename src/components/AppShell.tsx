@@ -35,7 +35,7 @@ function MainView({ view }: { view: View }) {
     case "home":
       return <HomeView />;
     case "search":
-      return <SearchView />;
+      return <SearchView initialQuery={view.q} />;
     case "artist":
       return <ArtistView id={view.id} label={view.label} />;
     case "album":
@@ -56,7 +56,11 @@ function MainView({ view }: { view: View }) {
 export function AppShell() {
   const ui = useUi();
   const view = ui.views[ui.views.length - 1];
-  const viewKey = view.name + ("id" in view ? `:${view.id}` : "") + ("tab" in view ? `:${view.tab}` : "");
+  const viewKey =
+    view.name +
+    ("id" in view ? `:${view.id}` : "") +
+    ("tab" in view ? `:${view.tab}` : "") +
+    ("q" in view && view.q ? `:q=${view.q}` : "");
   const track = usePlayer((s) => s.queue[s.index] as Track | undefined);
 
   // browser back button support
@@ -155,17 +159,18 @@ export function AppShell() {
         </div>
       </main>
 
-      {/* Spotify-style: with the Now Playing view hidden, a chevron riding
-          the main content's right edge brings it back. It lives outside the
-          scrolling .main (absolute vs the app grid) so it never scrolls away
-          and never gets clipped by the content's overflow. */}
+      {/* Spotify-style: hidden, the Now Playing view stays as a peek rail —
+          a narrow dark sliver (~28px) hugging the right edge with a chevron;
+          hovering it breathes it wider. It lives outside the scrolling .main
+          so it never scrolls away and never gets clipped. */}
       {!ui.panel && !ui.queueDrawer && (
         <button
-          className="npp-show"
+          className="npp-peek"
           onClick={() => useUi.getState().openPanel("queue")}
           aria-label="Show Now Playing view"
           data-tip="Show Now Playing view"
         >
+          <span className="npp-peek-glow" aria-hidden="true" />
           <Icon name="chev-left" />
         </button>
       )}

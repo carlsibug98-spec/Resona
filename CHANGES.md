@@ -1,5 +1,27 @@
 # Changes
 
+## v1.6.7 — overlay search, peeking Now Playing, reliable taskbar controls (2026-11-16)
+
+Three behaviour fixes to match the reference app exactly:
+
+- **Search overlays the page instead of navigating** — the top-bar search is a
+  real input now (with the Ctrl+L shortcut badge). Focusing it opens a
+  dropdown over whatever page you're on: recent searches when empty, live
+  query suggestions plus the first artist/song hits (with artwork) while
+  typing, ↑↓/Enter keyboard navigation. Only Enter navigates — to the full
+  search page with the query prefilled. The search page's own dropdown was
+  removed (it now lives in one place, the top bar).
+- **Hidden Now Playing view keeps a peek rail** — instead of vanishing, the
+  panel folds to a narrow dark sliver (~28px) at the right edge with the
+  expand chevron, matching the reference; hovering it breathes it wider
+  (46px, with an ambient hue glow) and clicking re-opens the panel.
+- **Taskbar media controls hardened** — the Windows thumbnail toolbar is
+  re-applied on window focus, restore, leave-fullscreen and page load, with
+  timed retries after first show (Windows drops it on frameless windows);
+  the media session now reports position state and handles
+  seek/seekto/stop, so the SMTC overlay (media flyout + hardware keys) is
+  fully functional too.
+
 ## v1.6.6 — search that works everywhere, Spotify-style search box (2026-11-16)
 
 The v1.6.5 Windows zip was staged on Linux and shipped Linux native modules
