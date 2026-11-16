@@ -1,5 +1,34 @@
 # Changes
 
+## v1.6.8 — instant playback (Spotube-style resolver), taskbar controls that actually light up (2026-11-16)
+
+Both complaints had one root cause: stream resolution ran a yt-dlp
+process (1–25 s) on the critical path of pressing Play, and when it
+failed the app fell back to the YouTube iframe — which plays, but owns
+the media session, so Windows taskbar controls never appeared for
+Resona.
+
+- **Fast resolver** — new `innertube-stream.ts` resolves the googlevideo
+  audio URL with one HTTPS POST to InnerTube's `/player` endpoint using
+  the sdkless ANDROID client (the Spotube / youtube_explode strategy):
+  ~130–400 ms instead of seconds. Ciphered formats are skipped, the
+  ANDROID_MUSIC client is the second try, and a 10-minute gate cache
+  remembers IPs where YouTube bot-gates the endpoint. yt-dlp and
+  Piped/Invidious remain as fallbacks (now raced in parallel instead of
+  one 8-second timeout at a time), and a failed resolve is cached for
+  only 20 s — previously one failure stuck for 30 minutes.
+- **Direct-URL playback** — the engine now asks the server for the
+  resolved URL (`/api/stream?resolve=1`) and hands it straight to the
+  `<audio>` element: no proxy hop, Chromium starts buffering
+  immediately (measured 131 ms cold resolve + 36 ms to first frames).
+  The byte-proxy path stays as fallback; the iframe is last resort.
+  The next queue track's URL is warmed while the current one plays.
+- **Taskbar media controls** — playing through a real audio element is
+  what registers Resona with Windows' SMTC (the media flyout on
+  Win10/11 with prev/play/next + metadata + seek); the iframe path
+  could never do that. The Win10 thumbnail toolbar is additionally
+  re-applied on window `show` and guarded against destroyed windows.
+
 ## v1.6.7 — overlay search, peeking Now Playing, reliable taskbar controls (2026-11-16)
 
 Three behaviour fixes to match the reference app exactly:

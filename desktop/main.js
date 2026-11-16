@@ -51,7 +51,7 @@ const THUMB_ICONS = {
 let thumb = { playing: false, hasPrev: false, hasNext: false, hasTrack: false };
 const sendThumbAction = (action) => win && win.webContents.send("thumbs:action", action);
 function applyTaskbarControls() {
-  if (win && typeof win.setThumbarButtons === "function") {
+  if (win && !win.isDestroyed() && typeof win.setThumbarButtons === "function") {
     const ok = win.setThumbarButtons([
       {
         icon: THUMB_ICONS.prev,
@@ -395,6 +395,9 @@ async function createWindow(port) {
   win.on("restore", () => applyTaskbarControls());
   win.on("leave-full-screen", () => applyTaskbarControls());
   win.on("focus", () => applyTaskbarControls());
+  // the hide/show cycle drops the toolbar on some Windows builds
+  // (electron#12240): re-apply when the window comes back
+  win.on("show", () => applyTaskbarControls());
   win.webContents.on("did-finish-load", () => {
     applyTaskbarControls();
     setTimeout(applyTaskbarControls, 1000);

@@ -99,6 +99,14 @@ export function PlayerProvider() {
 
   const track = usePlayer((s) => s.queue[s.index] as Track | undefined);
 
+  // keep the engine aware of the queue successor: it warms that track's
+  // stream URL while the current one plays, so track changes are instant
+  useEffect(() => {
+    const s = usePlayer.getState();
+    const next = s.queue[s.index + 1];
+    engine.setNextTrack(next?.videoId ?? null);
+  }, [track?.videoId]);
+
   // history + media session on track change
   useEffect(() => {
     if (!track) return;

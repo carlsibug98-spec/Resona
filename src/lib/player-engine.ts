@@ -58,6 +58,30 @@ export class PlayerEngine {
   onError: (msg: string) => void = () => {};
   onVideoReady: () => void = () => {};
 
+  /** the track after the current one — warmed ahead of the gapless switch */
+  private nextVideoId: string | null = null;
+
+  /** remembered for enterVideoMode's audio fallback */
+  setNextTrack(videoId: string | null) {
+    this.nextVideoId = videoId;
+  }
+
+  /**
+   * Resolve the next track's stream URL while the current one plays, so
+   * the queue gap disappears: by the time a song ends its successor's
+   * resolution is already in the server cache and the next load() finds
+   * it instantly.
+   */
+  private warmNext() {
+    if (!this.nextVideoId || this.nextVideoId === this.currentVideoId) return;
+    const id = this.nextVideoId;
+    fetch(`/api/stream?resolve=1&videoId=${encodeURIComponent(id)}`, {
+      cache: "no-store",
+    }).catch(() => {
+      /* best-effort warmth */
+    });
+  }
+
   attachHost(el: HTMLElement | null) {
     this.hostEl = el;
   }
@@ -126,6 +150,91 @@ export class PlayerEngine {
           else onOk();
         }
       }, 15_000);
+      void startSec;
+    });
+  }
+
+  /**
+   * Fast path: ask the server for the resolved googlevideo URL (JSON, not
+   * the byte proxy) and hand it straight to the <audio> element.
+   *
+   * The server and the player run on the same machine, so the URL's IP
+   * lock matches and the browser's own HTTP stack does the fetching —
+   * no proxy hop, and Chromium starts buffering the moment metadata
+   * lands. This is the Spotube pattern, and a real media element with a
+   * direct URL is also what makes Windows SMTC (taskbar media controls)
+   * register with our metadata.
+   *
+   * On a 403 (URL expired / different egress IP) we fall back to the
+   * byte-for-byte proxy in tryProxiedAudio.
+   */
+  private async tryDirectAudio(
+    videoId: string,
+    startSec: number,
+    srcType: "resolved" | "proxy"
+  ): Promise<boolean> {
+    let url: string;
+    if (srcType === "resolved") {
+      try {
+        const r = await fetch(
+          `/api/stream?resolve=1&videoId=${encodeURIComponent(videoId)}`,
+          { cache: "no-store" }
+        );
+        if (!r.ok) return false;
+        const d = (await r.json()) as { url?: string | null };
+        if (!d.url) return false;
+        url = d.url;
+      } catch {
+        return false;
+      }
+    } else {
+      url = `/api/stream?videoId=${encodeURIComponent(videoId)}`;
+    }
+
+    return new Promise<boolean>((resolve) => {
+      const a = this.ensureAudio();
+      let settled = false;
+      const cleanup = () => {
+        a.removeEventListener("playing", onOk);
+        a.removeEventListener("canplay", onOk);
+        a.removeEventListener("error", onFail);
+      };
+      const onOk = () => {
+        if (settled) return;
+        settled = true;
+        this.probing = false;
+        cleanup();
+        resolve(true);
+      };
+      const onFail = () => {
+        if (settled) return;
+        settled = true;
+        this.probing = false;
+        cleanup();
+        a.pause();
+        a.removeAttribute("src");
+        a.load();
+        resolve(false);
+      };
+      this.probing = true;
+      // the crossOrigin hint keeps the element in the media pipeline
+      // (needed for SMTC) without requiring CORS on googlevideo
+      a.crossOrigin = null;
+      a.src = url;
+      a.addEventListener("playing", onOk);
+      a.addEventListener("canplay", onOk);
+      a.addEventListener("error", onFail);
+      a.currentTime = 0;
+      a.play().catch(() => {
+        /* autoplay refusal — the timeout below decides */
+      });
+      // direct URLs are known-good or 403 immediately; 8s is plenty
+      setTimeout(() => {
+        if (!settled) {
+          if (a.readyState >= 2 && a.currentTime > 0.1) onOk();
+          else onFail();
+        }
+      }, 8_000);
       void startSec;
     });
   }
@@ -257,9 +366,25 @@ export class PlayerEngine {
       return;
     }
 
-    // proxied direct stream — works everywhere the IFrame embed does not
-    // (sandboxed iframes, embedded webviews, restricted browsers)
+    // direct stream first (fast path): the server resolves the URL once
+    // (~150-400 ms via InnerTube) and the browser fetches it itself —
+    // no proxy hop. Falls back to the byte proxy, then the IFrame embed.
     this.stopAudio();
+    const direct = await this.tryDirectAudio(track.videoId, startSec, "resolved");
+    if (direct) {
+      this.currentIsAudio = true;
+      this.stopYT();
+      if (startSec > 0) {
+        try {
+          this.audio!.currentTime = startSec;
+        } catch {
+          /* seek before metadata is fine to skip */
+        }
+      }
+      this.startTick();
+      this.warmNext();
+      return;
+    }
     const proxied = await this.tryProxiedAudio(track.videoId, startSec);
     if (proxied) {
       this.currentIsAudio = true;
@@ -272,6 +397,7 @@ export class PlayerEngine {
         }
       }
       this.startTick();
+      this.warmNext();
       return;
     }
 
