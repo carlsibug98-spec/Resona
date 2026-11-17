@@ -12,22 +12,45 @@
 ![Issues](https://img.shields.io/github/issues/carlsibug98-spec/Resona?style=flat-square&label=ISSUES&color=1ed760)
 ![License](https://img.shields.io/github/license/carlsibug98-spec/Resona?style=flat-square&label=LICENSE&color=1ed760)
 
-**[⬇️ Download (v1.6.5) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
+**[⬇️ Download (v1.7.2) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
 
 </div>
 
 ---
 
+<!-- ⚠️ RELEASE CHECKLIST: every release/build must bump every version
+     string in this file — hero line, downloads table, What's new section,
+     install commands (see PROJECT-NOTES.md → Release checklist). -->
+
 ## 📦 Downloads
 
 | Platform | Status | Download | Details |
 | --- | --- | --- | --- |
-| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.6.5** | **[⬇️ Download ZIP (portable)](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.5-win.zip)** | Unzip → run `Resona.exe` · ~172 MB · the `Resona-Setup` installer is built by CI for tagged releases |
-| 🍎 **macOS** | ⏳ v1.6.5 | **[Releases page](https://github.com/carlsibug98-spec/Resona/releases)** | DMGs are built by CI — grab v1.6.4 from there in the meantime |
-| 🐧 **Linux** (AppImage / .deb) | ✅ **v1.6.5** | **[⬇️ AppImage](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.5.AppImage)** · **[⬇️ .deb](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.6.5.deb)** | x64 |
+| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.7.2** | **[⬇️ Download installer](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.7.2.exe)** | Run the wizard → desktop shortcut · ~154 MB · later versions install themselves at launch |
+| 🍎 **macOS** (Apple Silicon) | ✅ **v1.7.2** | **[⬇️ Download DMG](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.2-arm64.dmg)** | Open → drag to Applications · right-click → Open the first time (unsigned) |
+| 🍎 **macOS** (Intel) | ✅ **v1.7.2** | **[⬇️ Download DMG](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.2-x64.dmg)** | Same steps as Apple Silicon |
+| 🐧 **Linux** (AppImage / .deb, x64) | ✅ **v1.7.2** | **[⬇️ AppImage](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.2.AppImage)** · **[⬇️ .deb](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.2.deb)** | `chmod +x` the AppImage, or `sudo apt install ./Resona-1.7.2.deb` |
 | 📱 **iOS / Android** | 🧭 Planned | — | Mobile app in design |
 
-> **All releases:** [github.com/carlsibug98-spec/Resona/releases](https://github.com/carlsibug98-spec/Resona/releases) · **Install guide:** [INSTALL-GUIDE.txt](https://github.com/carlsibug98-spec/Resona/releases/download/v1.6.5/INSTALL-GUIDE.txt)
+> **All releases:** [github.com/carlsibug98-spec/Resona/releases](https://github.com/carlsibug98-spec/Resona/releases) · **Install guide:** [INSTALL-GUIDE.txt](https://github.com/carlsibug98-spec/Resona/releases/latest/download/INSTALL-GUIDE.txt) · **SHA-256:** `SHA256SUMS.txt` in every release
+
+## ✨ What's new in v1.7.2
+
+- **🔍 Every stream URL is now proven playable before it reaches you** — v1.7.0's provider races let the fastest *answer* win and cached it for 30 minutes, but answering isn't serving: a Piped instance or an InnerTube client can hand out a URL that 403s the moment playback starts. That's why **some tracks went silent after v1.7.0 while they played fine on v1.6.x**. Now every candidate URL — InnerTube, yt-dlp, Piped, Invidious — passes a 1-byte range check before it can win the race, be cached, or pin an instance; a dead answer loses and the next provider takes over. The same guarantee Musify and OpenSpot get by resolving in the process that plays.
+- **⚡ No cost to speed** — the check adds ~100–300 ms only on first resolve; hover-prefetch and next-track warming hide it entirely.
+- **🍎🐧 macOS and Linux builds now ship with every release** (unsigned DMGs for Apple Silicon + Intel, AppImage + .deb for x64).
+
+## ✨ What's new in v1.7.1
+
+- **🖱️ "Click play and it pauses again" — fixed**: after a track failed to start, the play button flipped straight back to paused; the engine now reloads the track for real on every press.
+- **⏭️ The queue never gives up** — a failed track auto-advances, and one-song queues (Play on an artist) extend with the song's radio instead of dead-ending.
+- **📣 Failures are fast and honest** — an unplayable track fails in ~5 s (was 30+) with **Retry / Skip / Run diagnostics**; embed-refused videos are remembered and skipped instantly for 10 minutes.
+
+## ✨ What's new in v1.7.0
+
+- **🔓 The playback hang is fixed** — the resolver no longer serialises slow providers: InnerTube (four clients raced in parallel, ~150–400 ms, two of them answering even for embed-blocked videos) runs first, then yt-dlp and the whole Piped/Invidious fleet race together.
+- **🩺 Settings → Playback diagnostics** — every provider is probed independently with timings and a copyable report, so "why won't anything play" has a real answer.
+- **🎨 A full UI/UX pass** — streamlining across the player, library and settings.
 
 ## ✨ What's new in v1.6.5
 
@@ -110,20 +133,20 @@
 
 ## 🚀 Install on Windows
 
-1. **Download** `Resona-1.6.5-win.zip` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~172 MB), unzip it anywhere and run `Resona.exe`. (The `Resona-Setup-*.exe` installer returns with the next CI-tagged release — it needs a Windows/wine build step this release didn't have; once installed, later versions arrive automatically at launch.)
+1. **Download** `Resona-Setup-1.7.2.exe` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~154 MB) and run the wizard — per-user install (no admin needed), desktop shortcut created. Install over an older copy to update; your library carries over. **From v1.6.0 on, later versions install themselves at launch** — this is the last manual install you need.
 2. **If Windows SmartScreen shows a warning** — this is expected and safe. Resona is *not code-signed* (a signing certificate costs ~$100+/yr), so Windows warns about every app it hasn't seen before. It does **not** mean a virus was found. To run it:
    - Click **More info** → **Run anyway**. That's it.
-   - Or, if the download finished already: right-click `Resona.exe` → **Properties** → tick **Unblock** → OK, then double-click it.
+   - Or, if the download finished already: right-click `Resona-Setup-1.7.2.exe` → **Properties** → tick **Unblock** → OK, then double-click it.
 3. Play music. Your library lives in `%APPDATA%/resona`.
 
-**Verify (SHA-256):** compare against the checksum published in each release's notes:
+**Verify (SHA-256):** compare against `SHA256SUMS.txt` published with every release:
 
 ```
-Get-FileHash .\Resona-1.6.5-win.zip   # in PowerShell
+Get-FileHash .\Resona-Setup-1.7.2.exe   # in PowerShell
 ```
 
-**macOS**: the `.dmg` is unsigned — right-click Resona → **Open** the first time (or `xattr -d com.apple.quarantine /Applications/Resona.app`).  
-**Linux**: `chmod +x Resona-*.AppImage && ./Resona-*.AppImage`, or install the `.deb` with `sudo apt install ./Resona-1.6.5.deb`.
+**macOS**: the `.dmg` is unsigned — right-click Resona → **Open** the first time (or `xattr -d com.apple.quarantine /Applications/Resona.app`). Apple Silicon machines take `Resona-1.7.2-arm64.dmg`, Intel takes `Resona-1.7.2-x64.dmg`.  
+**Linux**: `chmod +x Resona-1.7.2.AppImage && ./Resona-1.7.2.AppImage`, or install the `.deb` with `sudo apt install ./Resona-1.7.2.deb`.
 
 > Signed builds are on the roadmap — until then the two steps above are the only friction.
 

@@ -36,15 +36,27 @@ loads it in a frameless window.
 ## Release process (v1.6.6 onwards)
 
 1. Bump the three version files, update `CHANGES.md`.
-2. Commit + push to `main` → desktop.yml builds **Windows installer (NSIS exe),
-   macOS dmg, Linux AppImage+deb** as artifacts on the run.
-3. Create the GitHub release (draft or published) with tag `v<version>`.
-4. Download the artifacts from the run
+2. **Update README.md — REQUIRED, every release/build (rule from the
+   owner, 2026-11-17).** Bump every version string in the file: the hero
+   "Download (v…)" line, the Downloads table (Windows exe, macOS DMG
+   arm64+x64, Linux AppImage+deb links + sizes), a new "What's new in
+   v<version>" section on top, and the `Get-FileHash` / macOS / Linux
+   lines in "Install on Windows". Old version mentions inside historical
+   what's-new bullets stay. A release must not ship while README still
+   names the previous version — release scripts grep-guard this.
+3. Commit + push to `main` → desktop.yml builds **Windows installer (NSIS exe),
+   macOS dmg, Linux AppImage+deb** as artifacts on the run. NOTE: the
+   `head_sha` filter on the runs API needs the FULL 40-char SHA — short
+   SHAs silently return zero runs.
+4. Create the GitHub release (draft or published) with tag `v<version>`.
+5. Download the artifacts from the run
    (`/actions/runs/<id>/artifacts` — Windows artifact is ~157MB zip
    containing `Resona-Setup-<v>.exe` + `.blockmap` + `latest.yml`)
    and upload them as release assets, INCLUDING `latest.yml`
    (electron-updater reads it from the release page for auto-update).
-5. INSTALL-GUIDE.txt goes up too. See `scripts/gh-release-upload.py` for
+   All three platform artifacts ship as of v1.7.2.
+6. INSTALL-GUIDE.txt goes up too — regenerate it per version (it names
+   the exe and the what's-new). See `scripts/gh-release-upload.py` for
    an API uploader.
 
 **v1.6.5 lesson (fixed in v1.6.6): the release page must contain
