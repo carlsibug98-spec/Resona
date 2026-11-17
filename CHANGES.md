@@ -1,5 +1,34 @@
 # Changes
 
+## v1.6.9 — playback that survives dead instances, no more starter content (2026-11-17)
+
+Two fixes for the two things you reported:
+
+- **"Can't play any song" / "playback blocked for embedded users"** —
+  every song fell through to the YouTube iframe because all five
+  compiled-in resolver instances had died (the error itself comes from
+  videos whose uploader disallows embedding — the iframe is the one
+  place they can never play). The resolver now runs a real instance
+  fleet: fresh live defaults (verified against the official Invidious
+  registry and the Piped instance list), runtime discovery every 6 h
+  from those same lists so the app outlives its defaults, the last
+  working instance tried first, and Invidious `local=true` proxy URLs
+  that are not IP-bound. When a cached stream URL dies mid-session the
+  byte proxy re-resolves once instead of serving a 502 until the cache
+  expires, and if the iframe still ends up as the last resort the
+  engine retries the audio paths once before showing any error. All
+  fleet parsing is unit-tested against the live document formats
+  (15 Piped hosts, 6 Invidious hosts parse correctly).
+- **Hardcoded starter content removed** — the first-run seeder (seeded
+  "Liked" songs, the "Late night" playlist, three starter mixes, the
+  OPM Daily Mix tile and a fake play history) is gone. A one-time
+  migration removes exactly that content from installs that already
+  have it — locally and from the server's database — matched by
+  title+artist so anything you added yourself is never touched; a
+  "Late night" playlist you rebuilt with your own songs survives. New
+  installs start with an empty library. The "Trending PH" tile now
+  follows your region setting instead of being hardcoded.
+
 ## v1.6.8 — instant playback (Spotube-style resolver), taskbar controls that actually light up (2026-11-16)
 
 Both complaints had one root cause: stream resolution ran a yt-dlp

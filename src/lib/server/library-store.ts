@@ -189,6 +189,20 @@ function trimMemHistory() {
   for (const h of sorted.slice(HISTORY_LIMIT)) mem.history.delete(h.track.videoId);
 }
 
+/** remove one video from history (unseed migration, "remove from history") */
+export async function deleteHistory(videoId: string) {
+  const c = await dbReady();
+  if (!c) {
+    mem.history.delete(videoId);
+    return;
+  }
+  try {
+    await c.db.delete(history).where(eq(history.videoId, videoId));
+  } catch (e) {
+    console.error("[db] deleteHistory failed:", e);
+  }
+}
+
 /** full replace — backup restore in "replace" mode, and "clear all" */
 export async function replaceLibrary(snap: LibrarySnapshot) {
   const c = await dbReady();

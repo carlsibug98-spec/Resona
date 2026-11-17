@@ -1,14 +1,30 @@
 import { execFile } from "node:child_process";
 import { cacheGet, cacheSet, fetchWithTimeout } from "./cache.ts";
 import { resolveInnertubeStream } from "./innertube-stream";
-
-
+import {
+  buildAudioUrl,
+  DEFAULT_INVIDIOUS,
+  DEFAULT_PIPED,
+  mergeInstanceLists,
+  orderInstances,
+  parseInstanceSetting,
+  parseInvidiousRegistry,
+  parsePipedInstanceDoc,
+  pickBestAudioFormat,
+  pickPipedAudio,
+  type InvidiousFormat,
+  type PipedAudioStream,
+} from "../instance-fleet";
 
 export interface StreamResult {
   url: string | null;
   provider: string | null;
   bitrate?: number;
   mime?: string;
+  /** true when `url` must be fetched through /api/stream's byte proxy
+   * (cross-origin or IP-bound): googlevideo URLs from InnerTube/yt-dlp on
+   * a matched IP can go direct to the <audio> element instead. */
+  proxied?: boolean;
 }
 
 const YTDLP_BIN = process.env.YTDLP_PATH || "yt-dlp";
@@ -35,8 +51,7 @@ async function tryInnertube(videoId: string): Promise<StreamResult | null> {
 /**
  * Resolve a direct audio URL with a local yt-dlp binary.
  * This is the most reliable provider (maintained extractor, rotates
- * player clients automatically) — public Piped/Invidious instances
- * frequently die, so this one goes first.
+ * player clients automatically) when one is installed.
  */
 async function tryYtDlp(videoId: string): Promise<StreamResult | null> {
   const url = await new Promise<string | null>((resolve) => {
@@ -67,65 +82,115 @@ async function tryYtDlp(videoId: string): Promise<StreamResult | null> {
   };
 }
 
-const DEFAULT_PIPED = [
-  "https://pipedapi.private.coffee",
-  "https://pipedapi.adminforge.de",
-  "https://pipedapi.ducks.party",
-];
+/* --------------------- public instance fleet state ---------------------- */
 
-const DEFAULT_INVIDIOUS = [
-  "https://iv.melmac.space",
-  "https://invidious.materialio.us",
-];
+/** the instance that last returned a stream — tried first from now on */
+let lastWorkingInstance: string | null = null;
 
-function parseInstances(raw?: string | null): string[] {
-  if (!raw) return [];
-  return raw
-    .split(/[\n,]+/)
-    .map((s) => s.trim().replace(/\/+$/, ""))
-    .filter((s) => /^https?:\/\//.test(s));
+/** discovered instances replace the defaults once fetched (TTL below) */
+let discoveredInvidious: string[] | null = null;
+let discoveredPiped: string[] | null = null;
+let discoveredAt = 0;
+const DISCOVERY_TTL = 1000 * 60 * 60 * 6; // refresh every 6h
+
+/**
+ * Fetch live instance lists at runtime so the app survives its compiled-in
+ * defaults dying. Sources:
+ *  - api.invidious.io (the official Invidious registry, uptime-sorted)
+ *  - the Piped wiki instance list (raw GitHub)
+ * Best effort with a short timeout: discovery must never block playback.
+ */
+async function discoverInstances(): Promise<void> {
+  if (discoveredAt && Date.now() - discoveredAt < DISCOVERY_TTL) return;
+  discoveredAt = Date.now(); // set first: a slow fetch must not re-trigger
+  const [invidious, piped] = await Promise.all([
+    (async () => {
+      try {
+        const res = await fetchWithTimeout(
+          "https://api.invidious.io/instances.json?sort_by=health",
+          {},
+          6000
+        );
+        if (!res.ok) return null;
+        return parseInvidiousRegistry(await res.json()).slice(0, 8);
+      } catch {
+        return null;
+      }
+    })(),
+    (async () => {
+      try {
+        const res = await fetchWithTimeout(
+          "https://raw.githubusercontent.com/TeamPiped/documentation/main/content/docs/public-instances/index.md",
+          {},
+          6000
+        );
+        if (!res.ok) return null;
+        return parsePipedInstanceDoc(await res.text()).slice(0, 8);
+      } catch {
+        return null;
+      }
+    })(),
+  ]);
+  if (invidious && invidious.length) discoveredInvidious = invidious;
+  if (piped && piped.length) discoveredPiped = piped;
 }
 
 async function tryPiped(base: string, videoId: string): Promise<StreamResult | null> {
-  const res = await fetchWithTimeout(`${base}/streams/${videoId}`, {}, 8000);
-  if (!res.ok) return null;
-  const data = await res.json();
-  const audios = (data.audioStreams || []).filter((a: any) => a.url);
-  if (!audios.length) return null;
-  const best = audios.sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0))[0];
-  return {
-    url: best.url,
-    provider: `piped:${base.replace(/^https?:\/\//, "")}`,
-    bitrate: best.bitrate,
-    mime: best.mimeType,
-  };
+  try {
+    const res = await fetchWithTimeout(`${base}/streams/${videoId}`, {}, 8000);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { audioStreams?: PipedAudioStream[] };
+    const best = pickPipedAudio(data.audioStreams || []);
+    if (!best?.url) return null;
+    lastWorkingInstance = base;
+    return {
+      url: best.url,
+      provider: `piped:${base.replace(/^https?:\/\//, "")}`,
+      bitrate: best.bitrate,
+      mime: String(best.mimeType || "audio/mp4").split(";")[0],
+      // third-party host: run through the byte proxy (the server just
+      // verified this instance responds, and the proxy can re-resolve)
+      proxied: true,
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function tryInvidious(base: string, videoId: string): Promise<StreamResult | null> {
-  const res = await fetchWithTimeout(
-    `${base}/api/v1/videos/${videoId}?fields=adaptiveFormats`,
-    {},
-    8000
-  );
-  if (!res.ok) return null;
-  const data = await res.json();
-  const audios = (data.adaptiveFormats || []).filter(
-    (f: any) => String(f.type || "").startsWith("audio") && f.url
-  );
-  if (!audios.length) return null;
-  const best = audios.sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0))[0];
-  return {
-    url: best.url,
-    provider: `invidious:${base.replace(/^https?:\/\//, "")}`,
-    bitrate: best.bitrate,
-    mime: best.type,
-  };
+  try {
+    const res = await fetchWithTimeout(
+      `${base}/api/v1/videos/${videoId}?fields=adaptiveFormats`,
+      {},
+      8000
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { adaptiveFormats?: InvidiousFormat[] };
+    const best = pickBestAudioFormat(data.adaptiveFormats || []);
+    if (!best) return null;
+    // local=true → the instance proxies googlevideo itself: the URL keeps
+    // working even when the resolving IP differs from the streaming IP
+    const url = buildAudioUrl(base, videoId, best);
+    if (!url) return null;
+    lastWorkingInstance = base;
+    return {
+      url,
+      provider: `invidious:${base.replace(/^https?:\/\//, "")}`,
+      bitrate: best.bitrate,
+      mime: String(best.type || "audio/mp4").split(";")[0],
+      // latest_version?local=true is the instance's own host (cross-origin
+      // to the app) — stream it through the byte proxy
+      proxied: true,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function resolveStream(
   videoId: string,
   extraInstances?: string | null,
-  opts?: { ytdlp?: boolean }
+  opts?: { ytdlp?: boolean; fresh?: boolean }
 ): Promise<StreamResult> {
   const key = `stream:${videoId}:${extraInstances || ""}`;
 
@@ -137,7 +202,9 @@ export async function resolveStream(
   const HIT_TTL = 1000 * 60 * 30;
 
   const hit = cacheGet<StreamResult>(key);
-  if (hit) return hit;
+  // fresh: the byte proxy hit an expired/dead cached URL — re-run the
+  // provider chain instead of handing back the same dead URL
+  if (hit && !opts?.fresh) return hit;
 
   // one flight per key: a hover prefetch and the play click that follows
   // must not run the provider chain twice
@@ -159,10 +226,20 @@ export async function resolveStream(
         /* next */
       }
     }
-    // 3. Piped + Invidious in parallel — public instances are flaky, so
-    //    racing them beats waiting for each 8 s timeout in sequence
-    const piped = [...parseInstances(extraInstances), ...DEFAULT_PIPED];
-    const invidious = [...parseInstances(extraInstances), ...DEFAULT_INVIDIOUS];
+
+    // 3. the instance fleet — many Piped/Invidious instances in parallel,
+    //    last-working first. Public instances are flaky, so racing them
+    //    beats waiting for each 8-second timeout in sequence.
+    await discoverInstances().catch(() => {});
+    const userInstances = parseInstanceSetting(extraInstances);
+    const piped = orderInstances(
+      mergeInstanceLists(userInstances, discoveredPiped || DEFAULT_PIPED),
+      lastWorkingInstance
+    );
+    const invidious = orderInstances(
+      mergeInstanceLists(userInstances, discoveredInvidious || DEFAULT_INVIDIOUS),
+      lastWorkingInstance
+    );
     const races = [
       ...piped.map((base) => tryPiped(base, videoId)),
       ...invidious.map((base) => tryInvidious(base, videoId)),

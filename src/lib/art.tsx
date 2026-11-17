@@ -1,12 +1,11 @@
 "use client";
 
 import { hueFromId } from "@/lib/format";
-import { seedHue } from "@/lib/seed";
 import type { Track } from "@/lib/types";
 
-/** per-track hue: starter seeds keep their mockup hue, everything else hashes the id */
+/** per-track hue: a stable hash of the video id */
 export function hueFor(track: Track): number {
-  return seedHue(track.videoId) ?? hueFromId(track.videoId);
+  return hueFromId(track.videoId);
 }
 
 export function grad(hue: number): string {

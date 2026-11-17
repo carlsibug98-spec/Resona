@@ -32,28 +32,48 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // first attempt with the cached URL; when it fails upstream, re-resolve
+  // once with fresh=1 — cached googlevideo URLs expire (~6h) and instances
+  // go down between resolve and play, and without this the proxy would
+  // keep serving the same dead URL until the 30-minute cache TTL ran out.
+  const range = req.headers.get("range");
+  const first = await proxyFetch(result.url, range);
+  if (first) return shapeAudio(first, result.mime);
+
+  const fresh = await resolveStream(videoId, instances, { fresh: true }).catch(() => null);
+  if (fresh?.url) {
+    const second = await proxyFetch(fresh.url, range);
+    if (second) return shapeAudio(second, fresh.mime);
+  }
+  return NextResponse.json({ error: "proxy_failed" }, { status: 502 });
+}
+
+/** fetch upstream bytes; null on any failure so callers can re-resolve */
+async function proxyFetch(url: string, range: string | null): Promise<Response | null> {
   try {
-    const range = req.headers.get("range");
-    const upstream = await fetch(result.url, {
+    const upstream = await fetch(url, {
       headers: range ? { Range: range } : {},
       cache: "no-store",
     });
-    if (!upstream.ok || !upstream.body) {
-      return NextResponse.json({ error: "upstream_error", status: upstream.status }, { status: 502 });
-    }
-    const headers = new Headers();
-    for (const h of PASS_HEADERS) {
-      const v = upstream.headers.get(h);
-      if (v) headers.set(h, v);
-    }
-    if (!headers.has("content-type")) headers.set("content-type", result.mime || "audio/mp4");
-    headers.set("accept-ranges", "bytes");
-    headers.set("cache-control", "no-store");
-    return new Response(upstream.body, {
-      status: upstream.status === 206 ? 206 : 200,
-      headers,
-    });
+    if (!upstream.ok || !upstream.body) return null;
+    return upstream;
   } catch {
-    return NextResponse.json({ error: "proxy_failed" }, { status: 502 });
+    return null;
   }
+}
+
+/** shape the proxied bytes as an audio response with Range support */
+function shapeAudio(upstream: Response, mime?: string): Response {
+  const headers = new Headers();
+  for (const h of PASS_HEADERS) {
+    const v = upstream.headers.get(h);
+    if (v) headers.set(h, v);
+  }
+  if (!headers.has("content-type")) headers.set("content-type", mime || "audio/mp4");
+  headers.set("accept-ranges", "bytes");
+  headers.set("cache-control", "no-store");
+  return new Response(upstream.body, {
+    status: upstream.status === 206 ? 206 : 200,
+    headers,
+  });
 }

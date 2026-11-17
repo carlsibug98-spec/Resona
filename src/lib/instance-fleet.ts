@@ -1,14 +1,23 @@
 /**
- * Pure helpers for the fallback instance fleet (Invidious-style APIs),
- * ported from the OpenSpot approach: many instances, discovered from several
- * lists, with the last working one tried first.
+ * The fallback instance fleet (Piped + Invidious), wired into the stream
+ * resolver: many instances from several sources, with the last working one
+ * tried first, discovery of fresh instances when the known set dies, and
+ * `local=true` proxy URLs from Invidious so the stream is not IP-bound.
  *
- * No imports, no I/O — unit-testable under `node --test`.
+ * Pure helpers stay here (no I/O — unit-testable under `node --test`);
+ * fetchers live in resolver.ts.
  */
 
 export interface InvidiousFormat {
   itag?: number;
   type?: string;
+  bitrate?: number;
+  url?: string;
+}
+
+export interface PipedAudioStream {
+  itag?: number;
+  mimeType?: string;
   bitrate?: number;
   url?: string;
 }
@@ -36,9 +45,9 @@ export function orderInstances(all: string[], lastWorking: string | null): strin
 }
 
 /**
- * Pick the best audio format: audio/mp4 is preferred over webm (better
- * compatibility with <audio> and OS players), then highest bitrate.
- * Mirrors OpenSpot's pickBestAudioFormat.
+ * Pick the best audio format from Invidious adaptiveFormats: audio/mp4 is
+ * preferred over webm (better compatibility with <audio> and OS players),
+ * then highest bitrate. Mirrors OpenSpot's pickBestAudioFormat.
  */
 export function pickBestAudioFormat(formats: InvidiousFormat[]): InvidiousFormat | null {
   const audio = (formats || []).filter(
@@ -56,8 +65,10 @@ export function pickBestAudioFormat(formats: InvidiousFormat[]): InvidiousFormat
 
 /**
  * Invidious local-redirect URL: the instance proxies googlevideo itself, so
- * the URL is not IP-bound to whoever resolved it — exactly what a server-side
- * proxy needs. Falls back to the direct URL when there is no itag.
+ * the URL is not IP-bound to whoever resolved it and works cross-origin
+ * through the instance — exactly what a server-side proxy needs when the
+ * direct googlevideo URL is 403ing. Falls back to the direct URL when there
+ * is no itag.
  */
 export function buildAudioUrl(
   base: string,
@@ -68,4 +79,79 @@ export function buildAudioUrl(
     return `${base}/latest_version?id=${encodeURIComponent(videoId)}&itag=${format.itag}&local=true`;
   }
   return format.url || null;
+}
+
+/**
+ * Piped URLs already point at the instance's proxy host (piped proxy
+ * domains), so they are used as-is.
+ */
+export function pickPipedAudio(streams: PipedAudioStream[]): PipedAudioStream | null {
+  const withUrl = (streams || []).filter((s) => s.url);
+  if (!withUrl.length) return null;
+  return withUrl.slice().sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+}
+
+/* ------------------------------- defaults ------------------------------- */
+
+/**
+ * Known-live instances as of 2026-11 (verified against the official
+ * lists — uptime ≥ 98% on api.invidious.io and the Piped instance list).
+ * These are a starting point only: when they die, discoverInstances()
+ * fetches a fresh set at runtime.
+ */
+export const DEFAULT_INVIDIOUS = [
+  "https://inv.nadeko.net",
+  "https://invidious.nerdvpn.de",
+  "https://invidious.tiekoetter.com",
+  "https://yt.chocolatemoo53.com",
+  "https://invidious.materialio.us",
+];
+
+export const DEFAULT_PIPED = [
+  "https://pipedapi.adminforge.de",
+  "https://api.piped.private.coffee",
+  "https://pipedapi.ducks.party",
+  "https://pipedapi.reallyaweso.me",
+  "https://pipedapi.drgns.space",
+];
+
+/**
+ * Parse a user's resolver-instances setting (one URL per line, or comma
+ * separated) into a clean list. User instances always run before defaults.
+ */
+export function parseInstanceSetting(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(/[\n,]+/)
+    .map((s) => s.trim().replace(/\/+$/, ""))
+    .filter((s) => /^https?:\/\//.test(s));
+}
+
+/** parse api.invidious.io's instances.json into base URLs (https only;
+ * .onion/.i2p/.ygg entries only resolve on overlay networks — skip them) */
+export function parseInvidiousRegistry(list: unknown): string[] {
+  if (!Array.isArray(list)) return [];
+  const out: string[] = [];
+  for (const entry of list) {
+    if (!Array.isArray(entry) || typeof entry[0] !== "string") continue;
+    const info = (entry[1] || {}) as { type?: string };
+    if (info.type !== "https") continue;
+    if (/\.(onion|i2p|ygg)$/.test(entry[0])) continue;
+    out.push(`https://${entry[0]}`);
+  }
+  return out;
+}
+
+/** pull piped API hosts out of the TeamPiped instance-list markdown table
+ * (the "Instance API URL" column — the doc's rows may or may not carry a
+ * leading pipe, so we take the first cell that is a bare host URL) */
+export function parsePipedInstanceDoc(text: string): string[] {
+  const out: string[] = [];
+  for (const line of text.split("\n")) {
+    if (!line.includes("|")) continue;
+    const cells = line.split("|").map((c) => c.trim());
+    const url = cells.find((c) => /^https?:\/\/[a-z0-9.-]+$/i.test(c));
+    if (url) out.push(url);
+  }
+  return out;
 }

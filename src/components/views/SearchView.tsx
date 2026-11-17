@@ -8,7 +8,6 @@ import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/stores/player";
 import { useUi } from "@/stores/ui";
 import { useLibrary } from "@/stores/library";
-import { useSeedTracks, seedTrack, SEEDS } from "@/lib/seed";
 import { markStep } from "@/lib/onboarding";
 import { loadRecent, pushRecent, saveRecent } from "@/components/SearchOverlay";
 
@@ -53,7 +52,6 @@ export function SearchView({ initialQuery }: { initialQuery?: string }) {
 
   const player = usePlayer();
   const library = useLibrary();
-  const resolved = useSeedTracks((s) => s.resolved);
   const navigate = useUi((s) => s.navigate);
 
   useEffect(() => {
@@ -117,7 +115,7 @@ export function SearchView({ initialQuery }: { initialQuery?: string }) {
     return () => clearTimeout(t);
   }, [q, runSearch]);
 
-  /** library + starter seeds that match the query — shown above live results */
+  /** library songs that match the query — shown above live results */
   const localHits = useMemo(() => {
     const query = q.trim().toLowerCase();
     if (query.length < 2) return [];
@@ -125,17 +123,13 @@ export function SearchView({ initialQuery }: { initialQuery?: string }) {
     for (const l of Object.values(library.liked)) pool.push(l.track);
     for (const p of library.playlists) pool.push(...p.tracks);
     for (const h of library.history) pool.push(h.track);
-    for (const s of SEEDS) {
-      const t = resolved[s.key] ?? seedTrack(s.key);
-      if (t) pool.push(t);
-    }
     const seen = new Set<string>();
     return pool.filter((t) => {
       if (seen.has(t.videoId)) return false;
       seen.add(t.videoId);
       return `${t.title} ${t.artist}`.toLowerCase().includes(query);
     });
-  }, [q, library.liked, library.playlists, library.history, resolved]);
+  }, [q, library.liked, library.playlists, library.history]);
 
   const hits = showAll ? tracks : tracks.slice(0, 12);
   const top = localHits[0] ?? hits[0];

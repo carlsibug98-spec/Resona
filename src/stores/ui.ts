@@ -23,8 +23,7 @@ export type ModalState =
   | { kind: "playlistMenu"; id: string; name: string }
   | { kind: "renamePlaylist"; id: string; name: string }
   | { kind: "confirmDeletePlaylist"; id: string; name: string }
-  | { kind: "confirmRemoveDownload"; track: Track }
-  | { kind: "confirmRemoveStarter" };
+  | { kind: "confirmRemoveDownload"; track: Track };
 
 export type PanelTab = "queue" | "lyrics";
 export type NfMode = "lyrics" | "video" | null;

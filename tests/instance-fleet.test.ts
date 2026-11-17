@@ -4,7 +4,13 @@ import {
   buildAudioUrl,
   mergeInstanceLists,
   orderInstances,
+  parseInstanceSetting,
+  parseInvidiousRegistry,
+  parsePipedInstanceDoc,
   pickBestAudioFormat,
+  pickPipedAudio,
+  DEFAULT_INVIDIOUS,
+  DEFAULT_PIPED,
 } from "../src/lib/instance-fleet.ts";
 
 test("mergeInstanceLists normalizes, filters and dedupes", () => {
@@ -94,4 +100,68 @@ test("buildAudioUrl falls back to the direct url without an itag", () => {
 
 test("buildAudioUrl returns null when there is nothing usable", () => {
   assert.equal(buildAudioUrl("https://inv.example", "abc", { type: "audio/mp4" }), null);
+});
+
+test("parseInstanceSetting splits lines and commas, trims and filters", () => {
+  assert.deepEqual(
+    parseInstanceSetting("https://a.example/\nhttps://b.example, http://c.example\nnope\n"),
+    ["https://a.example", "https://b.example", "http://c.example"]
+  );
+  assert.deepEqual(parseInstanceSetting(""), []);
+  assert.deepEqual(parseInstanceSetting(null), []);
+  assert.deepEqual(parseInstanceSetting(undefined), []);
+});
+
+test("pickPipedAudio takes the highest-bitrate stream with a url", () => {
+  const best = pickPipedAudio([
+    { itag: 249, mimeType: "audio/webm", bitrate: 50000, url: "https://p.example/249" },
+    { itag: 140, mimeType: "audio/mp4", bitrate: 128000, url: "https://p.example/140" },
+    { itag: 250, mimeType: "audio/webm", bitrate: 70000 },
+  ]);
+  assert.equal(best?.itag, 140);
+  assert.equal(pickPipedAudio([]), null);
+  assert.equal(pickPipedAudio([{ itag: 140 }]), null);
+});
+
+test("default fleets are https and non-empty", () => {
+  assert.ok(DEFAULT_INVIDIOUS.length >= 3);
+  assert.ok(DEFAULT_PIPED.length >= 3);
+  for (const u of [...DEFAULT_INVIDIOUS, ...DEFAULT_PIPED]) {
+    assert.match(u, /^https:\/\/[a-z0-9.-]+$/i);
+  }
+});
+
+test("parseInvidiousRegistry keeps https instances only", () => {
+  const list = [
+    ["inv.example", { type: "https" }],
+    ["onion.example", { type: "onion" }],
+    ["broken.example", {}],
+    ["also-https.example", { type: "https" }],
+  ];
+  assert.deepEqual(parseInvidiousRegistry(list), [
+    "https://inv.example",
+    "https://also-https.example",
+  ]);
+  assert.deepEqual(parseInvidiousRegistry("nope"), []);
+  assert.deepEqual(parseInvidiousRegistry(null), []);
+});
+
+test("parsePipedInstanceDoc pulls API hosts from the markdown table", () => {
+  // real format: name | API URL | location | CDN | users (badge image)
+  const doc = [
+    "Instance Name | Instance API URL | Instance Location(s) | CDN | Registered Users",
+    "--- | --- | --- | --- | ---",
+    "kavin.rocks (Official) | https://pipedapi.kavin.rocks | 🇺🇸, 🇮🇳 | Yes | ![](https://pipedapi.kavin.rocks/registered/badge)",
+    "adminforge.de | https://pipedapi.adminforge.de | 🇩🇪 | No | ![](https://pipedapi.adminforge.de/registered/badge)",
+    "piped.yt | https://api.piped.yt | 🇩🇪 | No | ![](https://api.piped.yt/registered/badge)",
+  ].join("\n");
+  assert.deepEqual(parsePipedInstanceDoc(doc), [
+    "https://pipedapi.kavin.rocks",
+    "https://pipedapi.adminforge.de",
+    "https://api.piped.yt",
+  ]);
+  // header and separator rows don't parse as URLs; badge URLs in the last
+  // column are never picked because only column 2 is read
+  assert.deepEqual(parsePipedInstanceDoc(""), []);
+  assert.deepEqual(parsePipedInstanceDoc("no table here"), []);
 });

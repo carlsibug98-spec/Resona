@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import { useSettings } from "@/stores/settings";
 import { useLibrary } from "@/stores/library";
-import { useUi } from "@/stores/ui";
 import { exportLibrary, parseBackup, restoreBackup, type ParsedBackup } from "@/lib/backup";
 import type { RestoreMode, Section } from "@/lib/backup-merge";
 import { graduate, markStep } from "@/lib/onboarding";
@@ -23,7 +22,6 @@ export function SettingsView() {
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const [checking, setChecking] = useState(false);
   const library = useLibrary();
-  const starterOn = settings.starterContent === "seed" && !!settings.starterAppliedAt;
   const hasData =
     Object.keys(library.liked).length + library.playlists.length + library.history.length > 0;
 
@@ -265,26 +263,6 @@ export function SettingsView() {
               </span>
             </div>
           )}
-        </div>
-
-        <div className="sec">
-          <h3>Starter content</h3>
-          <p>
-            First run seeds a few OPM tracks, a “Late night” playlist and some history so the
-            home looks alive. Removing it leaves only music you added yourself.
-          </p>
-          <div className="status">
-            <span>{starterOn ? "Starter content is on this device" : "No starter content"}</span>
-            <span className="grp">
-              <button
-                className="btn2 ghost"
-                disabled={!starterOn}
-                onClick={() => useUi.getState().openModal({ kind: "confirmRemoveStarter" })}
-              >
-                Remove
-              </button>
-            </span>
-          </div>
         </div>
 
         <div className="sec">

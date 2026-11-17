@@ -5,6 +5,7 @@ import {
   putPlaylist,
   deletePlaylist,
   pushHistory,
+  deleteHistory,
 } from "@/lib/server/library-store";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +79,12 @@ export async function POST(req: NextRequest) {
       const track = asTrack(body.track);
       if (!track) return NextResponse.json({ error: "invalid_track" }, { status: 400 });
       await pushHistory(track, Number(body.at) || Date.now());
+      return NextResponse.json({ ok: true });
+    }
+    case "history.delete": {
+      const videoId = String(body.videoId || "");
+      if (!VIDEO_ID.test(videoId)) return NextResponse.json({ error: "invalid_id" }, { status: 400 });
+      await deleteHistory(videoId);
       return NextResponse.json({ ok: true });
     }
     default:

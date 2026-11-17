@@ -52,6 +52,8 @@ export class PlayerEngine {
   private currentTrack: Track | null = null;
   private videoMode = false;
   private wasAudioBeforeVideo = true;
+  /** guards the one iframe→audio retry per track load (see onError) */
+  private iframeRetried = false;
 
   onState: Listener = () => {};
   onEnded: () => void = () => {};
@@ -181,9 +183,14 @@ export class PlayerEngine {
           { cache: "no-store" }
         );
         if (!r.ok) return false;
-        const d = (await r.json()) as { url?: string | null };
+        const d = (await r.json()) as { url?: string | null; proxied?: boolean };
         if (!d.url) return false;
-        url = d.url;
+        // instance (Piped/Invidious) URLs are cross-origin and must run
+        // through the same-origin byte proxy; only googlevideo URLs from
+        // InnerTube/yt-dlp go straight into the <audio> element
+        url = d.proxied
+          ? `/api/stream?videoId=${encodeURIComponent(videoId)}`
+          : d.url;
       } catch {
         return false;
       }
@@ -308,6 +315,17 @@ export class PlayerEngine {
               }
               return;
             }
+            // audio mode: the embed was the last resort after direct and
+            // proxied streams failed. Before giving up, re-run both audio
+            // paths once — the failed attempt just expired the resolver
+            // cache (fresh re-resolve), so an instance may answer now.
+            if (!this.videoMode && this.currentTrack && !this.iframeRetried) {
+              this.iframeRetried = true;
+              const pos = this.getState().position;
+              void this.load(this.currentTrack, pos);
+              return;
+            }
+            this.iframeRetried = false;
             if (code === 153 || code === 2 || code === 5) {
               this.onError(
                 "YouTube refused playback in this browser environment — try opening the app in a normal browser tab"
@@ -330,6 +348,7 @@ export class PlayerEngine {
   async load(track: Track, startSec = 0): Promise<void> {
     this.currentTrack = track;
     this.currentVideoId = track.videoId;
+    this.iframeRetried = false;
 
     // video mode active: keep the visible YouTube player as the source
     if (this.videoMode) {

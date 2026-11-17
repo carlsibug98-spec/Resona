@@ -7,9 +7,8 @@ import { useUi } from "@/stores/ui";
 import { usePlayer } from "@/stores/player";
 import { useSettings } from "@/stores/settings";
 import { TrackRow, TrackTableHead } from "@/components/track/TrackRow";
-import { MiniArt, CoverArt, plGrad, initials } from "@/lib/art";
+import { CoverArt, plGrad, initials } from "@/lib/art";
 import { Icon } from "@/components/Icon";
-import { SEED_MIXES, useSeedTracks, seedTrack } from "@/lib/seed";
 import { prefetchStream } from "@/lib/prefetch";
 import { useAsyncData } from "@/lib/useFetch";
 import { toast } from "@/stores/toast";
@@ -379,7 +378,6 @@ export function HomeView() {
   const library = useLibrary();
   const region = useSettings((s) => s.region);
   const isNew = useSettings((s) => s.onboarding) === "new";
-  const resolvedSeeds = useSeedTracks((s) => s.resolved);
   const [chip, setChip] = useState<Chip>("all");
   const [greeting, setGreeting] = useState("Welcome back");
 
@@ -420,21 +418,10 @@ export function HomeView() {
   const history = library.history.map((h) => h.track);
   const playlists = library.playlists;
 
-  const mixTracks = (keys: string[]): Track[] =>
-    keys.map((k) => seedTrack(k)).filter((t): t is Track => !!t);
-
-  /** resolves any missing seeds first, then plays the mix */
-  const playMix = async (keys: string[]) => {
-    await useSeedTracks.getState().resolveMany(keys);
-    const tracks = mixTracks(keys);
-    if (!tracks.length) return toast("Couldn't load the starter mix — check your connection");
-    player.playQueue(tracks, 0, "Starter mix");
-  };
-
   const showMusic = chip === "all" || chip === "music";
   const showPl = chip === "all" || chip === "playlists";
 
-  const lateNight = playlists[0];
+  const topPlaylist = playlists[0];
 
   const tiles = [
     {
@@ -447,15 +434,15 @@ export function HomeView() {
       ),
       onOpen: () => ui.navigate({ name: "library", tab: "liked" }),
     },
-    lateNight && {
-      key: `pl:${lateNight.id}`,
-      label: lateNight.name,
+    topPlaylist && {
+      key: `pl:${topPlaylist.id}`,
+      label: topPlaylist.name,
       art: (
         <span className="mini tile" style={{ background: plGrad(280) }}>
-          <span>{lateNight.name.slice(0, 1).toUpperCase()}</span>
+          <span>{topPlaylist.name.slice(0, 1).toUpperCase()}</span>
         </span>
       ),
-      onOpen: () => ui.navigate({ name: "playlist", id: lateNight.id }),
+      onOpen: () => ui.navigate({ name: "playlist", id: topPlaylist.id }),
     },
     history.length > 0 && {
       key: "recent",
@@ -470,12 +457,6 @@ export function HomeView() {
         if (ids.length) player.playQueue(ids, 0, "Recently played");
       },
     },
-    resolvedSeeds["t4"] !== undefined && {
-      key: "opmdaily",
-      label: "OPM Daily Mix",
-      art: <MiniArt track={seedTrack("t4")} className="mini tile" />,
-      onOpen: () => void playMix(["t4", "t2", "t3", "t5"]),
-    },
     {
       key: "downloads",
       label: "Downloads",
@@ -488,7 +469,7 @@ export function HomeView() {
     },
     {
       key: "trending",
-      label: "Trending PH",
+      label: `Trending ${region}`,
       art: (
         <span className="mini tile trend">
           <Icon name="bars" />
@@ -501,13 +482,6 @@ export function HomeView() {
   const historyCards = history.slice(0, 6);
 
   const madeForYou = [
-    ...SEED_MIXES.map((m) => ({
-      key: m.name,
-      name: m.name,
-      sub: m.sub,
-      cover: <CoverArt className="cov" letter={m.name[0]} hue={m.hue} />,
-      onPlay: () => void playMix(m.keys),
-    })),
     ...playlists.map((p) => ({
       key: `pl:${p.id}`,
       name: p.name,

@@ -26,7 +26,7 @@ import { SnackHost } from "@/components/SnackHost";
 import { TooltipLayer } from "@/components/TooltipLayer";
 import { IconSprite } from "@/components/Icon";
 import { hueFor } from "@/lib/art";
-import { applyStarterContent } from "@/lib/seed";
+import { removeStarterContent } from "@/lib/unseed";
 import { hydrateLibrary } from "@/lib/library-sync";
 import type { Track } from "@/lib/types";
 
@@ -74,17 +74,16 @@ export function AppShell() {
     window.history.pushState({ resona: true }, "");
   }, [ui.views.length]);
 
-  // first run: seed the mockup's starter content (never overwrites real data)
+  // v1.6.9 one-time migration: remove the old starter content (seeded
+  // likes / "Late night" playlist / sample history) from installs that
+  // ran a pre-1.6.9 version. Runs to completion before hydration so the
+  // server copy is cleaned and can't merge the seeds back — the mirror
+  // fetches must land before /api/library is read.
   useEffect(() => {
-    void applyStarterContent();
-  }, []);
-
-  // boot the library from the server's SQLite copy (merge with local, then
-  // mirror every later change). Runs after the seed so a fresh install
-  // uploads its starter content once, rather than having an empty server
-  // snapshot overwrite it.
-  useEffect(() => {
-    void hydrateLibrary();
+    void (async () => {
+      await removeStarterContent();
+      await hydrateLibrary();
+    })();
   }, []);
 
   // the mockup's ambient hue follows the playing track

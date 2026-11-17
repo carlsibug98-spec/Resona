@@ -3,7 +3,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-type StarterContent = "seed" | "cleared";
 type Onboarding = "new" | "done";
 
 interface SettingsState {
@@ -13,8 +12,9 @@ interface SettingsState {
   autoplayRadio: boolean;
   audioQuality: "standard" | "high";
   lySize: 0 | 1 | 2;
-  starterContent: StarterContent;
-  starterAppliedAt: number | null;
+  /** v1.6.9: timestamp of the one-time starter-content removal (see
+   * lib/unseed.ts); its presence means the migration already ran */
+  unseededAt: number | null;
   /** "new" = first-time listener: Welcome home with Getting started on
    * top (mockup NEW_USER mode). First like / playlist / download flips it. */
   onboarding: Onboarding;
@@ -30,8 +30,7 @@ interface SettingsState {
   setAutoplayRadio: (v: boolean) => void;
   setAudioQuality: (q: "standard" | "high") => void;
   setLySize: (s: 0 | 1 | 2) => void;
-  setStarterContent: (v: StarterContent) => void;
-  setStarterAppliedAt: (t: number | null) => void;
+  setUnseededAt: (t: number | null) => void;
   setOnboarding: (v: Onboarding) => void;
   /** record a finished checklist step; returns true when it was new */
   markOnboardingStep: (id: string) => boolean;
@@ -47,8 +46,7 @@ export const useSettings = create<SettingsState>()(
       autoplayRadio: true,
       audioQuality: "standard",
       lySize: 1,
-      starterContent: "seed",
-      starterAppliedAt: null,
+      unseededAt: null,
       onboarding: "new",
       onboardingSteps: [],
       lastBackupAt: null,
@@ -61,8 +59,7 @@ export const useSettings = create<SettingsState>()(
       setAutoplayRadio: (autoplayRadio) => set({ autoplayRadio }),
       setAudioQuality: (audioQuality) => set({ audioQuality }),
       setLySize: (lySize) => set({ lySize }),
-      setStarterContent: (starterContent) => set({ starterContent }),
-      setStarterAppliedAt: (starterAppliedAt) => set({ starterAppliedAt }),
+      setUnseededAt: (unseededAt) => set({ unseededAt }),
       setOnboarding: (onboarding) => set({ onboarding }),
       markOnboardingStep: (id) => {
         const done = get().onboardingSteps;
@@ -74,7 +71,7 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: "resona-settings",
-      version: 2,
+      version: 3,
       migrate: (persisted: unknown, version: number) => {
         const s = (persisted || {}) as Record<string, unknown>;
         // v1.4.0: the video button now plays the real music video and
@@ -87,6 +84,15 @@ export const useSettings = create<SettingsState>()(
         // from an earlier install is an established listener — they keep
         // the full home. Only brand-new installs start as "new".
         if (version < 2 && s.onboarding === undefined) s.onboarding = "done";
+        // v1.6.9: the starter-content seeder is gone. Drop its flags so
+        // they stop haunting persisted state; the unseed migration keys
+        // off its own timestamp instead. Anyone whose persisted state
+        // still says "not applied" simply never seeds — fresh installs
+        // start with an empty library, which is the new intended UX.
+        if (version < 3) {
+          delete s.starterContent;
+          delete s.starterAppliedAt;
+        }
         return s as unknown as SettingsState;
       },
     }

@@ -8,7 +8,6 @@ import { usePlayer } from "@/stores/player";
 import { MiniArt } from "@/lib/art";
 import { Icon } from "@/components/Icon";
 import { removeDownloadConfirmed, startDownload } from "@/lib/useDownload";
-import { removeStarterContent } from "@/lib/seed";
 import { graduate, markStep } from "@/lib/onboarding";
 import { startRadio } from "@/lib/radio";
 import { toast } from "@/stores/toast";
@@ -77,19 +76,6 @@ export function ModalHost() {
         )}
         {modal.kind === "playlistMenu" && (
           <PlaylistMenuModal id={modal.id} name={modal.name} onDone={closeModal} />
-        )}
-        {modal.kind === "confirmRemoveStarter" && (
-          <ConfirmModal
-            title="Remove starter content?"
-            text="The starter playlist, seeded likes and sample history are removed. Songs you added yourself stay."
-            confirmLabel="Remove"
-            danger
-            onDone={closeModal}
-            onConfirm={() => {
-              removeStarterContent();
-              toast("Starter content removed", true);
-            }}
-          />
         )}
       </div>
     </div>
