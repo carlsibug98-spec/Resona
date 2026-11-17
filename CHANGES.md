@@ -1,5 +1,41 @@
 # Changes
 
+## v1.7.1 — "click play, it pauses again" fixed (2026-11-17)
+
+The symptom: pressing play on a track that couldn't start made the
+button flip straight back to paused. Reproduced in a real browser on a
+fully-gated network and traced to three causes:
+
+- **The zombie engine** — after every source failed, play() just poked
+  dead media elements, the state poll reported "not playing", and the
+  button reverted. play() now detects there is no live source and
+  reloads the track for real (one fresh retry pass per click).
+- **Phantom error events** — each failed stream probe tears down the
+  audio element, which fires an async error event *after* the probe
+  already finished. Those counted as extra playback errors, tripping
+  the "too many failures" stop before auto-advance could run, so the
+  queue sat on the dead track forever. Probe teardowns are now
+  attributed to the probe.
+- **The single-track queue never advanced** — play-from-artist starts a
+  one-song queue; the old advance logic only ran for longer queues.
+  Now any failure schedules one advance, extending the queue with the
+  song radio when it runs out.
+
+Failure UX when nothing can play on a network:
+
+- Failures surface in ~5 s (was 30 s+ of silence): videos the YouTube
+  embed refused (removed/private/embedding-disabled) are remembered for
+  10 minutes and skip the whole chain on retry.
+- The banner gained a **Run diagnostics** action that jumps straight to
+  the provider report; Retry reloads the exact failed track even after
+  the queue moved on.
+- Consecutive errors now count failed *tracks*, not failed attempts —
+  two flaky songs no longer stop playback for the session.
+
+Also: full-chain resolve misses are cached 2 minutes, so repeat clicks
+don't re-pay the provider race; rapid track changes can no longer leave
+a stale probe timer armed over the next track.
+
 ## v1.7.0 — the playback hang is fixed, and a real UI/UX pass (2026-11-17)
 
 The "still doesn't play anything" report led to three genuine bugs:

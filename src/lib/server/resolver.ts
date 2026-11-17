@@ -198,8 +198,11 @@ export async function resolveStream(
   // success is worth 30 minutes (googlevideo URLs live ~6h); failure only
   // 20 seconds — a transient network hiccup or a gated InnerTube response
   // must not make a track unplayable for half an hour, which is what one
-  // big TTL did.
+  // big TTL did. v1.7.1: failures are 2 minutes when the whole chain ran
+  // (every provider answered "no") — a full-chain miss is expensive
+  // (15 s+) and repeat clicks must not re-pay it on the same video.
   const MISS_TTL = 1000 * 20;
+  const FULL_MISS_TTL = 1000 * 120;
   const HIT_TTL = 1000 * 60 * 30;
 
   const hit = cacheGet<StreamResult>(key);
@@ -246,7 +249,11 @@ export async function resolveStream(
   inflight.set(key, task);
   try {
     const result = await task;
-    cacheSet(key, result, result.url ? HIT_TTL : MISS_TTL);
+    cacheSet(
+      key,
+      result,
+      result.url ? HIT_TTL : opts?.fresh ? FULL_MISS_TTL : MISS_TTL
+    );
     return result;
   } finally {
     if (inflight.get(key) === task) inflight.delete(key);

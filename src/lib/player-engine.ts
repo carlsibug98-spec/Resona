@@ -23,6 +23,26 @@ type Listener = (s: EngineState) => void;
 
 let ytPromise: Promise<void> | null = null;
 
+/**
+ * Videos the YouTube embed refused (error 100/101/150: removed, private,
+ * embedding disabled). If the embed rejected a video once, re-trying it
+ * goes: iframe → instant 150 → (retry guard) → full audio chain → iframe
+ * → 150 → banner — the user waits ~30 s to learn the same thing. With
+ * the memory, a known-dead video fails fast with the real reason.
+ */
+const ytDeadEmbeds = new Map<string, number>();
+const YT_DEAD_TTL = 1000 * 60 * 10;
+
+function isYtEmbedDead(videoId: string): boolean {
+  const until = ytDeadEmbeds.get(videoId);
+  if (!until) return false;
+  if (Date.now() > until) {
+    ytDeadEmbeds.delete(videoId);
+    return false;
+  }
+  return true;
+}
+
 function loadYT(): Promise<void> {
   if (ytPromise) return ytPromise;
   ytPromise = new Promise<void>((resolve, reject) => {
@@ -64,6 +84,50 @@ export class PlayerEngine {
   private tick: ReturnType<typeof setInterval> | null = null;
   private hostEl: HTMLElement | null = null;
   private probing = false;
+  /**
+   * When a probe's src was last torn down (pause/removeAttribute/load).
+   * The <audio> element emits its "error" event asynchronously AFTER the
+   * probe already settled and cleared `probing` — without this timestamp
+   * those probe failures counted as real playback errors (4+ per failed
+   * track), which tripped the "too many errors" stop before auto-advance
+   * ever ran: the queue stuck on the failed song. v1.7.1.
+   */
+  private lastProbeTeardown = 0;
+
+  /** probe bookkeeping: a generation counter + active timers, so a stale
+   * attempt's timeout can never settle a newer attempt (rapid track
+   * changes used to leave 8/15s timers armed over a fresh probe) */
+  private probeGen = 0;
+  private probeTimers: ReturnType<typeof setTimeout>[] = [];
+
+  private armProbeTimer(ms: number, fn: () => void): void {
+    const gen = this.probeGen;
+    const t = setTimeout(() => {
+      // only fire if no newer probe started since this one was armed
+      if (gen === this.probeGen) fn();
+      this.probeTimers = this.probeTimers.filter((x) => x !== t);
+    }, ms);
+    this.probeTimers.push(t);
+  }
+
+  private clearProbes(): void {
+    this.probeGen++;
+    for (const t of this.probeTimers) clearTimeout(t);
+    this.probeTimers = [];
+    this.probing = false;
+  }
+
+  /** tear down the audio element src after a failed probe; the async
+   * error event it triggers must be attributed to the probe, not real
+   * playback (see lastProbeTeardown) */
+  private killAudioSrc(): void {
+    const a = this.audio;
+    if (!a) return;
+    this.lastProbeTeardown = Date.now();
+    a.pause();
+    a.removeAttribute("src");
+    a.load();
+  }
 
   currentVideoId: string | null = null;
   currentIsAudio = false;
@@ -79,6 +143,13 @@ export class PlayerEngine {
   onEnded: () => void = () => {};
   onError: (msg: string) => void = () => {};
   onVideoReady: () => void = () => {};
+  /**
+   * load() itself could not start ANY source for the track (all audio
+   * providers dead + embed dead/unstartable). Distinct from onError:
+   * this always means the track is unplayable right now — the UI should
+   * banner it and move the queue on.
+   */
+  onLoadFailed: (msg: string) => void = () => {};
 
   /** the track after the current one — warmed ahead of the gapless switch */
   private nextVideoId: string | null = null;
@@ -115,8 +186,13 @@ export class PlayerEngine {
       this.audio.addEventListener("ended", () => this.onEnded());
       this.audio.addEventListener("error", () => {
         // while probing a candidate stream we swallow errors and treat
-        // them as "this source didn't work" instead of a playback failure
+        // them as "this source didn't work" instead of a playback failure;
+        // the same goes for the async error fired moments AFTER a failed
+        // probe tore the src down (probing is already false again) —
+        // without the timestamp guard those counted as 2-3 extra real
+        // errors per failed track and tripped the queue stop
         if (this.probing) return;
+        if (Date.now() - this.lastProbeTeardown < 2_000) return;
         this.onError("Audio playback error");
       });
       // buffering visibility: the old engine only polled state every 400 ms
@@ -162,9 +238,7 @@ export class PlayerEngine {
         settled = true;
         this.probing = false;
         cleanup();
-        a.pause();
-        a.removeAttribute("src");
-        a.load();
+        this.killAudioSrc();
         resolve(false);
       };
       this.probing = true;
@@ -178,13 +252,13 @@ export class PlayerEngine {
         // autoplay refusal: metadata may still be loading, keep probing;
         // if nothing arrives at all the timeout below handles it
       });
-      setTimeout(() => {
+      this.armProbeTimer(15_000, () => {
         if (!settled) {
           // still buffering after 15s — give up on this source
           if (a.readyState < 3 && a.currentTime < 0.5) onFail();
           else onOk();
         }
-      }, 15_000);
+      });
       void startSec;
     });
   }
@@ -251,9 +325,7 @@ export class PlayerEngine {
         settled = true;
         this.probing = false;
         cleanup();
-        a.pause();
-        a.removeAttribute("src");
-        a.load();
+        this.killAudioSrc();
         resolve(false);
       };
       this.probing = true;
@@ -269,12 +341,12 @@ export class PlayerEngine {
         /* autoplay refusal — the timeout below decides */
       });
       // direct URLs are known-good or 403 immediately; 8s is plenty
-      setTimeout(() => {
+      this.armProbeTimer(8_000, () => {
         if (!settled) {
           if (a.readyState >= 2 && a.currentTime > 0.1) onOk();
           else onFail();
         }
-      }, 8_000);
+      });
       void startSec;
     });
   }
@@ -345,6 +417,12 @@ export class PlayerEngine {
           },
           onError: (e: any) => {
             const code = e?.data;
+            // remember embed-refusals (100: removed, 101/150: embedding
+            // disabled) so the next attempt on this video skips the embed
+            // and fails fast instead of repeating the whole 30 s chain
+            if (code === 100 || code === 101 || code === 150) {
+              if (this.currentVideoId) ytDeadEmbeds.set(this.currentVideoId, Date.now() + YT_DEAD_TTL);
+            }
             // while the real video is on screen: embedded playback refused
             // for this video/environment — drop back to audio instead of skipping
             if (
@@ -396,6 +474,10 @@ export class PlayerEngine {
   }
 
   async load(track: Track, startSec = 0): Promise<void> {
+    // invalidate any probe still armed for the previous track: its 8/15s
+    // timer must not settle this attempt (rapid skips used to trigger
+    // exactly that, failing a source that was fine)
+    this.clearProbes();
     this.currentTrack = track;
     this.currentVideoId = track.videoId;
 
@@ -469,9 +551,19 @@ export class PlayerEngine {
       return;
     }
 
-    // fallback: YouTube IFrame embed. loadYT() can now reject (script
-    // blocked) — without the catch, a rejected promise in an async load()
-    // was an unhandled rejection and the UI never learned playback failed.
+    // fallback: YouTube IFrame embed. Skipped entirely when the embed
+    // already refused this video recently (100/101/150) — repeating the
+    // full chain for a known-dead video was 30 s of dead air per click.
+    if (isYtEmbedDead(track.videoId)) {
+      this.currentIsAudio = false;
+      this.stopAudio();
+      this.startTick();
+      this.onLoadFailed("This track can't play on your network — try another song");
+      return;
+    }
+    // loadYT() can now reject (script blocked) — without the catch, a
+    // rejected promise in an async load() was an unhandled rejection and
+    // the UI never learned playback failed.
     this.currentIsAudio = false;
     this.stopAudio();
     this.startTick();
@@ -482,13 +574,32 @@ export class PlayerEngine {
         startSeconds: Math.floor(startSec),
       });
       yt.playVideo();
+      // if the embed never signals life (blocked script, bot-gated embed,
+      // autoplay refused), surface a failure instead of leaving a zombie
+      // engine that "automatically pauses" on the next play click
+      this.armProbeTimer(12_000, () => {
+        const st = this.getState();
+        if (
+          this.currentVideoId === track.videoId &&
+          !st.playing &&
+          st.position === 0 &&
+          !st.buffering
+        ) {
+          this.onLoadFailed("Couldn't start playback — open Diagnostics for details");
+        }
+      });
     } catch {
-      this.onError("Couldn't start any stream — check your connection");
+      this.onLoadFailed("Couldn't start any stream — check your connection");
     }
   }
 
   getVideoMode(): boolean {
     return this.videoMode;
+  }
+
+  /** the track the engine is holding (read-only, for retry flows) */
+  getTrack(): Track | null {
+    return this.currentTrack;
   }
 
   /**
@@ -534,6 +645,30 @@ export class PlayerEngine {
   }
 
   async play(): Promise<void> {
+    // zombie guard: after a total failure the engine has no live source
+    // (empty audio src, YT player never started). toggle() used to set
+    // isPlaying=true here, the 400ms tick then synced playing:false back,
+    // and the button "automatically paused" — the reported symptom.
+    // Reloading the track instead makes the play button retry for real.
+    const audioAlive =
+      this.currentIsAudio && !!this.audio?.src && !this.audio.ended;
+    const ytAlive = (() => {
+      try {
+        return (
+          !this.currentIsAudio &&
+          !!this.yt?.getPlayerState &&
+          this.yt.getPlayerState() !== -1 &&
+          this.yt.getPlayerState() !== 5
+        );
+      } catch {
+        return false;
+      }
+    })();
+    if (!audioAlive && !ytAlive && this.currentTrack) {
+      this.iframeRetriedFor = null; // a manual play deserves a fresh retry
+      await this.load(this.currentTrack, this.getState().position);
+      return;
+    }
     if (this.currentIsAudio) await this.audio?.play().catch(() => {});
     else
       try {
@@ -588,3 +723,51 @@ export class PlayerEngine {
 }
 
 export const engine = new PlayerEngine();
+
+/**
+ * Debug surface for diagnostics: window.resonaEngine() returns a snapshot
+ * of the engine's playback state and recent error history. Used by the
+ * E2E tests and support flows (Settings → About can print it); tiny by
+ * design — no live references, just a snapshot.
+ */
+declare global {
+  interface Window {
+    resonaEngine?: () => {
+      videoId: string | null;
+      isAudio: boolean;
+      ytState: number | null;
+      audioSrc: string | null;
+      lastErrors: { at: number; msg: string }[];
+    };
+  }
+}
+
+const errLog: { at: number; msg: string }[] = [];
+const origOnError = engine.onError;
+engine.onError = (msg) => {
+  errLog.push({ at: Date.now(), msg });
+  if (errLog.length > 10) errLog.shift();
+  origOnError(msg);
+};
+const origOnLoadFailed = engine.onLoadFailed;
+engine.onLoadFailed = (msg) => {
+  errLog.push({ at: Date.now(), msg: `LOAD_FAILED: ${msg}` });
+  if (errLog.length > 10) errLog.shift();
+  origOnLoadFailed(msg);
+};
+
+if (typeof window !== "undefined") {
+  window.resonaEngine = () => ({
+    videoId: engine.currentVideoId,
+    isAudio: engine.currentIsAudio,
+    ytState: (() => {
+      try {
+        return engine.getVideoMode() ? (engine as any).yt?.getPlayerState?.() ?? null : null;
+      } catch {
+        return null;
+      }
+    })(),
+    audioSrc: (engine as any).audio?.src || null,
+    lastErrors: [...errLog],
+  });
+}

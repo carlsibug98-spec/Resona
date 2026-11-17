@@ -236,7 +236,12 @@ export function SettingsView() {
             <button className="btn2 ghost" onClick={() => void checkResolvers()}>
               Test now
             </button>
-            <button className="btn2 ghost" disabled={diagBusy} onClick={() => void runDiagnostics()}>
+            <button
+              className="btn2 ghost"
+              data-diag-run
+              disabled={diagBusy}
+              onClick={() => void runDiagnostics()}
+            >
               {diagBusy ? "Running…" : "Diagnostics"}
             </button>
           </div>

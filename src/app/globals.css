@@ -682,6 +682,8 @@ img.cov{object-fit:cover}
 .errban button:hover{background:rgba(255,255,255,.22)}
 .errban button.pri{background:#f87171;color:#2b1214}
 .errban button.pri:hover{background:#fca5a5}
+.errban button.diag-link{background:transparent;border:1px solid rgba(255,255,255,.25)}
+.errban button.diag-link:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.45)}
 .errban .x{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:none;padding:0;color:#ffd9d9;flex:none}
 .errban .x:hover{background:rgba(255,255,255,.12)}
 

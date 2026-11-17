@@ -47,10 +47,26 @@ export function PlayerProvider() {
 
   // engine -> store binding
   useEffect(() => {
+    // consecutiveErrors counts FAILED TRACKS, not failed attempts: one
+    // track can legitimately fire 2 errors (embed refusal + audio retry
+    // failure). Without the per-track reset below, 2 flaky tracks + the
+    // next one's first error hit the cap and playback stopped for good.
     let consecutiveErrors = 0;
+    let lastErrorTrack: string | null = null;
+    const noteError = (videoId: string | null) => {
+      if (videoId && videoId !== lastErrorTrack) {
+        lastErrorTrack = videoId;
+        consecutiveErrors = 1;
+      } else {
+        consecutiveErrors += 1;
+      }
+    };
     engine.onState = (s) => {
-      if (s.playing) consecutiveErrors = 0;
-      if (s.playing) usePlaybackError.getState().clear();
+      if (s.playing) {
+        consecutiveErrors = 0;
+        lastErrorTrack = null;
+        usePlaybackError.getState().clear();
+      }
       usePlayer.getState().syncFromEngine(s);
     };
     engine.onEnded = () => {
@@ -63,30 +79,51 @@ export function PlayerProvider() {
       if (p.next()) return;
       void maybeStartRadio();
     };
+    // one scheduled advance per failure wave: onError + onLoadFailed can
+    // both fire for the same track (embed refuses, then the audio retry
+    // also fails) — two independent next() calls would skip a track
+    let advanceTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleAdvance = () => {
+      if (advanceTimer) return;
+      advanceTimer = setTimeout(() => {
+        advanceTimer = null;
+        // user already acted on the banner (retry/skip/dismiss) — stand down
+        if (!usePlaybackError.getState().message) return;
+        const p = usePlayer.getState();
+        if (!p.next()) void maybeStartRadio();
+      }, 1200);
+    };
+
     engine.onError = (msg) => {
       const p = usePlayer.getState();
       const cur = p.current();
-      // actionable banner instead of a vanishing toast: the user decides
-      // retry / skip; environment notes (video-mode fallbacks) stay toasts
-      const isTrackFailure = !!cur;
-      if (isTrackFailure) {
+      if (cur) {
         usePlaybackError.getState().show(msg, cur.videoId);
       } else {
         toast(msg);
       }
-      consecutiveErrors += 1;
-      // auto-advance only when the banner is up: single-track queues must
-      // not silently burn through (the queue-stop below stays as backstop)
-      if (consecutiveErrors <= 3 && p.queue.length > 1) {
-        setTimeout(() => {
-          // if the user already retried/skipped manually, don't double-fire
-          if (usePlaybackError.getState().message) p.next();
-        }, 1200);
+      noteError(cur?.videoId ?? null);
+      if (consecutiveErrors <= 3) {
+        scheduleAdvance();
       } else {
         engine.pause();
         usePlayer.setState({ isPlaying: false });
-        if (consecutiveErrors > 3 && isTrackFailure)
-          toast("Stopped: too many unavailable tracks in a row");
+        toast("Stopped: too many unavailable tracks in a row");
+      }
+    };
+    // load() exhausted every source (audio providers AND the embed) —
+    // same treatment as onError; this is the "click play, nothing
+    // starts" case, where sitting still looks like a frozen app
+    engine.onLoadFailed = (msg) => {
+      const p = usePlayer.getState();
+      const cur = p.current();
+      if (cur) usePlaybackError.getState().show(msg, cur.videoId);
+      noteError(cur?.videoId ?? null);
+      if (consecutiveErrors <= 3) {
+        scheduleAdvance();
+      } else {
+        engine.pause();
+        usePlayer.setState({ isPlaying: false });
       }
     };
   }, []);
