@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
-import { cacheGet, cacheSet, fetchWithTimeout } from "./cache.ts";
-import { resolveInnertubeStream } from "./innertube-stream";
+import { cacheGet, cacheSet, fetchWithTimeout, verifyAudioUrl } from "./cache.ts";
+import { resolveInnertubeStream } from "./innertube-stream.ts";
 import {
   buildAudioUrl,
   DEFAULT_INVIDIOUS,
@@ -15,7 +15,7 @@ import {
   pickPipedAudio,
   type InvidiousFormat,
   type PipedAudioStream,
-} from "../instance-fleet";
+} from "../instance-fleet.ts";
 
 export interface StreamResult {
   url: string | null;
@@ -41,6 +41,8 @@ const gateKey = (videoId: string) => `stream:innertube-gated:${videoId}`;
 
 async function tryInnertube(videoId: string): Promise<StreamResult | null> {
   if (cacheGet(gateKey(videoId)) !== null) return null;
+  // resolveInnertubeStream verifies each client's URL as part of the
+  // race, so a non-null answer here is a URL proven to serve bytes
   const r = await resolveInnertubeStream(videoId);
   if (!r) {
     cacheSet(gateKey(videoId), { gated: true }, GATE_TTL);
@@ -75,6 +77,9 @@ async function tryYtDlp(videoId: string): Promise<StreamResult | null> {
     );
   });
   if (!url || !url.startsWith("http")) return null;
+  // yt-dlp extracts, it doesn't verify — same 1-byte probe as everyone
+  // else before this URL is allowed to win or be cached
+  if (!(await verifyAudioUrl(url))) return null;
   return {
     url,
     provider: "yt-dlp",
@@ -143,6 +148,9 @@ async function tryPiped(base: string, videoId: string): Promise<StreamResult | n
     const data = (await res.json()) as { audioStreams?: PipedAudioStream[] };
     const best = pickPipedAudio(data.audioStreams || []);
     if (!best?.url) return null;
+    // the instance's API answered; its stream URL still has to serve
+    // bytes — a 403-happy instance must not be pinned as "working"
+    if (!(await verifyAudioUrl(best.url))) return null;
     lastWorkingInstance = base;
     return {
       url: best.url,
@@ -150,7 +158,7 @@ async function tryPiped(base: string, videoId: string): Promise<StreamResult | n
       bitrate: best.bitrate,
       mime: String(best.mimeType || "audio/mp4").split(";")[0],
       // third-party host: run through the byte proxy (the server just
-      // verified this instance responds, and the proxy can re-resolve)
+      // verified this URL serves bytes, and the proxy can re-resolve)
       proxied: true,
     };
   } catch {
@@ -173,6 +181,9 @@ async function tryInvidious(base: string, videoId: string): Promise<StreamResult
     // working even when the resolving IP differs from the streaming IP
     const url = buildAudioUrl(base, videoId, best);
     if (!url) return null;
+    // the instance's API answered; its stream URL still has to serve
+    // bytes before this instance is trusted or pinned
+    if (!(await verifyAudioUrl(url))) return null;
     lastWorkingInstance = base;
     return {
       url,

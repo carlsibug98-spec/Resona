@@ -1,6 +1,6 @@
 // explicit .ts extension: this module is imported directly by node --test,
 // which (unlike the bundler) needs the real file name
-import { fetchWithTimeout } from "./cache.ts";
+import { fetchWithTimeout, verifyAudioUrl } from "./cache.ts";
 import { firstTruthy } from "../instance-fleet.ts";
 
 /**
@@ -155,11 +155,14 @@ async function playerOnce(
 
 /**
  * Resolve a direct audio URL via InnerTube. All clients are raced in
- * parallel — one round trip (~150-400 ms), first *usable* answer wins
- * (a gated client resolving null must not beat a slower clean answer —
- * plain Promise.any would do exactly that). Returns null when every
- * client is gated, so the caller can move on to the fallback providers.
- * A successful result is cached by the caller.
+ * parallel — one round trip (~150-400 ms), first *usable* answer wins.
+ * "Usable" means the URL passes a 1-byte range probe: a client that
+ * answers with playability OK can still hand out a URL that 403s the
+ * moment it is fetched (client-keyed URLs), so verification is part of
+ * the race — a dead client loses to a live one instead of poisoning
+ * the whole InnerTube path for this video. Returns null when every
+ * client is gated or dead-URL, so the caller can move on to the
+ * fallback providers. A successful result is cached by the caller.
  */
 export async function resolveInnertubeStream(
   videoId: string,
@@ -171,6 +174,7 @@ export async function resolveInnertubeStream(
     if (!fmts) return null;
     const best = pickAudioFormat(fmts);
     if (!best?.url) return null;
+    if (!(await verifyAudioUrl(best.url))) return null;
     return {
       url: best.url,
       bitrate: best.bitrate || 128_000,

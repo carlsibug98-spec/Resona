@@ -177,3 +177,46 @@ export function fetchWithTimeout(
     },
   }).finally(() => clearTimeout(timer));
 }
+
+/**
+ * Verify a resolved stream URL actually serves audio bytes before it is
+ * trusted: fetch 1 byte with a Range header and require an OK/206 answer.
+ *
+ * This is the difference between "resolved" and "playable": Piped
+ * instances happily hand out googlevideo URLs that 403 a moment later,
+ * InnerTube can answer from a client whose URLs expire instantly, and
+ * an expired cached URL still resolves on paper. In-process players
+ * (Musify's youtube_explode, OpenSpot's shared streaming core) never
+ * see this problem because the process that resolves the URL is the
+ * process that plays it — resolution failure IS playback failure, and
+ * the next candidate is tried. Resona resolves server-side and plays
+ * browser-side, so this explicit probe replaces that implicit
+ * guarantee: without it, the first dead-but-fast URL wins a provider
+ * race and gets cached for 30 minutes as a "hit" — the user hears
+ * nothing until the cache dies.
+ *
+ * One range probe adds ~100-300 ms to a resolve, and only on the verify
+ * step — the media request itself then starts from byte 0.
+ */
+export async function verifyAudioUrl(url: string, ms = 5000): Promise<boolean> {
+  try {
+    const res = await fetchWithTimeout(
+      url,
+      { headers: { Range: "bytes=0-1" } },
+      ms
+    );
+    // 200/206 = the host answered with a body; 4xx/5xx = dead or gated
+    // (403: expired/gated googlevideo, 429: instance rate-limit)
+    const ok = res.ok || res.status === 206;
+    // servers that ignore Range answer 200 with the FULL body — cancel
+    // it or the probe turns into a whole-file download
+    try {
+      res.body?.cancel();
+    } catch {
+      /* already closed */
+    }
+    return ok;
+  } catch {
+    return false;
+  }
+}

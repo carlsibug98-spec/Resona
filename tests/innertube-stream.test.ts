@@ -157,6 +157,50 @@ test("resolveInnertubeStream returns null fast on bot-gated LOGIN_REQUIRED", asy
   assert.ok(Date.now() - t0 < 2000, "fail-fast, no long waits");
 });
 
+test("a client whose URL fails verification loses the race to a live one", async () => {
+  const { resolveInnertubeStream } = await import(
+    "../src/lib/server/innertube-stream.ts"
+  );
+  // ANDROID answers instantly with a URL that 403s on fetch; the other
+  // clients answer a beat slower with a URL that serves bytes — the
+  // race must land on the live one (v1.7.0/1.7.1 would have returned
+  // the dead one and the track would go silent)
+  await withFetch(
+    (async (url: string | URL | Request, init?: RequestInit) => {
+      const u = String(url);
+      // the player endpoint
+      if (u.includes("youtube.com/youtubei")) {
+        const name = await clientNameOf(init);
+        if (name === "ANDROID") {
+          return new Response(
+            JSON.stringify(playerResponse([
+              { mimeType: "audio/mp4", bitrate: 130_000, url: "https://gv/dead" },
+            ])),
+            { status: 200 }
+          );
+        }
+        await new Promise((r) => setTimeout(r, 25));
+        return new Response(
+          JSON.stringify(playerResponse([
+            { mimeType: "audio/mp4", bitrate: 128_000, url: "https://gv/live" },
+          ])),
+          { status: 200 }
+        );
+      }
+      // the range probes
+      if (u === "https://gv/dead") return new Response("forbidden", { status: 403 });
+      if (u === "https://gv/live") return new Response("x", { status: 206 });
+      return new Response("nope", { status: 404 });
+    }) as FetchImpl,
+    async () => {
+      const r = await resolveInnertubeStream("abc12345678");
+      assert.ok(r, "a live client should win the race");
+      assert.equal(r.url, "https://gv/live");
+      assert.notEqual(r.provider, "innertube:android-sdkless");
+    }
+  );
+});
+
 test("resolveInnertubeStream survives a thrown fetch (network error)", async () => {
   const { resolveInnertubeStream } = await import(
     "../src/lib/server/innertube-stream.ts"

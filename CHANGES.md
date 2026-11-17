@@ -1,5 +1,49 @@
 # Changes
 
+## v1.7.2 — some tracks were silent: dead URLs no longer win (2026-11-17)
+
+The symptom: after v1.7.0, some tracks just wouldn't play — no error,
+no audio — while they played fine on v1.6.x. The queue auto-advanced
+(v1.7.1) so it looked like "a few broken songs" rather than one real
+regression.
+
+Root cause — **v1.7.0 made "resolved" mean "playable" without checking**:
+
+- The resolver races providers (InnerTube clients, yt-dlp, Piped/
+  Invidious instances) and v1.7.0 let the **first provider to answer**
+  win, then cached its URL for 30 minutes as a "hit". But answering
+  isn't serving: a Piped instance can hand out a googlevideo URL that
+  403s the moment the browser fetches it, and InnerTube clients can
+  answer with client-keyed URLs that die instantly. Whichever dead URL
+  answered first won, got cached, and the track was silent until the
+  cache expired — often after the listener had already skipped it.
+- v1.6.x didn't have this because yt-dlp ran with strict priority
+  before the instance fleet, and the fleet was smaller and slower.
+
+The fix — **a URL is only trusted after it serves bytes** (the same
+guarantee Musify and OpenSpot get by resolving in the process that
+plays):
+
+- New `verifyAudioUrl()` (1-byte `Range: bytes=0-1` probe, ~100-300 ms,
+  body-cancelled so a Range-ignoring server can't start a download):
+  every provider — InnerTube client race, yt-dlp, Piped, Invidious —
+  now verifies its URL **before** it can win the race, before it's
+  cached, and before an instance is pinned as "last working".
+- Inside the InnerTube race this is per-client: a client answering with
+  a dead URL loses to a slower live client instead of nullifying the
+  whole fast path.
+- Dead URLs are never returned and never cached as hits: the chain
+  moves to the next provider and the user gets the first URL that
+  actually plays.
+- Byte-proxy self-healing (v1.7.0) still covers URLs that die *between*
+  resolve and play.
+
+Tests: 113 (was 106) — the race semantics (dead-answer-loses, live
+caches, `verifyAudioUrl` unit tests) are locked by `tests/resolver-verify.test.ts`
+and a new dead-client race case in `tests/innertube-stream.test.ts`;
+verified live end-to-end (resolve → probe → proxy delivered real
+MPEG-4 audio bytes, 206 + content-range, ~250 ms resolve).
+
 ## v1.7.1 — "click play, it pauses again" fixed (2026-11-17)
 
 The symptom: pressing play on a track that couldn't start made the
