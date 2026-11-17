@@ -191,7 +191,18 @@ export function SearchView({ initialQuery }: { initialQuery?: string }) {
           </div>
         </>
       ) : loading ? (
-        <p className="muted pad-note">Searching…</p>
+        <div className="tlist" aria-label="Searching">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="sk-row">
+              <div className="sk sq" />
+              <div className="lines">
+                <div className="sk line" />
+                <div className="sk line short" />
+              </div>
+              <span />
+            </div>
+          ))}
+        </div>
       ) : failed ? (
         <div className="empty">
           <Icon name="search" />

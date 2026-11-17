@@ -61,6 +61,43 @@ export function SettingsView() {
     }
   };
 
+  /* full per-provider diagnostics — the "why won't anything play" report */
+  const [diag, setDiag] = useState<
+    { providers: { provider: string; ok: boolean; ms: number; detail: string }[]; at: string } | null
+  >(null);
+  const [diagBusy, setDiagBusy] = useState(false);
+
+  const runDiagnostics = async () => {
+    setDiagBusy(true);
+    setDiag(null);
+    try {
+      const res = await fetch(
+        `/api/stream?videoId=JGwWNGJdvx8&diagnose=1&instances=${encodeURIComponent(instances.trim())}`
+      );
+      const data = await res.json();
+      setDiag(data);
+      const ok = (data.providers || []).some((p: { ok: boolean }) => p.ok);
+      toast(ok ? "At least one provider works" : "No provider could resolve a stream", ok);
+    } catch {
+      toast("Diagnostics failed — the server didn't answer");
+    } finally {
+      setDiagBusy(false);
+    }
+  };
+
+  const copyDiagnostics = () => {
+    if (!diag) return;
+    const text = [
+      `Resona ${APP_VERSION} — playback diagnostics`,
+      `at ${diag.at}`,
+      ...diag.providers.map((p) => `${p.ok ? "OK " : "FAIL"} ${p.provider} — ${p.detail} (${p.ms} ms)`),
+    ].join("\n");
+    void navigator.clipboard.writeText(text).then(
+      () => toast("Diagnostics copied", true),
+      () => toast("Couldn't copy — select the text manually")
+    );
+  };
+
   const runUpdateCheck = async () => {
     setChecking(true);
     const info = await checkForUpdate(true);
@@ -199,7 +236,45 @@ export function SettingsView() {
             <button className="btn2 ghost" onClick={() => void checkResolvers()}>
               Test now
             </button>
+            <button className="btn2 ghost" disabled={diagBusy} onClick={() => void runDiagnostics()}>
+              {diagBusy ? "Running…" : "Diagnostics"}
+            </button>
           </div>
+          {diag && (
+            <div className="diag">
+              <div className="diag-head">
+                <b>Playback diagnostics</b>
+                <span className="grp">
+                  <button className="btn2 sm ghost" onClick={copyDiagnostics}>Copy report</button>
+                </span>
+              </div>
+              <table className="diag-table">
+                <thead>
+                  <tr>
+                    <th>Provider</th>
+                    <th>Result</th>
+                    <th>Detail</th>
+                    <th>Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {diag.providers.map((p) => (
+                    <tr key={p.provider} className={p.ok ? "ok" : "fail"}>
+                      <td>{p.provider}</td>
+                      <td>{p.ok ? "OK" : "fail"}</td>
+                      <td>{p.detail}</td>
+                      <td>{p.ms} ms</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="muted diag-hint">
+                {diag.providers.some((p) => p.ok)
+                  ? "The working provider is used automatically. Send this report if anything still fails."
+                  : "Nothing could resolve a stream from this network. Send this report (Copy report) for a fix."}
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="sec">

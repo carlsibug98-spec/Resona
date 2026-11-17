@@ -155,3 +155,32 @@ export function parsePipedInstanceDoc(text: string): string[] {
   }
   return out;
 }
+
+/**
+ * Race promises until one resolves with a truthy value. Promise.any would
+ * resolve with the first *non-rejecting* result — and provider attempts
+ * resolve null on failure, so a fast-failing provider would win the race
+ * over a slower working one. This waits for the first real answer, or
+ * resolves null when every attempt settled empty/failed.
+ */
+export function firstTruthy<T>(promises: Promise<T | null>[]): Promise<T | null> {
+  return new Promise<T | null>((resolve) => {
+    let pending = promises.length;
+    let done = false;
+    if (!pending) return resolve(null);
+    const settle = () => {
+      if (!done && --pending === 0) resolve(null);
+    };
+    for (const p of promises) {
+      p.then((r) => {
+        if (done) return;
+        if (r) {
+          done = true;
+          resolve(r);
+        } else {
+          settle();
+        }
+      }).catch(() => settle());
+    }
+  });
+}

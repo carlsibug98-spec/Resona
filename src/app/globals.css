@@ -639,6 +639,82 @@ img.cov{object-fit:cover}
 .btn2[disabled]{opacity:.45;cursor:default;filter:none}
 .hidden{display:none}
 
+/* ───────── v1.7 UX upgrades ───────── */
+
+/* diagnostics table */
+.diag{margin-top:14px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.diag-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--line);font-size:14px}
+.diag-head b{font-size:13px;letter-spacing:.02em}
+.diag-table{width:100%;border-collapse:collapse;font-size:13px}
+.diag-table th{text-align:left;padding:8px 14px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border-bottom:1px solid var(--line);font-weight:700}
+.diag-table td{padding:8px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+.diag-table tr:last-child td{border-bottom:0}
+.diag-table tr.ok td:nth-child(2){color:var(--ok);font-weight:700}
+.diag-table tr.fail td:nth-child(2){color:var(--danger);font-weight:700}
+.diag-hint{margin:10px 14px 12px;font-size:12.5px;line-height:1.5}
+.diag-hint.muted{color:var(--muted)}
+
+/* volume control: icon + expanding slider, hover reveals, keyboard a11y */
+.vol{display:flex;align-items:center;gap:0;flex:none}
+.vol input[type="range"]{width:0;opacity:0;transition:width .22s cubic-bezier(.2,.9,.3,1),opacity .18s;accent-color:var(--brand1);height:4px;cursor:pointer;margin:0}
+.vol:hover input[type="range"],.vol input[type="range"]:focus-visible{width:84px;opacity:1;margin:0 8px}
+.vol input[type="range"]:focus-visible{outline:2px solid var(--brand2);outline-offset:4px;border-radius:4px}
+
+/* seekbar: draggable handle + hover time tooltip */
+.bar{touch-action:none}
+.bar .knob{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.5);transform:translate(-50%,-50%) scale(0);transition:transform .15s;left:0;pointer-events:none}
+.bar:hover .knob,.bar.dragging .knob{transform:translate(-50%,-50%) scale(1)}
+.bar .buf{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:rgba(255,255,255,.22);width:0;pointer-events:none}
+.seek-tip{position:absolute;bottom:16px;transform:translateX(-50%);background:var(--text);color:var(--bg);font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;pointer-events:none;white-space:nowrap;display:none}
+.bar-wrap:hover .seek-tip{display:block}
+
+/* buffering spinner on the play button */
+.playbtn.loading{position:relative;color:transparent}
+.playbtn.loading::after{content:"";position:absolute;inset:0;margin:auto;width:16px;height:16px;border-radius:50%;border:2px solid rgba(0,0,0,.25);border-top-color:#000;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* playback error banner (bottom, above the player) */
+.errban{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(12px);z-index:82;display:flex;align-items:center;gap:14px;background:#2b1214;border:1px solid rgba(248,113,113,.4);color:#ffd9d9;padding:12px 18px;border-radius:14px;font-size:14px;box-shadow:0 16px 40px rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:.25s;max-width:min(560px,90vw)}
+.errban.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+.errban b{white-space:nowrap}
+.errban .grp{display:flex;gap:8px;flex:none}
+.errban button{height:32px;padding:0 14px;border-radius:999px;font-weight:700;font-size:13px;background:rgba(255,255,255,.12);color:#fff;transition:background .15s}
+.errban button:hover{background:rgba(255,255,255,.22)}
+.errban button.pri{background:#f87171;color:#2b1214}
+.errban button.pri:hover{background:#fca5a5}
+.errban .x{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:none;padding:0;color:#ffd9d9;flex:none}
+.errban .x:hover{background:rgba(255,255,255,.12)}
+
+/* skeleton loaders for shelves and lists */
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.sk{border-radius:10px;background:linear-gradient(90deg,var(--elev) 25%,color-mix(in srgb,var(--elev) 60%,var(--text) 8%) 50%,var(--elev) 75%);background-size:200% 100%;animation:shimmer 1.6s linear infinite}
+.sk.cov{aspect-ratio:1;border-radius:10px}
+.sk.line{height:13px;margin-top:10px}
+.sk.line.short{width:55%}
+.sk-row{display:grid;grid-template-columns:40px minmax(0,2.4fr) minmax(0,1.6fr) 44px 44px 58px 36px;gap:12px;align-items:center;padding:8px 12px}
+.sk-row .sq{width:40px;height:40px;border-radius:6px}
+.sk-row .lines{display:flex;flex-direction:column;gap:6px;min-width:0}
+
+/* gentle view transition when the main view changes */
+.main-inner{animation:viewin .22s ease-out}
+@keyframes viewin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.main-inner{animation:none}.sk{animation:none;background:var(--elev)}}
+
+/* cover art fades in instead of popping */
+.cov img,.mini img,.sdrop-art{animation:imgin .3s ease-out}
+@keyframes imgin{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.cov img,.mini img,.sdrop-art{animation:none}}
+
+/* keyboard focus for the drag seekbar + volume slider */
+.bar:focus-visible{outline:2px solid var(--brand2);outline-offset:4px;border-radius:6px}
+.bar:focus-visible .knob{transform:translate(-50%,-50%) scale(1)}
+
+/* track rows: slightly larger hover affordance on desktop */
+@media (hover:hover){
+  .trow:hover .title{color:var(--text)}
+  .card-item:active{transform:scale(.995)}
+}
+
 /* light mode: the mockup's token system applied to the ambient surfaces —
    the mockup only swapped the card vars, the main canvas stayed dark */
 :root.light .main{

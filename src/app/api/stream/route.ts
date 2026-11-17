@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveStream } from "@/lib/server/resolver";
+import { resolveStream, diagnoseStream } from "@/lib/server/resolver";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -10,8 +10,16 @@ export async function GET(req: NextRequest) {
   const videoId = req.nextUrl.searchParams.get("videoId")?.trim();
   const instances = req.nextUrl.searchParams.get("instances");
   const resolveOnly = req.nextUrl.searchParams.get("resolve") === "1";
+  const diagnose = req.nextUrl.searchParams.get("diagnose") === "1";
   if (!videoId || !/^[A-Za-z0-9_-]{6,20}$/.test(videoId)) {
     return NextResponse.json({ error: "invalid_id" }, { status: 400 });
+  }
+
+  // diagnostics mode: every provider independently, with timings — the
+  // "why won't anything play" report (Settings → Playback diagnostics)
+  if (diagnose) {
+    const report = await diagnoseStream(videoId, instances);
+    return NextResponse.json(report);
   }
 
   const result = await resolveStream(videoId, instances);

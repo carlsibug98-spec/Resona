@@ -25,7 +25,7 @@ let ytPromise: Promise<void> | null = null;
 
 function loadYT(): Promise<void> {
   if (ytPromise) return ytPromise;
-  ytPromise = new Promise<void>((resolve) => {
+  ytPromise = new Promise<void>((resolve, reject) => {
     if (window.YT?.Player) return resolve();
     const prev = window.onYouTubeIframeAPIReady;
     window.onYouTubeIframeAPIReady = () => {
@@ -35,7 +35,25 @@ function loadYT(): Promise<void> {
     const s = document.createElement("script");
     s.src = "https://www.youtube.com/iframe_api";
     s.async = true;
+    // if the script is blocked (offline, firewall), the old promise never
+    // settled and playback hung silently forever — fail after 10 s so the
+    // error path can surface instead
+    const timer = setTimeout(() => {
+      if (window.YT?.Player) return resolve();
+      s.remove();
+      reject(new Error("youtube iframe api failed to load"));
+    }, 10_000);
+    s.addEventListener("load", () => clearTimeout(timer), { once: true });
+    s.addEventListener("error", () => {
+      clearTimeout(timer);
+      s.remove();
+      reject(new Error("youtube iframe api failed to load"));
+    }, { once: true });
     document.head.appendChild(s);
+  });
+  // a failed load must not cache a rejected promise forever
+  ytPromise.catch(() => {
+    ytPromise = null;
   });
   return ytPromise;
 }
@@ -52,8 +70,10 @@ export class PlayerEngine {
   private currentTrack: Track | null = null;
   private videoMode = false;
   private wasAudioBeforeVideo = true;
-  /** guards the one iframe→audio retry per track load (see onError) */
-  private iframeRetried = false;
+  /** the videoId the last iframe→audio retry was used for; one retry per
+   * track — load() must NOT reset this (the retry path calls load() again,
+   * and resetting here made the retry loop infinite: v1.6.9 bug) */
+  private iframeRetriedFor: string | null = null;
 
   onState: Listener = () => {};
   onEnded: () => void = () => {};
@@ -99,6 +119,19 @@ export class PlayerEngine {
         if (this.probing) return;
         this.onError("Audio playback error");
       });
+      // buffering visibility: the old engine only polled state every 400 ms
+      // and only while the tick ran, so a stalled stream showed as paused
+      for (const ev of ["waiting", "stalled"] as const) {
+        this.audio.addEventListener(ev, () => {
+          this.onState({ ...this.getState(), buffering: true });
+        });
+      }
+      for (const ev of ["playing", "canplay", "progress"] as const) {
+        this.audio.addEventListener(ev, () => {
+          if (this.probing) return;
+          this.onState(this.getState());
+        });
+      }
     }
     return this.audio;
   }
@@ -254,6 +287,17 @@ export class PlayerEngine {
     }, 400);
   }
 
+  /** apply the stored volume to whichever engine is live; safe at any time */
+  applyVolume(v: number) {
+    const vol = Math.max(0, Math.min(100, Math.round(v * 100)));
+    if (this.audio) this.audio.volume = vol / 100;
+    try {
+      this.yt?.setVolume?.(vol);
+    } catch {
+      /* yt not ready yet — setVolume on creation covers it */
+    }
+  }
+
   private stopYT() {
     try {
       this.yt?.stopVideo?.();
@@ -319,13 +363,19 @@ export class PlayerEngine {
             // proxied streams failed. Before giving up, re-run both audio
             // paths once — the failed attempt just expired the resolver
             // cache (fresh re-resolve), so an instance may answer now.
-            if (!this.videoMode && this.currentTrack && !this.iframeRetried) {
-              this.iframeRetried = true;
+            // Guarded per videoId: the retry re-enters load(), and an
+            // unguarded retry loops forever (v1.6.9 bug: every track spun
+            // direct→proxy→iframe→error→load with no error ever shown).
+            if (
+              !this.videoMode &&
+              this.currentTrack &&
+              this.iframeRetriedFor !== this.currentTrack.videoId
+            ) {
+              this.iframeRetriedFor = this.currentTrack.videoId;
               const pos = this.getState().position;
               void this.load(this.currentTrack, pos);
               return;
             }
-            this.iframeRetried = false;
             if (code === 153 || code === 2 || code === 5) {
               this.onError(
                 "YouTube refused playback in this browser environment — try opening the app in a normal browser tab"
@@ -348,7 +398,6 @@ export class PlayerEngine {
   async load(track: Track, startSec = 0): Promise<void> {
     this.currentTrack = track;
     this.currentVideoId = track.videoId;
-    this.iframeRetried = false;
 
     // video mode active: keep the visible YouTube player as the source
     if (this.videoMode) {
@@ -420,16 +469,22 @@ export class PlayerEngine {
       return;
     }
 
-    // fallback: YouTube IFrame embed
+    // fallback: YouTube IFrame embed. loadYT() can now reject (script
+    // blocked) — without the catch, a rejected promise in an async load()
+    // was an unhandled rejection and the UI never learned playback failed.
     this.currentIsAudio = false;
     this.stopAudio();
     this.startTick();
-    const yt = await this.ensureYT();
-    yt.loadVideoById({
-      videoId: track.videoId,
-      startSeconds: Math.floor(startSec),
-    });
-    yt.playVideo();
+    try {
+      const yt = await this.ensureYT();
+      yt.loadVideoById({
+        videoId: track.videoId,
+        startSeconds: Math.floor(startSec),
+      });
+      yt.playVideo();
+    } catch {
+      this.onError("Couldn't start any stream — check your connection");
+    }
   }
 
   getVideoMode(): boolean {
@@ -505,13 +560,7 @@ export class PlayerEngine {
   }
 
   setVolume(v: number): void {
-    const vol = Math.max(0, Math.min(100, Math.round(v * 100)));
-    if (this.audio) this.audio.volume = vol / 100;
-    try {
-      this.yt?.setVolume?.(vol);
-    } catch {
-      /* noop */
-    }
+    this.applyVolume(v);
   }
 
   getState(): EngineState {

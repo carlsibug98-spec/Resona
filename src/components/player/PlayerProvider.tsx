@@ -6,6 +6,8 @@ import { usePlayer } from "@/stores/player";
 import { useLibrary } from "@/stores/library";
 import { useSettings } from "@/stores/settings";
 import { useUi } from "@/stores/ui";
+import { usePlaybackError } from "@/stores/playback-error";
+import { PlaybackErrorBanner } from "@/components/player/PlaybackErrorBanner";
 import { toast } from "@/stores/toast";
 import type { Track } from "@/lib/types";
 
@@ -48,6 +50,7 @@ export function PlayerProvider() {
     let consecutiveErrors = 0;
     engine.onState = (s) => {
       if (s.playing) consecutiveErrors = 0;
+      if (s.playing) usePlaybackError.getState().clear();
       usePlayer.getState().syncFromEngine(s);
     };
     engine.onEnded = () => {
@@ -61,15 +64,28 @@ export function PlayerProvider() {
       void maybeStartRadio();
     };
     engine.onError = (msg) => {
-      toast(msg);
       const p = usePlayer.getState();
+      const cur = p.current();
+      // actionable banner instead of a vanishing toast: the user decides
+      // retry / skip; environment notes (video-mode fallbacks) stay toasts
+      const isTrackFailure = !!cur;
+      if (isTrackFailure) {
+        usePlaybackError.getState().show(msg, cur.videoId);
+      } else {
+        toast(msg);
+      }
       consecutiveErrors += 1;
+      // auto-advance only when the banner is up: single-track queues must
+      // not silently burn through (the queue-stop below stays as backstop)
       if (consecutiveErrors <= 3 && p.queue.length > 1) {
-        setTimeout(() => p.next(), 400);
+        setTimeout(() => {
+          // if the user already retried/skipped manually, don't double-fire
+          if (usePlaybackError.getState().message) p.next();
+        }, 1200);
       } else {
         engine.pause();
         usePlayer.setState({ isPlaying: false });
-        if (consecutiveErrors > 3)
+        if (consecutiveErrors > 3 && isTrackFailure)
           toast("Stopped: too many unavailable tracks in a row");
       }
     };
@@ -216,11 +232,14 @@ export function PlayerProvider() {
   }, [visibleVideo]);
 
   return (
-    <div
-      ref={hostRef}
-      id="resona-yt-host"
-      aria-hidden={!visibleVideo}
-      className={visibleVideo ? "nf-video-live" : "yt-host-hidden"}
-    />
+    <>
+      <div
+        ref={hostRef}
+        id="resona-yt-host"
+        aria-hidden={!visibleVideo}
+        className={visibleVideo ? "nf-video-live" : "yt-host-hidden"}
+      />
+      <PlaybackErrorBanner />
+    </>
   );
 }

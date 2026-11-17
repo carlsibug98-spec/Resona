@@ -31,7 +31,10 @@ export type IconName =
   | "people"
   | "expand"
   | "bars"
-  | "radio";
+  | "radio"
+  | "vol"
+  | "vol-low"
+  | "vol-x";
 
 /**
  * Mockup icon set — the same 24×24 symbols, drawn through the shared
@@ -86,6 +89,9 @@ const DEFS = `
 <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
 <symbol id="i-bars" viewBox="0 0 24 24"><path d="M5 19V11M12 19V5M19 19v-6"/></symbol>
 <symbol id="i-radio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.8"/><path d="M8.6 15.4a5 5 0 0 1 0-6.8M15.4 8.6a5 5 0 0 1 0 6.8M5.9 18.1a8.8 8.8 0 0 1 0-12.2M18.1 5.9a8.8 8.8 0 0 1 0 12.2"/></symbol>
+<symbol id="i-vol" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 8.8a4.6 4.6 0 0 1 0 6.4M18 6.3a8 8 0 0 1 0 11.4"/></symbol>
+<symbol id="i-vol-low" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 8.8a4.6 4.6 0 0 1 0 6.4"/></symbol>
+<symbol id="i-vol-x" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></symbol>
 `;
 
 /** mounted once in AppShell — every <use> resolves against it */

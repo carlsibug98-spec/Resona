@@ -58,6 +58,31 @@ function shuffled(n: number, first: number): number[] {
 let order: number[] = [];
 let orderPos = 0;
 
+/* volume survives restarts: the store is not persisted (queue/index are
+   session-scoped by design), so volume + mute live in this tiny sidecar */
+const VOL_KEY = "resona-volume";
+function readStoredVolume(): { volume: number; muted: boolean } {
+  try {
+    const raw = localStorage.getItem(VOL_KEY);
+    if (!raw) return { volume: 0.9, muted: false };
+    const v = JSON.parse(raw) as { volume?: number; muted?: boolean };
+    return {
+      volume: typeof v.volume === "number" ? Math.min(1, Math.max(0, v.volume)) : 0.9,
+      muted: !!v.muted,
+    };
+  } catch {
+    return { volume: 0.9, muted: false };
+  }
+}
+function writeStoredVolume(volume: number, muted: boolean) {
+  try {
+    localStorage.setItem(VOL_KEY, JSON.stringify({ volume, muted }));
+  } catch {
+    /* private mode / storage full — non-fatal */
+  }
+}
+const storedVol = readStoredVolume();
+
 /** resolve the next-up stream in the background so the transition is instant */
 function prefetchUpcoming(queue: Track[]) {
   if (queue.length < 2) return;
@@ -76,8 +101,8 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
   buffering: false,
   shuffle: false,
   repeat: "off",
-  volume: 0.9,
-  muted: false,
+  volume: storedVol.volume,
+  muted: storedVol.muted,
 
   current: () => {
     const s = get();
@@ -98,6 +123,7 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
       position: 0,
       duration: track.duration || 0,
     });
+    engine.setVolume(s.muted ? 0 : s.volume);
     engine.load(track).catch(() => {});
     prefetchUpcoming(tracks);
   },
@@ -246,6 +272,7 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
   setVolume: (v) => {
     engine.setVolume(v);
     set({ volume: v, muted: v === 0 });
+    writeStoredVolume(v, v === 0);
   },
 
   toggleMute: () => {
@@ -253,6 +280,7 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     const v = s.muted ? (s.volume || 0.9) : 0;
     engine.setVolume(v);
     set({ muted: !s.muted });
+    writeStoredVolume(s.volume || 0.9, !s.muted);
   },
 
   toggleShuffle: () => {

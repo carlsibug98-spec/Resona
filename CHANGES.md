@@ -1,5 +1,59 @@
 # Changes
 
+## v1.7.0 — the playback hang is fixed, and a real UI/UX pass (2026-11-17)
+
+The "still doesn't play anything" report led to three genuine bugs:
+
+- **The infinite retry loop (root cause)** — v1.6.9's one-retry guard
+  was reset by the very `load()` call the retry made: iframe error →
+  reload → direct fail → proxy fail → iframe → error → reload, forever.
+  No error was ever shown and the queue never advanced — playback just
+  silently spun. The guard now keys on the videoId, so each track gets
+  exactly one retry and then a clear failure.
+- **The YouTube iframe API could hang forever** — if the script can't
+  load (offline, firewall), `loadYT()` never settled and every playback
+  attempt stalled with no feedback. It now fails after 10 s, the failure
+  surfaces, and the next attempt retries the script.
+- **The parallel race could pick a failure as its winner** — `Promise.any`
+  resolves with the first *non-rejected* result, and providers resolve
+  `null` on failure — so a fast-failing resolver beat a slower working
+  one. Found by the new unit tests; both the InnerTube race and the
+  instance-fleet race now use a first-truthy race.
+
+More playback hardening:
+
+- **Four InnerTube clients raced in parallel** (was two, sequential):
+  sdkless ANDROID, ANDROID_MUSIC, ANDROID_VR (the Quest client that
+  answers even for embed-disabled videos — cobalt's strategy) and
+  TVHTML5_SIMPLY_EMBEDDED_PLAYER (the embed client, with the required
+  thirdParty context). One round trip, first usable answer wins.
+- **yt-dlp now races the instance fleet** instead of running alone first
+  — its 1–25 s spawn no longer sits in front of every track on machines
+  where it also fails.
+- **Playback error banner** — a track that can't start shows a
+  persistent banner with Retry / Skip instead of a 2-second toast; the
+  next successful play clears it.
+- **Playback diagnostics** — Settings → Direct-stream resolvers →
+  "Diagnostics" runs every provider (each InnerTube client, yt-dlp, all
+  discovered instances) and shows a table of ok/fail + ms, with "Copy
+  report". If anything still doesn't play on your machine, that report
+  says exactly why.
+
+UI/UX pass:
+
+- **Volume control** — an icon + expanding slider in the player bar;
+  volume and mute now persist across restarts (they didn't before).
+- **Seekbar** — drag to scrub with pointer capture, a hover time
+  tooltip, and a grabbable knob.
+- **Buffering** — the play button becomes a spinner while a stream
+  buffers; `waiting`/`stalled` events surface immediately instead of at
+  the next 400 ms poll.
+- **Skeleton loaders** — home shelves and search results show shimmering
+  placeholders instead of "Loading…" text.
+- **Polish** — gentle view-change transition, cover-art fade-in,
+  keyboard focus rings on the new controls, reduced-motion respected
+  throughout.
+
 ## v1.6.9 — playback that survives dead instances, no more starter content (2026-11-17)
 
 Two fixes for the two things you reported:

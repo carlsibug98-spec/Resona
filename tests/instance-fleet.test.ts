@@ -6,6 +6,7 @@ import {
   orderInstances,
   parseInstanceSetting,
   parseInvidiousRegistry,
+  firstTruthy,
   parsePipedInstanceDoc,
   pickBestAudioFormat,
   pickPipedAudio,
@@ -164,4 +165,23 @@ test("parsePipedInstanceDoc pulls API hosts from the markdown table", () => {
   // column are never picked because only column 2 is read
   assert.deepEqual(parsePipedInstanceDoc(""), []);
   assert.deepEqual(parsePipedInstanceDoc("no table here"), []);
+});
+
+test("firstTruthy ignores fast nulls and waits for a real answer", async () => {
+  const r = await firstTruthy<string>([
+    new Promise((res) => setTimeout(() => res(null), 1)),   // fast failure
+    new Promise((res) => setTimeout(() => res(null), 2)),   // second failure
+    new Promise((res) => setTimeout(() => res("winner"), 30)), // slow success
+  ]);
+  assert.equal(r, "winner");
+});
+
+test("firstTruthy resolves null when everything settles empty or fails", async () => {
+  const r = await firstTruthy<string>([
+    Promise.resolve(null),
+    Promise.reject(new Error("boom")),
+    Promise.resolve(null),
+  ]);
+  assert.equal(r, null);
+  assert.equal(await firstTruthy([]), null);
 });

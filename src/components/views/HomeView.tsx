@@ -257,7 +257,18 @@ function GlobalShelves({
   if (state === "loading" || !catalog) {
     return (
       <div className="section">
-        <p className="muted pad-note">Loading what&apos;s popular worldwide…</p>
+        <div className="section-h">
+          <h2>Popular artists</h2>
+        </div>
+        <div className="shelf">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="card-item">
+              <div className="sk cov round" />
+              <div className="sk line" />
+              <div className="sk line short" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -595,7 +606,20 @@ export function HomeView() {
             <h2>Trending now</h2>
             <button onClick={() => ui.navigate({ name: "trending" })}>See chart</button>
           </div>
-          {trendingState === "loading" && <p className="muted pad-note">Loading the chart…</p>}
+          {trendingState === "loading" && (
+            <div className="tlist" aria-label="Loading trending">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="sk-row">
+                  <div className="sk sq" />
+                  <div className="lines">
+                    <div className="sk line" />
+                    <div className="sk line short" />
+                  </div>
+                  <span />
+                </div>
+              ))}
+            </div>
+          )}
           {trendingState === "error" && (
             <div className="section" style={{ padding: 0 }}>
               <p className="muted pad-note">

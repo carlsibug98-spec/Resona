@@ -153,7 +153,7 @@ export function AppShell() {
       </aside>
 
       <main className="main" id="main">
-        <div className="content" key={viewKey}>
+        <div className="content main-inner" key={viewKey}>
           <MainView view={view} />
         </div>
       </main>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePlayer } from "@/stores/player";
 import { useLibrary } from "@/stores/library";
 import { useDownloadProgress } from "@/stores/download-progress";
@@ -18,31 +18,88 @@ function SeekBar() {
   const duration = usePlayer((s) => s.duration);
   const seek = usePlayer((s) => s.seek);
   const ref = useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = useState(false);
+  /** hover position as a 0-1 fraction of the bar (null = not hovering) */
+  const [hoverFrac, setHoverFrac] = useState<number | null>(null);
 
-  const onSeek = (e: React.MouseEvent) => {
+  const fracFromEvent = (e: React.PointerEvent<HTMLDivElement>): number => {
     const el = ref.current;
-    if (!el || !duration) return;
+    if (!el) return 0;
     const r = el.getBoundingClientRect();
-    const frac = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
-    seek(frac * duration);
+    return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
   };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!duration) return;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    setDragging(true);
+    seek(fracFromEvent(e) * duration);
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const frac = fracFromEvent(e);
+    setHoverFrac(frac);
+    if (dragging && duration) seek(frac * duration);
+  };
+  const onPointerUp = () => setDragging(false);
+
+  const pct = duration ? (position / duration) * 100 : 0;
+  const tipFrac = hoverFrac ?? 0;
 
   return (
     <div className="seek">
       <span>{formatDuration(position)}</span>
-      <div
-        className="bar"
-        ref={ref}
-        onClick={onSeek}
-        role="slider"
-        aria-label="Seek"
-        aria-valuemin={0}
-        aria-valuemax={Math.round(duration)}
-        aria-valuenow={Math.round(position)}
-      >
-        <div className="fill" style={{ width: duration ? `${(position / duration) * 100}%` : "0" }} />
+      <div className="bar-wrap" style={{ flex: 1, position: "relative" }}>
+        <div
+          className={`bar${dragging ? " dragging" : ""}`}
+          ref={ref}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerLeave={() => setHoverFrac(null)}
+          role="slider"
+          aria-label="Seek"
+          aria-valuemin={0}
+          aria-valuemax={Math.round(duration)}
+          aria-valuenow={Math.round(position)}
+        >
+          <div className="fill" style={{ width: `${pct}%` }} />
+          <div className="knob" style={{ left: `${pct}%` }} />
+        </div>
+        {hoverFrac !== null && duration > 0 && (
+          <span className="seek-tip" style={{ left: `${tipFrac * 100}%` }}>
+            {formatDuration(tipFrac * duration)}
+          </span>
+        )}
       </div>
       <span>{formatDuration(duration)}</span>
+    </div>
+  );
+}
+
+function VolumeControl() {
+  const volume = usePlayer((s) => s.volume);
+  const muted = usePlayer((s) => s.muted);
+  const setVolume = usePlayer((s) => s.setVolume);
+  const toggleMute = usePlayer((s) => s.toggleMute);
+  return (
+    <div className="vol">
+      <button
+        className="iconbtn"
+        onClick={toggleMute}
+        aria-label={muted ? "Unmute" : "Mute"}
+        data-tip={muted ? "Unmute" : "Mute"}
+      >
+        <Icon name={muted || volume === 0 ? "vol-x" : volume < 0.5 ? "vol-low" : "vol"} />
+      </button>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.02}
+        value={muted ? 0 : volume}
+        onChange={(e) => setVolume(Number(e.target.value))}
+        aria-label="Volume"
+      />
     </div>
   );
 }
@@ -103,7 +160,7 @@ export function PlayerBar() {
             <Icon name="prev" fill />
           </button>
           <button
-            className="playbtn"
+            className={`playbtn${player.buffering && !player.isPlaying ? " loading" : ""}`}
             onClick={() => player.toggle()}
             aria-label={player.isPlaying ? "Pause" : "Play"} data-tip={player.isPlaying ? "Pause" : "Play"}
           >
@@ -129,6 +186,7 @@ export function PlayerBar() {
       </div>
 
       <div className="pr">
+        <div className="hide-sm"><VolumeControl /></div>
         {track && active !== undefined && (
           <span className="dlstate">{active >= 0 ? `Saving ${Math.round(active * 100)}%` : "Saving…"}</span>
         )}

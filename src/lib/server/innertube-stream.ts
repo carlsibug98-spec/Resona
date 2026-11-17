@@ -1,6 +1,7 @@
 // explicit .ts extension: this module is imported directly by node --test,
 // which (unlike the bundler) needs the real file name
 import { fetchWithTimeout } from "./cache.ts";
+import { firstTruthy } from "../instance-fleet.ts";
 
 /**
  * Fast stream resolution straight from InnerTube's /player endpoint —
@@ -60,10 +61,47 @@ const ANDROID_MUSIC = {
   osVersion: "11",
 };
 
-/** the fast-path clients, tried in order */
+/**
+ * ANDROID_VR — the Quest browser client. No PO-token enforcement, and it
+ * is served streams even for videos whose uploader disabled embedding
+ * (the cobalt project's go-to client for exactly that case).
+ */
+const ANDROID_VR = {
+  clientName: "ANDROID_VR",
+  clientVersion: "1.62.27",
+  deviceMake: "Oculus",
+  deviceModel: "Quest 3",
+  userAgent: "com.google.android.apps.youtube.vr.oculus/1.62.27 (Linux; U; Android 12; eureka-user Build/SQ3A.220705.004) gzip",
+  osName: "Android",
+  osVersion: "12",
+  androidSdkVersion: 32,
+};
+
+/**
+ * TVHTML5_SIMPLY_EMBEDDED_PLAYER — the client the iframe embed itself
+ * uses, so it answers for embed-restricted videos too (cobalt's fallback
+ * for that case). Embedded clients require the thirdParty.embedUrl
+ * context, or the endpoint answers ERROR.
+ */
+const TVHTML5_EMBED = {
+  clientName: "TVHTML5_SIMPLY_EMBEDDED_PLAYER",
+  clientVersion: "2.0",
+  userAgent: "Mozilla/5.0 (PlayStation; PlayStation 4/12.00) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Safari/605.1.15",
+};
+
+/** extra body context per client (embed clients need thirdParty.embedUrl) */
+const CLIENT_EXTRAS: Record<string, Record<string, unknown>> = {
+  "tvhtml5-embed": {
+    thirdParty: { embedUrl: "https://www.youtube.com/" },
+  },
+};
+
+/** the fast-path clients — raced in parallel, first clean answer wins */
 const CLIENTS: { name: string; client: Record<string, unknown> }[] = [
   { name: "android-sdkless", client: ANDROID_SDKLESS },
   { name: "android-music", client: ANDROID_MUSIC },
+  { name: "android-vr", client: ANDROID_VR },
+  { name: "tvhtml5-embed", client: TVHTML5_EMBED },
 ];
 
 /**
@@ -84,7 +122,8 @@ function pickAudioFormat(fmts: PlayerFormat[]): PlayerFormat | null {
 async function playerOnce(
   videoId: string,
   client: Record<string, unknown>,
-  timeoutMs: number
+  timeoutMs: number,
+  extras?: Record<string, unknown>
 ): Promise<PlayerFormat[] | null> {
   const res = await fetchWithTimeout(
     PLAYER_URL,
@@ -96,7 +135,7 @@ async function playerOnce(
         Origin: "https://www.youtube.com",
       },
       body: JSON.stringify({
-        context: { client: { ...client, hl: "en", gl: "US" } },
+        context: { client: { ...client, hl: "en", gl: "US" }, ...(extras || {}) },
         videoId,
         contentCheckOk: true,
         racyCheckOk: true,
@@ -115,31 +154,31 @@ async function playerOnce(
 }
 
 /**
- * Resolve a direct audio URL via InnerTube. Returns null quickly (well
- * under a second for both clients) when YouTube gates the request, so the
- * caller can move on to the fallback providers without paying for a long
- * timeout. A successful result is cached by the caller.
+ * Resolve a direct audio URL via InnerTube. All clients are raced in
+ * parallel — one round trip (~150-400 ms), first *usable* answer wins
+ * (a gated client resolving null must not beat a slower clean answer —
+ * plain Promise.any would do exactly that). Returns null when every
+ * client is gated, so the caller can move on to the fallback providers.
+ * A successful result is cached by the caller.
  */
 export async function resolveInnertubeStream(
   videoId: string,
   opts?: { timeoutMs?: number }
 ): Promise<InnertubeStream | null> {
-  const timeoutMs = opts?.timeoutMs ?? 2500;
-  for (const { name, client } of CLIENTS) {
-    try {
-      const fmts = await playerOnce(videoId, client, timeoutMs);
-      if (!fmts) continue;
-      const best = pickAudioFormat(fmts);
-      if (!best?.url) continue;
-      return {
-        url: best.url,
-        bitrate: best.bitrate || 128_000,
-        mime: String(best.mimeType || "audio/mp4").split(";")[0],
-        provider: `innertube:${name}`,
-      };
-    } catch {
-      /* try the next client */
-    }
-  }
-  return null;
+  const timeoutMs = opts?.timeoutMs ?? 3000;
+  const attempts = CLIENTS.map(async ({ name, client }) => {
+    const fmts = await playerOnce(videoId, client, timeoutMs, CLIENT_EXTRAS[name]);
+    if (!fmts) return null;
+    const best = pickAudioFormat(fmts);
+    if (!best?.url) return null;
+    return {
+      url: best.url,
+      bitrate: best.bitrate || 128_000,
+      mime: String(best.mimeType || "audio/mp4").split(";")[0],
+      provider: `innertube:${name}`,
+    } as InnertubeStream;
+  });
+  // first-truthy race: null resolutions are ignored until one answers or
+  // all have settled
+  return firstTruthy(attempts);
 }

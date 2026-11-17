@@ -5,6 +5,7 @@ import {
   buildAudioUrl,
   DEFAULT_INVIDIOUS,
   DEFAULT_PIPED,
+  firstTruthy,
   mergeInstanceLists,
   orderInstances,
   parseInstanceSetting,
@@ -65,7 +66,7 @@ async function tryYtDlp(videoId: string): Promise<StreamResult | null> {
         "--socket-timeout", "12",
         `https://www.youtube.com/watch?v=${videoId}`,
       ],
-      { timeout: 25_000, maxBuffer: 4 * 1024 * 1024 },
+      { timeout: 15_000, maxBuffer: 4 * 1024 * 1024 },
       (err, stdout) => {
         if (err || !stdout) return resolve(null);
         const lines = stdout.trim().split("\n").filter(Boolean);
@@ -212,24 +213,15 @@ export async function resolveStream(
   if (pending) return pending;
 
   const task = (async (): Promise<StreamResult> => {
-    // 1. InnerTube /player — one HTTPS POST, ~150-400 ms, direct URL
-    //    (the Spotube strategy). Bot-gated IPs fall through quickly.
+    // 1. InnerTube /player — four clients raced in parallel, one round
+    //    trip (~150-400 ms), direct URL. Bot-gated IPs fall through fast.
     const fast = await tryInnertube(videoId);
     if (fast) return fast;
 
-    // 2. local yt-dlp — reliable on any IP but a process spawn (1-25 s)
-    if (opts?.ytdlp !== false) {
-      try {
-        const r = await tryYtDlp(videoId);
-        if (r) return r;
-      } catch {
-        /* next */
-      }
-    }
-
-    // 3. the instance fleet — many Piped/Invidious instances in parallel,
-    //    last-working first. Public instances are flaky, so racing them
-    //    beats waiting for each 8-second timeout in sequence.
+    // 2. yt-dlp AND the instance fleet raced together. Running yt-dlp
+    //    alone first cost its full 1-25 s on machines where it also fails
+    //    (not bundled / gated) before the fleet even started — that delay
+    //    in front of every track was the "app feels dead" experience.
     await discoverInstances().catch(() => {});
     const userInstances = parseInstanceSetting(extraInstances);
     const piped = orderInstances(
@@ -240,11 +232,13 @@ export async function resolveStream(
       mergeInstanceLists(userInstances, discoveredInvidious || DEFAULT_INVIDIOUS),
       lastWorkingInstance
     );
-    const races = [
+    const races: Promise<StreamResult | null>[] = [];
+    if (opts?.ytdlp !== false) races.push(tryYtDlp(videoId));
+    races.push(
       ...piped.map((base) => tryPiped(base, videoId)),
-      ...invidious.map((base) => tryInvidious(base, videoId)),
-    ];
-    const first = await Promise.any(races).catch(() => null);
+      ...invidious.map((base) => tryInvidious(base, videoId))
+    );
+    const first = await firstTruthy(races);
     if (first) return first;
     return { url: null, provider: null };
   })();
@@ -261,3 +255,93 @@ export async function resolveStream(
 
 /** shares one in-flight resolution between concurrent callers (see above) */
 const inflight = new Map<string, Promise<StreamResult>>();
+
+/* ------------------------------ diagnostics ------------------------------ */
+
+export interface ProviderTrace {
+  provider: string;
+  ok: boolean;
+  ms: number;
+  detail: string;
+}
+
+/**
+ * Run every provider independently and report what each returned — the
+ * "why won't anything play" view. Bypasses the resolve cache (that is
+ * the point); does not mutate lastWorkingInstance or the discovery cache.
+ */
+export async function diagnoseStream(
+  videoId: string,
+  extraInstances?: string | null
+): Promise<{ videoId: string; at: string; providers: ProviderTrace[] }> {
+  const at = new Date().toISOString();
+  const providers: ProviderTrace[] = [];
+
+  const time = async (name: string, fn: () => Promise<StreamResult | null>) => {
+    const t0 = Date.now();
+    try {
+      const r = await fn();
+      providers.push({
+        provider: name,
+        ok: !!r?.url,
+        ms: Date.now() - t0,
+        detail: r?.url ? `${r.provider} · ${Math.round((r.bitrate || 0) / 1000)} kbps` : "no stream",
+      });
+    } catch (e) {
+      providers.push({
+        provider: name,
+        ok: false,
+        ms: Date.now() - t0,
+        detail: e instanceof Error ? e.message.slice(0, 120) : "failed",
+      });
+    }
+  };
+
+  // InnerTube, client by client (which client is gated matters)
+  const innertube = await import("./innertube-stream");
+  const t0 = Date.now();
+  const it = await innertube.resolveInnertubeStream(videoId).catch(() => null);
+  providers.push({
+    provider: "innertube (all clients)",
+    ok: !!it?.url,
+    ms: Date.now() - t0,
+    detail: it?.url ? `${it.provider} · ${Math.round((it.bitrate || 0) / 1000)} kbps` : "gated or no formats",
+  });
+
+  await time("yt-dlp", () => tryYtDlp(videoId));
+
+  await discoverInstances().catch(() => {});
+  const userInstances = parseInstanceSetting(extraInstances);
+  const piped = orderInstances(
+    mergeInstanceLists(userInstances, discoveredPiped || DEFAULT_PIPED),
+    null
+  ).slice(0, 5);
+  const invidious = orderInstances(
+    mergeInstanceLists(userInstances, discoveredInvidious || DEFAULT_INVIDIOUS),
+    null
+  ).slice(0, 5);
+
+  const fleet = await Promise.all([
+    ...piped.map(async (base) => {
+      const t = Date.now();
+      try {
+        const r = await tryPiped(base, videoId);
+        return { provider: `piped:${base.replace(/^https?:\/\//, "")}`, ok: !!r?.url, ms: Date.now() - t, detail: r?.url ? "stream ok" : "no stream" } as ProviderTrace;
+      } catch {
+        return { provider: `piped:${base.replace(/^https?:\/\//, "")}`, ok: false, ms: Date.now() - t, detail: "unreachable" } as ProviderTrace;
+      }
+    }),
+    ...invidious.map(async (base) => {
+      const t = Date.now();
+      try {
+        const r = await tryInvidious(base, videoId);
+        return { provider: `invidious:${base.replace(/^https?:\/\//, "")}`, ok: !!r?.url, ms: Date.now() - t, detail: r?.url ? "stream ok" : "no stream" } as ProviderTrace;
+      } catch {
+        return { provider: `invidious:${base.replace(/^https?:\/\//, "")}`, ok: false, ms: Date.now() - t, detail: "unreachable" } as ProviderTrace;
+      }
+    }),
+  ]);
+  providers.push(...fleet);
+
+  return { videoId, at, providers };
+}
