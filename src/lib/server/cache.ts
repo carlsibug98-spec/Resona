@@ -1,4 +1,13 @@
 /**
+ * The User-Agent the Electron renderer's <audio> element sends for media
+ * requests. googlevideo URLs are not always UA-locked, but Musify's
+ * bundled youtube_explode documents that they CAN be — so every probe
+ * that stands in for the player uses this identity.
+ */
+export const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+
+/**
  * TTL cache: in-memory Map for the hot path (sync reads stay sync), now
  * backed by SQLite so a restart starts warm. Before this, every resolved
  * stream URL, search page, lyrics payload, artist page and trending chart
@@ -198,11 +207,24 @@ export function fetchWithTimeout(
  * One range probe adds ~100-300 ms to a resolve, and only on the verify
  * step — the media request itself then starts from byte 0.
  */
-export async function verifyAudioUrl(url: string, ms = 5000): Promise<boolean> {
+export async function verifyAudioUrl(url: string, ms = 5000, ua?: string): Promise<boolean> {
   try {
     const res = await fetchWithTimeout(
       url,
-      { headers: { Range: "bytes=0-1" } },
+      {
+        headers: {
+          Range: "bytes=0-1",
+          // probe with the identity the URL will actually be fetched
+          // with. Musify's bundled youtube_explode documents that
+          // googlevideo ties app-client URLs (ANDROID_VR / ANDROID / IOS)
+          // to the minting client's User-Agent and 403s a mismatched
+          // desktop-Chrome probe "even for a perfectly valid,
+          // PO-Token-exempt stream" — so the caller passes the UA of the
+          // client that minted the URL; callers probing on behalf of the
+          // browser omit it and get BROWSER_UA.
+          "User-Agent": ua || BROWSER_UA,
+        },
+      },
       ms
     );
     // 200/206 = the host answered with a body; 4xx/5xx = dead or gated

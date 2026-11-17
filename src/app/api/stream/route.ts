@@ -45,22 +45,27 @@ export async function GET(req: NextRequest) {
   // go down between resolve and play, and without this the proxy would
   // keep serving the same dead URL until the 30-minute cache TTL ran out.
   const range = req.headers.get("range");
-  const first = await proxyFetch(result.url, range);
+  const first = await proxyFetch(result.url, range, result.ua);
   if (first) return shapeAudio(first, result.mime);
 
   const fresh = await resolveStream(videoId, instances, { fresh: true }).catch(() => null);
   if (fresh?.url) {
-    const second = await proxyFetch(fresh.url, range);
+    const second = await proxyFetch(fresh.url, range, fresh.ua);
     if (second) return shapeAudio(second, fresh.mime);
   }
   return NextResponse.json({ error: "proxy_failed" }, { status: 502 });
 }
 
-/** fetch upstream bytes; null on any failure so callers can re-resolve */
-async function proxyFetch(url: string, range: string | null): Promise<Response | null> {
+/** fetch upstream bytes; null on any failure so callers can re-resolve.
+ * `ua` carries the identity that minted the URL: googlevideo 403s an
+ * app-client URL fetched under a different User-Agent (see resolver). */
+async function proxyFetch(url: string, range: string | null, ua?: string): Promise<Response | null> {
   try {
     const upstream = await fetch(url, {
-      headers: range ? { Range: range } : {},
+      headers: {
+        ...(ua ? { "User-Agent": ua } : {}),
+        ...(range ? { Range: range } : {}),
+      },
       cache: "no-store",
     });
     if (!upstream.ok || !upstream.body) return null;

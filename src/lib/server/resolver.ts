@@ -22,9 +22,14 @@ export interface StreamResult {
   provider: string | null;
   bitrate?: number;
   mime?: string;
+  /** the User-Agent of the client that minted `url` — googlevideo ties
+   * app-client URLs to this identity; the byte proxy presents it when
+   * fetching. Absent for fleet results (their proxies set their own). */
+  ua?: string;
   /** true when `url` must be fetched through /api/stream's byte proxy
-   * (cross-origin or IP-bound): googlevideo URLs from InnerTube/yt-dlp on
-   * a matched IP can go direct to the <audio> element instead. */
+   * (cross-origin, IP-bound or UA-locked): googlevideo URLs from
+   * InnerTube/yt-dlp on a matched IP can go direct to the <audio>
+   * element instead. */
   proxied?: boolean;
 }
 
@@ -32,23 +37,40 @@ const YTDLP_BIN = process.env.YTDLP_PATH || "yt-dlp";
 
 /**
  * Direct InnerTube resolution is ~50x faster than the yt-dlp spawn, but
- * YouTube bot-gates it by IP reputation. When it fails we remember that
- * for a while: without this, a gated IP would re-pay the (fail-fast but
- * nonzero) client-rotation cost on every single track.
+ * YouTube bot-gates it — and live probing (v1.7.3) shows the gate FLAPS
+ * per request rather than hard-gating the IP. Keep this per-video cache
+ * short (60 s): it only stops a just-failed track from immediately
+ * re-paying a doomed ladder, while a fresh track gets its own — likely
+ * passing — roll of the dice. The heavier 10-minute back-off for a
+ * fully-gated IP lives inside resolveInnertubeStream.
  */
-const GATE_TTL = 1000 * 60 * 10;
+const GATE_TTL = 1000 * 60;
 const gateKey = (videoId: string) => `stream:innertube-gated:${videoId}`;
 
 async function tryInnertube(videoId: string): Promise<StreamResult | null> {
   if (cacheGet(gateKey(videoId)) !== null) return null;
   // resolveInnertubeStream verifies each client's URL as part of the
-  // race, so a non-null answer here is a URL proven to serve bytes
+  // ladder (with the minting client's UA), so a non-null answer here is
+  // a URL proven to serve bytes — for that same identity
   const r = await resolveInnertubeStream(videoId);
   if (!r) {
     cacheSet(gateKey(videoId), { gated: true }, GATE_TTL);
     return null;
   }
-  return { url: r.url, provider: r.provider, bitrate: r.bitrate, mime: r.mime };
+  // proxied: googlevideo ties these app-client URLs to the minting
+  // client's User-Agent (Musify's youtube_explode documents the 403 on
+  // mismatch), and the <audio> element always sends Chrome's UA — so
+  // direct playback is structurally unreliable. The byte proxy presents
+  // the stored UA instead: Musify's discipline ("headers must match the
+  // client that obtained the URL") adapted to a browser media element.
+  return {
+    url: r.url,
+    provider: r.provider,
+    bitrate: r.bitrate,
+    mime: r.mime,
+    ua: r.ua,
+    proxied: true,
+  };
 }
 
 /**
@@ -227,8 +249,11 @@ export async function resolveStream(
   if (pending) return pending;
 
   const task = (async (): Promise<StreamResult> => {
-    // 1. InnerTube /player — four clients raced in parallel, one round
-    //    trip (~150-400 ms), direct URL. Bot-gated IPs fall through fast.
+    // 1. InnerTube /player — the client ladder, tried sequentially
+    //    (v1.7.3: the parallel 4-client race burst-POSTed /player and
+    //    tripped YouTube's IP bot-gate). One POST per track on the happy
+    //    path; results play through the byte proxy with the minting UA.
+    //    Bot-gated IPs short-circuit and fall through fast.
     const fast = await tryInnertube(videoId);
     if (fast) return fast;
 
@@ -316,7 +341,7 @@ export async function diagnoseStream(
   };
 
   // InnerTube, client by client (which client is gated matters)
-  const innertube = await import("./innertube-stream");
+  const innertube = await import("./innertube-stream.ts");
   const t0 = Date.now();
   const it = await innertube.resolveInnertubeStream(videoId).catch(() => null);
   providers.push({

@@ -167,3 +167,34 @@ test("resolveStream returns url:null (not a dead URL) when every provider's URLs
     }
   );
 });
+
+test("v1.7.3: InnerTube results are marked proxied and carry the minting UA", async () => {
+  const { resolveStream } = await import("../src/lib/server/resolver.ts");
+  const videoId = "uaIdentity01";
+  await withFetch(
+    (async (url: string | URL | Request) => {
+      const u = String(url);
+      if (u.includes("youtube.com/youtubei"))
+        return json({
+          playabilityStatus: { status: "OK" },
+          streamingData: {
+            adaptiveFormats: [
+              { mimeType: "audio/mp4", bitrate: 130_000, url: "https://gv/audio" },
+            ],
+          },
+        });
+      if (u.includes("api.invidious.io") || u.includes("raw.githubusercontent.com"))
+        return new Response("nope", { status: 404 });
+      if (u === "https://gv/audio") return new Response("x", { status: 206 });
+      return new Response("nope", { status: 404 });
+    }) as FetchImpl,
+    async () => {
+      const r = await resolveStream(videoId, null, { ytdlp: false, fresh: true });
+      assert.ok(r.url, "should resolve via InnerTube");
+      assert.equal(r.proxied, true, "app-client URLs must play through the byte proxy");
+      assert.ok(r.ua && r.ua.includes("android"), `must carry the minting UA, got ${r.ua}`);
+      // and the proxy route presents that UA upstream (route-level test
+      // stubs are impractical here; the contract is documented in code)
+    }
+  );
+});

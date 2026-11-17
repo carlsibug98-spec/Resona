@@ -79,21 +79,12 @@ export function PlayerProvider() {
       if (p.next()) return;
       void maybeStartRadio();
     };
-    // one scheduled advance per failure wave: onError + onLoadFailed can
-    // both fire for the same track (embed refuses, then the audio retry
-    // also fails) — two independent next() calls would skip a track
-    let advanceTimer: ReturnType<typeof setTimeout> | null = null;
-    const scheduleAdvance = () => {
-      if (advanceTimer) return;
-      advanceTimer = setTimeout(() => {
-        advanceTimer = null;
-        // user already acted on the banner (retry/skip/dismiss) — stand down
-        if (!usePlaybackError.getState().message) return;
-        const p = usePlayer.getState();
-        if (!p.next()) void maybeStartRadio();
-      }, 1200);
-    };
-
+    // v1.7.3: a track that fails to start STAYS put. The v1.7.1
+    // auto-advance (scheduleAdvance → p.next()) silently skipped past
+    // failing tracks, which both masked the burst-gating bug behind the
+    // "some tracks don't play" report and moved to other songs without
+    // being asked. Now a failure only surfaces the banner (retry / skip /
+    // dismiss stay manual); the queue never advances on its own.
     engine.onError = (msg) => {
       const p = usePlayer.getState();
       const cur = p.current();
@@ -103,13 +94,6 @@ export function PlayerProvider() {
         toast(msg);
       }
       noteError(cur?.videoId ?? null);
-      if (consecutiveErrors <= 3) {
-        scheduleAdvance();
-      } else {
-        engine.pause();
-        usePlayer.setState({ isPlaying: false });
-        toast("Stopped: too many unavailable tracks in a row");
-      }
     };
     // load() exhausted every source (audio providers AND the embed) —
     // same treatment as onError; this is the "click play, nothing
@@ -119,12 +103,6 @@ export function PlayerProvider() {
       const cur = p.current();
       if (cur) usePlaybackError.getState().show(msg, cur.videoId);
       noteError(cur?.videoId ?? null);
-      if (consecutiveErrors <= 3) {
-        scheduleAdvance();
-      } else {
-        engine.pause();
-        usePlayer.setState({ isPlaying: false });
-      }
     };
   }, []);
 
