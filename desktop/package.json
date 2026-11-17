@@ -1,8 +1,8 @@
 {
   "name": "resona",
   "productName": "Resona",
-  "version": "1.7.2",
-  "description": "Resona \u2014 free music streaming desktop app",
+  "version": "1.7.3",
+  "description": "Resona — free music streaming desktop app",
   "main": "main.js",
   "author": {
     "name": "Resona",
