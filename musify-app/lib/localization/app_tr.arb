@@ -1,0 +1,456 @@
+{
+  "about": "Hakkında",
+  "accentChangeMsg": "Vurgu Rengi Değiştirildi",
+  "accentColor": "Vurgu Rengi",
+  "add": "Ekle",
+  "addPlaylist": "Oynatma listesi ekle",
+  "addToLikedPlaylists": "Beğenilen çalma listelerine eklendi",
+  "addToLikedSongs": "Beğenilenlere Ekle",
+  "addToPlaylist": "Çalma Listesine Ekle",
+  "addToQueue": "Sıraya ekle",
+  "addedPlaylists": "Çalma Listesi Ekle",
+  "addedSuccess": "Başarıyla eklendi",
+  "addedToLikedSongs": "Beğenilen şarkılara eklendi",
+  "album": "Albüm",
+  "albums": "Albümler",
+  "allSongs": "Tüm şarkılar",
+  "alreadyDownloading": "Hali hazırda indiriliyor",
+  "annualRecap": "Yıllık özet",
+  "appUpdateIsAvailable": "Yeni bir uygulama güncellemesi var",
+  "artist": "Sanatçı",
+  "artistNotFound": "Sanatçı bulunamadı. Kayıtları kontrol edin veya tekrar deneyin.",
+  "artists": "Sanatçılar",
+  "audioQuality": "Ses Kalitesi",
+  "audioQualityBadge": "Ses kalitesi rozetini göster",
+  "audioQualityBadgeDescription": "Oynatılan şarkının kapak fotoğrafında küçük bir bitrate/codec rozeti gösterir.",
+  "audioQualityHigh": "Yüksek",
+  "audioQualityLow": "Düşük",
+  "audioQualityMedium": "Orta",
+  "audioQualityMsg": "Ses kalitesi değiştirildi",
+  "automaticSongPicker": "Otomatik parça seçici",
+  "automaticSongPickerDescription": "Mevcut parça bittikten sonra otomatik olarak rastgele bir şarkı çalın.",
+  "automaticUpdateChecks": "Otomatik güncelleme kontrollü",
+  "automaticUpdateChecksDescription": "Başlangıçta uygulama güncellemelerini otomatik olarak kontrol et.",
+  "back": "Geri",
+  "backToFavorites": "Favorilere dön",
+  "backedupSuccess": "Veri yedeklendi",
+  "backupError": "Veri yedeklenirken bir hata oluştu",
+  "backupUserData": "Verileri Yedekle",
+  "becomeSponsor": "Destek Ol",
+  "cacheMsg": "Bellek Temizlendi",
+  "cancel": "İptal",
+  "cancellingDownload": "İndirme iptal ediliyor...",
+  "checkForUpdates": "Güncellemeler kontrol edilsin mi?",
+  "chooseBackupDir": "Yedeklemek için klasör seç",
+  "chooseBackupFiles": "Yedeklemek için dosyaları seç",
+  "chooseCsvFile": "CSV dosyası seç",
+  "clear": "Temizle",
+  "clearCache": "Belleği Temizle",
+  "clearListeningStats": "Dinleme istatistiklerini temizle",
+  "clearListeningStatsQuestion": "Bu işlem, bu cihazda depolanan Time Machine dinleme istatistiklerini silecektir. Devam etmek istiyor musunuz?",
+  "clearQueue": "Kuyruğu temizle",
+  "clearQueueQuestion": "Sırayı temizlemek istediğinizden emin misiniz?",
+  "clearRecentlyPlayed": "Son Çalınanları Sil",
+  "clearRecentlyPlayedQuestion": "Son çalınanları silmek istiyor musun?",
+  "clearSearchHistory": "Arama Geçmişini Temizle",
+  "clearSearchHistoryQuestion": "Arama geçmişini temizlemek istiyor musun?",
+  "confirm": "Onayla",
+  "confirmation": "Doğrulama",
+  "copy": "Kopyala",
+  "copyLogs": "Kayıtları Kopyala",
+  "copyLogsNoLogs": "Kopyalanacak kayıt yok",
+  "copyLogsSuccess": "Kayıtlar panoya kopyalandı.",
+  "create": "Oluştur",
+  "createFolder": "Klasör oluştur",
+  "custom": "Özel",
+  "customPlaylistImgUrl": "Çalma Listesi Kapağı Linki",
+  "customPlaylistName": "Çalma Listesi İsmi",
+  "customPlaylists": "Kişisel Çalma Listeleri",
+  "dateAdded": "Eklenme Tarihi",
+  "default_": "Varsayılan",
+  "delete": "Sil",
+  "deleteDownloads": "İndirilenleri sil",
+  "deleteDownloadsQuestion": "Bütün indirmeleri temizlemek istediğinize emin misiniz?",
+  "deleteFolder": "Klasörü sil",
+  "deleteFolderQuestion": "Bu klasörü silmek istediğinizden emin misiniz?\nİçerideki çalma listeleri ana kütüphaneye taşınacak.",
+  "deletePlaylist": "Çalma Listesini Sil",
+  "download": "İndir",
+  "downloadAppUpdate": "Uygulama Güncellemesini İndir",
+  "downloadCancelled": "İndirme iptal edildi",
+  "downloadFailed": "İndirme başarısız oldu",
+  "downloadPlaylist": "Çalma Listesini İndir",
+  "downloadsDeleted": "İndirilenler başarıyla silindi",
+  "dynamicColor": "Değişken Vurgu Rengi (Android 12+)",
+  "dynamicColorDescription": "Android sistem temanızdaki vurgu renklerini kullanır.",
+  "editFolder": "Klasörü düzenle",
+  "editPlaylist": "Çalma listesini düzenle",
+  "emptyFolderMsg": "Bu klasör boş. Müziklerinizi düzenlemek için çalma listeleri ekleyin.",
+  "enableUpdateChecksDescription": "Musify'ın GitHub sürümlerinden gelen güncellemeleri otomatik olarak kontrol etmesini ister misiniz? Güncellemeleri istediğiniz zaman ayarlardan manuel olarak kontrol edebilirsiniz",
+  "endOfSong": "Parça sonu",
+  "enterFolderName": "Lütfen bir klasör adı girin",
+  "enterPlaylistName": "Lütfen bir oynatma listesi ismi girin",
+  "equalizer": "Ekolayzer",
+  "equalizerAndroidOnly": "Ekolayzer yalnızca Android'de mevcuttur.",
+  "equalizerBands": "Bandlar",
+  "equalizerDisabledHint": "Bant kazancı ayarları geçersiz.",
+  "equalizerEnable": "Ekolayzırı etkinleştir",
+  "equalizerEnabledHint": "Bant kazancı ayarları geçerli.",
+  "equalizerInitFailed": "Ekolayzır şuanda açılamıyor. Bir şarkı açıp bu sayfaya geri dön.",
+  "equalizerPresetBalanced": "Dengeli",
+  "equalizerPresetBassBoost": "Baş artırma",
+  "equalizerPresetElectronic": "Elektronik",
+  "equalizerPresetPop": "Pop",
+  "equalizerPresetRock": "Kaya",
+  "equalizerPresetTrebleBoost": "Tiz güçlendirici",
+  "equalizerPresetVocal": "Vokal",
+  "equalizerPresets": "Ön ayarlar",
+  "equalizerResetBands": "Bantları sıfırla",
+  "error": "Bir hata oluştu.",
+  "externalRecommendations": "Dış öneriler",
+  "externalRecommendationsDescription": "Musify'ın yerleşik öneri algoritması yerine dış bir tanesini kullan.",
+  "failedPlayingRadio": "Radyo istasyonu oynatılamadı",
+  "failedToLoadPlaylist": "Çalma listesi yüklenemedi",
+  "fieldsNotEmpty": "Tüm alanlar doldurulmalıdır",
+  "folderAlreadyExists": "Bu isimde bir klasör zaten var",
+  "folderDeleted": "Klasör başarıyla silindi",
+  "folderName": "Klasör adı",
+  "folderUpdated": "Klasör başarıyla güncellendi",
+  "goToArtist": "Sanatçıya git",
+  "home": "Ana Sayfa",
+  "hours": "Saat",
+  "imagePicked": "Resim seçildi",
+  "importPlaylist": "Çalma listesini içe aktar",
+  "importSpotifyPlaylist": "Spotify'dan çalma listesini içe aktar",
+  "importSpotifyPlaylistInstructions": "Spotify çalma listenizi chosic.com/spotify-playlist-exporter/ adresinden CSV olarak dışa aktarın, ardından dosyayı seçin veya içeriğini aşağıya yapıştırın. Musify, her bir şarkı için YouTube’da arama yapacaktır.",
+  "importSpotifyPlaylistTitle": "Spotify listesini içe aktar",
+  "invalidYouTubePlaylist": "Geçersiz Çalma Listesi veya Linki",
+  "language": "Dil (Language)",
+  "languageDe": "Almanca",
+  "languageEl": "Yunanca",
+  "languageEn": "İngilizce",
+  "languageEs": "İspanyolca",
+  "languageEt": "Estonca",
+  "languageFr": "Fransızca",
+  "languageHe": "İbranice",
+  "languageHi": "Hintçe",
+  "languageHu": "Macarca",
+  "languageId": "Endonezce",
+  "languageIt": "İtalyanca",
+  "languageJa": "Japonca",
+  "languageKo": "Korece",
+  "languageMsg": "Dil başarıyla değiştirildi",
+  "languagePl": "Lehçe",
+  "languagePt": "Portekizce",
+  "languageRu": "Rusça",
+  "languageSv": "İsveççe",
+  "languageTa": "Tamilce",
+  "languageTr": "Türkçe",
+  "languageUk": "Ukraynaca",
+  "languageZh": "Çince (Basitleştirilmiş)",
+  "languageZhHant": "Çince (Geleneksel)",
+  "library": "Kütüphane",
+  "licenses": "Lisanslar",
+  "likedPlaylists": "Beğenilen Çalma Listeleri",
+  "likedSongs": "Beğenilen Parçalar",
+  "linkCopied": "Oynatma listesi linki panoya kopyalandı",
+  "listeningStats": "Dinleme istatistikleri",
+  "listeningStatsCleared": "Dinleme istatistikleri temizlendi",
+  "listeningStatsDescription": "Aylık ve yıllık özetler için dinleme istatistiklerini takip edin.",
+  "loading": "Yükleniyor",
+  "lyrics": "Sözler",
+  "lyricsNotAvailable": "Sözler kullanılabilir değil",
+  "makeOffline": "Çevrimdışı kullanılabilir yap",
+  "minutes": "Dakika",
+  "minutesListened": "dakika dinlendi",
+  "monthlyListeners": "aylık dinleyici",
+  "moreOptions": "Diğer ayarlar",
+  "mostPlayed": "En çok oynatılan",
+  "moveToFolder": "Klasöre taşı",
+  "name": "İsme göre",
+  "newAnnouncement": "Yeni duyuru yayımlandı",
+  "newFolder": "Yeni klasör",
+  "no": "Hayır",
+  "noCustomPlaylists": "Henüz çalma listesi oluşturulmadı.",
+  "noFolders": "Henüz hiç klasör oluşturulmamış",
+  "noListeningStats": "Henüz dinleme istatistiği yok",
+  "noOfflineLibraryContent": "Çevrimdışı içerik yok. Kütüphaneyi kullanmak için çevrimiçi modu açın yada oynatma listesi/şarkı indirin.",
+  "noPlaylistsAdded": "Henüz oynatma listesi eklenmedi",
+  "noRadioStations": "Radyo istasyonu mevcut değil",
+  "noSongsInPlaylist": "Çalma listesinde şarkı yok",
+  "noSongsInQueue": "Sırada parça yok",
+  "notYTlist": "Geçersiz çalma listesi linki",
+  "offlineMode": "Çevrimdışı Modu",
+  "offlineModeDescription": "Çevrimiçi özellikleri devre dışı bırakın ve Musify'ı tamamen çevrimdışı kullanın.",
+  "offlinePlaylists": "Çevrimdışı Listeler",
+  "offlineSongs": "Çevrimdışı Parçalar",
+  "openChosicExporter": "Open Chosic Spotify exporter",
+  "others": "Diğerleri",
+  "pasteCsv": "CVS yapıştır",
+  "pause": "Durdur",
+  "pickImageFromDevice": "Cihazdan resim seç",
+  "pinToLibrary": "Kütüphaneye sabitle",
+  "pinnedPlaylists": "Pinlendi",
+  "pinnedPlaylistsLimit": "En fazla 5 çalma listesi yada albüm sabitleyebilirsin",
+  "play": "Oynat",
+  "playNext": "Bundan Sonra Oynat",
+  "playlist": "Çalma Listeleri",
+  "playlistAlreadyDownloaded": "Çalma listesi zaten indirildi",
+  "playlistAlreadyExists": "Bu çalma listesi zaten var",
+  "playlistDownloaded": "Çalma listesi İndirildi",
+  "playlistEmpty": "Liste boş",
+  "playlistFolders": "Çalma listesi klasörleri",
+  "playlistName": "Oynatma listesi adı",
+  "playlistRemovedFromOffline": "Liste çevrim dışı depolamadan kaldırıldı",
+  "playlistUpdated": "Çalma Listesi başarı ile güncellendi.",
+  "playlists": "Çalma Listeleri",
+  "preferences": "Tercihler",
+  "provideIdOrNameError": "Lütfen YouTube bağlantısı veya kişisel çalma listesi ismi girin",
+  "pureBlackTheme": "Saf Siyah (OLED)",
+  "pureBlackThemeDescription": "OLED ekranlarda karanlık modda gerçek siyah bir arka plan kullanın.",
+  "queue": "Kuyruk",
+  "radioStations": "Radyo istasyonları",
+  "recentlyPlayed": "Son Çalınanlar",
+  "recentlyPlayedMsg": "Son çalınanlar temizlendi",
+  "recommendedForYou": "Önerilenler",
+  "recommendedSongs": "Önerilen şarkılar",
+  "remove": "Sil",
+  "removeFromFolder": "Klasörden kaldır",
+  "removeFromLikedPlaylists": "Beğenilen Çalma Listelerinden Çıkar",
+  "removeFromLikedSongs": "Beğenilen Parçalardan Çıkar",
+  "removeFromPlaylist": "Çalma Listesinden Çıkar",
+  "removeFromRecentlyPlayed": "Son oynatılanlardan çıkar",
+  "removeOffline": "Çevrim dışından çıkar",
+  "removeOfflinePlaylist": "Çevrim Dışı Liste",
+  "removeOfflinePlaylistConfirm": "Bu listeyi depolamadan kaldıracak. Farklı listelerde olan parçalar hâla kullanıllanılabilir olacak.",
+  "removePlaylistQuestion": "Bu parçayı gerçekten çalma listenden çıkaracak mısın?",
+  "removeSearchQueryQuestion": "Bu aramayı gerçekten silmek istiyor musun?",
+  "removedFromLikedSongs": "Beğenilen şarkılardan çıkarıldı",
+  "renameSong": "Şarkıyı yeniden adlandır",
+  "repeat": "Tekrarla",
+  "replay": "Tekrar oynat",
+  "restoreError": "Hata: Veri geri yüklenemedi",
+  "restoreUserData": "Kullanıcı Verilerini Geri Yükle",
+  "restoredSuccess": "Veri başarıyla yeniden yüklendi",
+  "search": "Ara",
+  "searchHistoryMsg": "Arama geçmişi temizlendi",
+  "selectDuration": "Süreyi Belirle",
+  "setTimer": "Zamanlayıcı Ayarla",
+  "settingChangedMsg": "Ayarlar başarıyla güncellendi",
+  "settings": "Ayarlar",
+  "share": "Paylaş",
+  "shareRecap": "Özeti Paylaş",
+  "shareTimeMachineText": "Benim Özetim",
+  "shuffle": "Karıştır",
+  "single": "",
+  "singlesAndEps": "Tekliler ve EP'ler",
+  "skipToNext": "Sonrakine atla",
+  "skipToPrevious": "Öncekine geç",
+  "sleepTimer": "Uyku zamanlayıcısı",
+  "sleepTimerCancelled": "Uyku zamanlayıcısı iptal edildi",
+  "sleepTimerSet": "Uyku zamanlayıcısı ayarlandı",
+  "songAdded": "Parça Eklendi",
+  "songAddedToOffline": "Parça artık çevrim dışında kullanılabilir",
+  "songAlreadyInPlaylist": "Bu parça zaten listede var",
+  "songInfoCopied": "Şarkı bilgileri panoya kopyalandı",
+  "songRemoved": "Parça kaldırıldı",
+  "songRemovedFromOffline": "Şarkı artık çevrim dışında kullanılamaz",
+  "songs": "Parçalar",
+  "sponsorBlockDescription": "Desteklenen parçalarda sponsorlu bölümleri atla.",
+  "sponsorProject": "Bu Projeyi Destekle",
+  "spotifyCsvHint": "CVS içeriğini buraya yapıştırın",
+  "spotifyPlaylistAlreadyImporting": "Bir içe aktarma işlemi zaten devam ediyor",
+  "spotifyPlaylistEmpty": "Öncelikle bir CSV dosyası seçin veya CSV içeriğini yapıştırın",
+  "spotifyPlaylistImportFailed": "Oynatma listesi içe aktarılamadı",
+  "spotifyPlaylistImportResult": "{found} of {total} songs imported",
+  "spotifyPlaylistImporting": "Oynatma listesi içe aktarılıyor...",
+  "spotifyPlaylistInvalid": "The CSV does not contain Song and Artist columns",
+  "spotifyPlaylistMissingSongs": "Şarkı bulunamadı",
+  "spotifyPlaylistNameHint": "İçe aktarılmış spotify oynatma listesi",
+  "spotifyPlaylistProgress": "Searching {done} of {total}",
+  "suggestedArtists": "Önerilen Sanatçılar",
+  "suggestedPlaylists": "Önerilen Listeler",
+  "syncAllNow": "Şimdi eşle",
+  "syncAllNowDescription": "{count, plural, =1{With the paired device that is online} other{With the {count} paired devices online}}",
+  "syncNow": "Eşle",
+  "syncOnline": "{address} • Çevrimiçi",
+  "syncSyncedAll": "Tüm cihazlarınız ile senkronizasyon başarılı",
+  "syncThisDevice": "Bu cihaz",
+  "syncTitle": "Yerel senkronizasyon",
+  "syncData": "Neyin eşitleneceğini seçin",
+  "syncSelections": "Only categories selected on both devices are exchanged. Settings and downloaded files stay on each device.",
+  "syncFavourites": "Beğenilen şarkılar",
+  "syncPlaylists": "Oynatma listeleri, dosyalar ve pinler",
+  "syncRecent": "Son çalınanlar",
+  "syncRecap": "Dinleme Özeti",
+  "syncSearches": "Arama geçmişi",
+  "syncRadio": "Beğenilen radyo istasyonları",
+  "syncPairTitle": "Bu cihazla eşitlensin mi?",
+  "syncPinInstructions": "Enter the six-digit PIN shown on the other device.",
+  "syncPairDescription": "{device} wants to pair. Type this PIN there; cancel if you did not start it.",
+  "syncUnchanged": "Seçilen hiçbir veri değişmedi.",
+  "syncOverNetwork": "Yerel ağ üzerinden eşitle",
+  "syncOffDescription": "Sync your library and listening recap between your devices over Wi-Fi. No account or cloud server.",
+  "syncDevices": "Cihazlar",
+  "syncFindDevices": "Bu ağdaki cihazları bulun ve eşitleyin.",
+  "syncLastSynced": "Son eşleme: {time}",
+  "syncAutomatic": "Otomatik eşle",
+  "syncAutomaticDescription": "With paired devices that are online: at startup, shortly after a change and every 30 minutes.",
+  "syncCouldNotStart": "Yerel senkronizasyon başlatılamadı",
+  "syncIsOff": "Turn on local sync to make this device visible to your other Musify devices on the same network.",
+  "syncVisible": "Bu cihaz, aynı bağlantıda olan diğer cihazlardan tarafından görülebilir.",
+  "syncNotVisible": "Şu anda görülür değil. Yerel senkronizasyon başlatılamadı.",
+  "syncScanAgain": "Tekrar tara",
+  "syncScanning": "Ağınızdaki cihazlar aranıyor...",
+  "syncConnecting": "Bağlanıyor...",
+  "syncPreparing": "Kütüphaneniz hazırlanıyor...",
+  "syncSending": "Diğer cihaza gönderiliyor...",
+  "syncMerging": "Merging what came back...",
+  "syncSyncingWith": "{device} ile senkronizasyon",
+  "syncSyncedWith": "{device} ile senkronizasyon başarılı",
+  "syncPairWith": "{device} ile eşleştir",
+  "syncPairedWith": "{device} ile eşleştirildi",
+  "syncPair": "Eşleşme",
+  "syncDone": "Tamamlandı",
+  "syncOfflineDevice": "Çevrimdışı",
+  "syncNoDevices": "Başka bir cihaz bulunamadı. Diğer cihazda yerel senkronizasyonu açın ve iki cihazın da aynı ağa bağlandığından emin olun.",
+  "syncForget": "Unut",
+  "syncForgetConfirm": "{device} mu unuttunuz? Tekrar eşleştirmek için PIN kodunu girmeniz gerekecek.",
+  "syncForgetAll": "Tüm cihazları unut",
+  "syncForgetAllConfirm": "Forget every paired device? Each one will ask for a PIN again.",
+  "syncErrorNotRunning": "Öncelikle bu cihazda yerel eşitlemeyi etkinleştirin.",
+  "syncErrorIncorrectPin": "Yanlış PIN. {device}'de gösterilen kodu kontrol edin.",
+  "syncErrorRejected": "{device} eşitlemeyi reddetti.",
+  "syncErrorBusy": "{device} başka bir eşitleme denemesiyle meşgul. Birkaç saniye bekleyin ve tekrar deneyin.",
+  "syncErrorUntrusted": "{device} artık bu cihaza güvenmiyor. Cihaz listesinden silin ve tekrar eşleştirin.",
+  "syncErrorUpdate": "Yerel senkronizasyonu kullanmak için iki cihazda da uygulamayı güncelleyin.",
+  "syncErrorNoCategories": "Her iki cihazda da etkinleştirilmiş en az bir kategori seçin.",
+  "syncErrorTooLarge": "Seçilen veri miktarı çok fazla. Daha az kategori seçin.",
+  "syncErrorUnreachable": "{device} ulaşılamadı. Verileriniz güvende; lütfen her iki cihazın da aynı ağda olduğundan emin olun.",
+  "syncErrorFailed": "{device} ile eşleme başarısız oldu. Tekrar deneyin.",
+  "@syncAllNowDescription": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@syncOnline": {
+    "placeholders": {
+      "address": {
+        "type": "String"
+      }
+    }
+  },
+  "@syncPairDescription": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "@syncLastSynced": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "@syncSyncingWith": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "@syncSyncedWith": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "@syncPairWith": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "@syncPairedWith": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "@syncForgetConfirm": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "@syncErrorIncorrectPin": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "@syncErrorRejected": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "@syncErrorBusy": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "@syncErrorUntrusted": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "@syncErrorUnreachable": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "@syncErrorFailed": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "syncedLyrics": "Eşlenmiş şarkı sözleri",
+  "syncedLyricsDescription": "Highlight the current line and scroll along with the song when timed lyrics are available.",
+  "tapToView": "Görüntülemek için dokun",
+  "themeMode": "Tema Modu",
+  "themeModeDark": "Koyu",
+  "themeModeLight": "Açık",
+  "themeModeSystem": "Sistem",
+  "timeMachine": "Zaman makinesi",
+  "tools": "Aletler",
+  "topSongs": "En Popüler şarkılar",
+  "translate": "Çevir",
+  "translateDescription": "Musify'ı Crowdin'de kendi dilinize çevirmeye yardımcı olun.",
+  "understand": "Anlıyorum",
+  "undo": "Geri Al",
+  "unpinFromLibrary": "Sabitlemeyi kaldır",
+  "update": "Güncelleme",
+  "useProxy": "Proxy kullan",
+  "useProxyDescription": "Yalnızca bağlantı sorunları olduğunda proxy kullanın, gereksiz kullanım müzik oynatmayı bir ihtimal bozabilir.",
+  "userPlaylists": "Kullanıcı Listeleri",
+  "yes": "Evet",
+  "youtubePlaylistLinkOrId": "YouTube listesi bağlantısı veya ID'si"
+}
