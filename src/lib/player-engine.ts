@@ -29,6 +29,40 @@ declare global {
   }
 }
 
+/**
+ * The mpv core (desktop only): window.resonaDesktop.mpv when libmpv is
+ * bundled (v1.7.7+). Playing through mpv is the Musify architecture — its
+ * own demuxer/decoder/network stack instead of the browser media pipeline.
+ * Verified in-sandbox: mpv plays the same-origin proxy stream reliably
+ * where the browser element sometimes can't.
+ */
+interface MpvBridge {
+  available(): Promise<boolean>;
+  load(url: string, startSec: number): Promise<boolean>;
+  play(): Promise<boolean>;
+  pause(): Promise<boolean>;
+  seek(sec: number): Promise<boolean>;
+  volume(v: number): Promise<boolean>;
+  stop(): Promise<boolean>;
+  state(): Promise<{
+    position: number;
+    duration: number;
+    paused: boolean;
+    playing: boolean;
+    buffering: boolean;
+    seekable: boolean;
+  } | null>;
+  shutdown(): Promise<boolean>;
+  onFileLoaded(cb: () => void): () => void;
+  onEndFile(cb: () => void): () => void;
+}
+
+function mpvBridge(): MpvBridge | null {
+  if (typeof window === "undefined") return null;
+  const d = (window as any).resonaDesktop;
+  return d?.mpv ?? null;
+}
+
 export interface EngineState {
   playing: boolean;
   position: number;
@@ -101,6 +135,16 @@ export class PlayerEngine {
   private tick: ReturnType<typeof setInterval> | null = null;
   private hostEl: HTMLElement | null = null;
   private probing = false;
+  /** the mpv core (v1.7.7): set when the desktop bridge + libmpv are both
+   *  present. mpv IS the current engine; HTML5 remains for local blobs and
+   *  as the automatic fallback when mpv is missing or a load fails. */
+  private mpv: MpvBridge | null = null;
+  private mpvReady = false;
+  private usingMpv = false;
+  private mpvLoadedVideoId: string | null = null;
+  /** last known mpv state — getState() is sync but the bridge is async,
+   *  so the tick refreshes this in the background (see startTick) */
+  private mpvStateCache: EngineState | null = null;
   /**
    * When a probe's src was last torn down (pause/removeAttribute/load).
    * The <audio> element emits its "error" event asynchronously AFTER the
@@ -221,6 +265,90 @@ export class PlayerEngine {
 
   attachHost(el: HTMLElement | null) {
     this.hostEl = el;
+    this.initMpv();
+  }
+
+  /**
+   * Bind the mpv core once. Failures are permanent-but-quiet: the HTML5
+   * chain serves everything as before, exactly like pre-v1.7.7.
+   */
+  private initMpv(): void {
+    if (this.mpv !== null || this.mpvReady) return;
+    const bridge = mpvBridge();
+    if (!bridge) return; // web build, or desktop without libmpv
+    bridge
+      .available()
+      .then((ok) => {
+        if (!ok) return;
+        this.mpv = bridge;
+        this.mpvReady = true;
+        // end-of-file → advance the queue, same as the audio element's
+        // "ended" listener. keep-open=always means mpv pauses at EOF and
+        // this event is our single "track finished" signal.
+        bridge.onEndFile(() => {
+          if (this.usingMpv) this.onEnded();
+        });
+        bridge.onFileLoaded(() => {
+          // the file is demuxed and ready — count it as playing data for
+          // the diagnostics surface
+          if (this.usingMpv) this.onState(this.getState());
+        });
+      })
+      .catch(() => {
+        /* bridge broken — HTML5 fallback, permanently for this session */
+      });
+  }
+
+  /**
+   * Play a network track through the mpv core via the same-origin byte
+   * proxy (sandbox-verified path: mpv's ffmpeg 403s direct googlevideo
+   * URLs, but plays the proxied stream perfectly). Resolves false if mpv
+   * can't take the track so load() falls through to the HTML5 ladder.
+   */
+  private async tryMpv(videoId: string, startSec: number): Promise<boolean> {
+    if (!this.mpv || !this.mpvReady) return false;
+    try {
+      const url = streamUrl(videoId); // the byte proxy, quality param rides along
+      await this.mpv.load(url, startSec);
+      this.usingMpv = true;
+      this.mpvLoadedVideoId = videoId;
+      // wait (bounded) for the file to actually load — a URL mpv can't
+      // open fails at loadfile/end-file within a few seconds
+      const loaded = await this.waitForMpvLoad(videoId);
+      if (!loaded) {
+        await this.mpv.stop().catch(() => {});
+        this.usingMpv = false;
+        this.mpvLoadedVideoId = null;
+        return false;
+      }
+      this.mpvStateCache = { playing: false, position: startSec, duration: 0, buffering: true };
+      return true;
+    } catch {
+      this.usingMpv = false;
+      return false;
+    }
+  }
+
+  /**
+   * Bounded wait for mpv's state to report a loaded file (duration > 0).
+   * The host's file-loaded event fires on demux-open; polling state is the
+   * belt-and-braces path.
+   */
+  private async waitForMpvLoad(videoId: string): Promise<boolean> {
+    const deadline = Date.now() + 12_000;
+    while (Date.now() < deadline) {
+      if (this.mpvLoadedVideoId !== videoId) return false; // superseded
+      const s = await this.mpv!.state().catch(() => null);
+      if (s && s.duration > 0) return true;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    return false;
+  }
+
+  private async mpvStop(): Promise<void> {
+    this.usingMpv = false;
+    this.mpvLoadedVideoId = null;
+    await this.mpv?.stop().catch(() => {});
   }
 
   private ensureAudio(): HTMLAudioElement {
@@ -390,6 +518,25 @@ export class PlayerEngine {
   private startTick() {
     if (this.tick) return;
     this.tick = setInterval(() => {
+      if (this.usingMpv && this.mpv) {
+        // refresh the async mpv state in the background; emit the cached
+        // value synchronously so the UI never starves
+        this.mpv
+          .state()
+          .then((s) => {
+            if (!this.usingMpv || !s) return;
+            this.mpvStateCache = {
+              playing: s.playing,
+              position: s.position,
+              duration: s.duration,
+              buffering: s.buffering,
+            };
+            this.onState(this.mpvStateCache);
+          })
+          .catch(() => {});
+        if (this.mpvStateCache) this.onState(this.mpvStateCache);
+        return;
+      }
       const s = this.getState();
       this.onState(s);
     }, 400);
@@ -398,6 +545,10 @@ export class PlayerEngine {
   /** apply the stored volume to whichever engine is live; safe at any time */
   applyVolume(v: number) {
     const vol = Math.max(0, Math.min(100, Math.round(v * 100)));
+    if (this.usingMpv && this.mpv) {
+      void this.mpv.volume(vol).catch(() => {});
+      return;
+    }
     if (this.audio) this.audio.volume = vol / 100;
     try {
       this.yt?.setVolume?.(vol);
@@ -501,9 +652,12 @@ export class PlayerEngine {
     this.currentTrack = track;
     this.currentVideoId = track.videoId;
 
-    // downloaded copy first — enables offline listening
+    // downloaded copy first — enables offline listening (local blob URLs
+    // stay on the HTML5 element; shipping 150 MB blobs over IPC to mpv
+    // buys nothing)
     const local = await idbGetAudio(track.videoId).catch(() => null);
     if (local) {
+      await this.mpvStop();
       this.stopYT();
       this.currentIsAudio = true;
       const a = this.ensureAudio();
@@ -518,9 +672,26 @@ export class PlayerEngine {
       return;
     }
 
-    // direct stream first (fast path): the server resolves the URL once
+    // the mpv core (Musify's engine): its own demuxer + network stack via
+    // the byte proxy. Tried FIRST for network tracks — it is the robust
+    // path; HTML5 direct/proxy/iframe remain the fallback ladder below.
+    if (this.mpvReady) {
+      const viaMpv = await this.tryMpv(track.videoId, startSec);
+      if (viaMpv) {
+        this.currentIsAudio = true; // state plumbing treats "audio" as the non-iframe mode
+        this.stopAudio();
+        this.stopYT();
+        this.startTick();
+        this.warmNext();
+        return;
+      }
+    }
+
+    // direct stream (fast path): the server resolves the URL once
     // (~150-400 ms via InnerTube) and the browser fetches it itself —
     // no proxy hop. Falls back to the byte proxy, then the IFrame embed.
+    await this.mpvStop();
+    this.mpvStateCache = null;
     this.stopAudio();
     const direct = await this.tryDirectAudio(track.videoId, startSec, "resolved");
     if (direct) {
@@ -607,6 +778,19 @@ export class PlayerEngine {
   }
 
   async play(): Promise<void> {
+    // mpv mode: the zombie guard is simpler — mpv either has the file
+    // loaded (duration > 0) or it doesn't; reload if not
+    if (this.usingMpv && this.mpv) {
+      const s = await this.mpv.state().catch(() => null);
+      if (s && s.duration > 0) {
+        await this.mpv.play().catch(() => {});
+        return;
+      }
+      if (this.currentTrack) {
+        await this.load(this.currentTrack, this.getState().position);
+      }
+      return;
+    }
     // zombie guard: after a total failure the engine has no live source
     // (empty audio src, YT player never started). toggle() used to set
     // isPlaying=true here, the 400ms tick then synced playing:false back,
@@ -641,6 +825,10 @@ export class PlayerEngine {
   }
 
   pause(): void {
+    if (this.usingMpv && this.mpv) {
+      void this.mpv.pause().catch(() => {});
+      return;
+    }
     if (this.currentIsAudio) this.audio?.pause();
     else
       try {
@@ -651,6 +839,11 @@ export class PlayerEngine {
   }
 
   seek(sec: number): void {
+    if (this.usingMpv && this.mpv) {
+      void this.mpv.seek(sec).catch(() => {});
+      this.onState(this.getState());
+      return;
+    }
     if (this.currentIsAudio && this.audio) this.audio.currentTime = sec;
     else if (this.yt?.seekTo) this.yt.seekTo(sec, true);
     this.onState(this.getState());
@@ -661,6 +854,14 @@ export class PlayerEngine {
   }
 
   getState(): EngineState {
+    // mpv state is cached here — getState is synchronous (called from the
+    // 400 ms tick and UI handlers), the bridge is async; tryMpv's
+    // file-loaded + the tick refresh mpvState below.
+    if (this.usingMpv) {
+      const s = this.mpvStateCache;
+      if (s) return s;
+      return { playing: false, position: 0, duration: 0, buffering: true };
+    }
     let playing = false;
     let position = 0;
     let duration = 0;
@@ -699,6 +900,7 @@ declare global {
       isAudio: boolean;
       ytState: number | null;
       audioSrc: string | null;
+      usingMpv: boolean;
       lastErrors: { at: number; msg: string }[];
     };
   }
@@ -730,6 +932,7 @@ if (typeof window !== "undefined") {
       }
     })(),
     audioSrc: (engine as any).audio?.src || null,
+    usingMpv: (engine as any).usingMpv === true,
     lastErrors: [...errLog],
   });
 }

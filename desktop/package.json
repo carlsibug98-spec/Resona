@@ -1,14 +1,14 @@
 {
   "name": "resona",
   "productName": "Resona",
-  "version": "1.7.6",
+  "version": "1.7.7",
   "description": "Resona — free music streaming desktop app",
   "main": "main.js",
   "author": {
     "name": "Resona",
     "email": "resona@users.noreply.github.com"
   },
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "devDependencies": {
     "electron": "^45.3.2",
     "electron-builder": "^26.18.0",
@@ -24,6 +24,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "mpv-host.js",
       "package.json"
     ],
     "afterPack": "afterpack.cjs",
@@ -48,6 +49,10 @@
         {
           "from": "staging/yt-dlp.exe",
           "to": "yt-dlp.exe"
+        },
+        {
+          "from": "staging/libmpv-2.dll",
+          "to": "libmpv-2.dll"
         }
       ]
     },

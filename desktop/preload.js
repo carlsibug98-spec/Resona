@@ -20,4 +20,27 @@ contextBridge.exposeInMainWorld("resonaDesktop", {
     ipcRenderer.on("thumbs:action", listener);
     return () => ipcRenderer.removeListener("thumbs:action", listener);
   },
+  /** the mpv playback core (desktop/mpv-host.js) — undefined on non-desktop
+   *  or when libmpv is missing, in which case the HTML5 chain plays on */
+  mpv: {
+    available: () => ipcRenderer.invoke("mpv:available"),
+    load: (url, startSec) => ipcRenderer.invoke("mpv:load", { url, startSec }),
+    play: () => ipcRenderer.invoke("mpv:play"),
+    pause: () => ipcRenderer.invoke("mpv:pause"),
+    seek: (sec) => ipcRenderer.invoke("mpv:seek", sec),
+    volume: (v) => ipcRenderer.invoke("mpv:volume", v),
+    stop: () => ipcRenderer.invoke("mpv:stop"),
+    state: () => ipcRenderer.invoke("mpv:state"),
+    shutdown: () => ipcRenderer.invoke("mpv:shutdown"),
+    onFileLoaded: (cb) => {
+      const l = () => cb();
+      ipcRenderer.on("mpv:file-loaded", l);
+      return () => ipcRenderer.removeListener("mpv:file-loaded", l);
+    },
+    onEndFile: (cb) => {
+      const l = () => cb();
+      ipcRenderer.on("mpv:end-file", l);
+      return () => ipcRenderer.removeListener("mpv:end-file", l);
+    },
+  },
 });

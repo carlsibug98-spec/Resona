@@ -11,6 +11,10 @@ const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const http = require("http");
+// the Musify playback core: libmpv over koffi, exposed to the renderer as
+// window.resonaDesktop.mpv (desktop/mpv-host.js). Fails soft — no libmpv,
+// no mpv mode, the HTML5 chain plays on.
+const mpvHost = require("./mpv-host");
 
 // packaged: <install>/resources/{server, yt-dlp.exe}
 // dev: desktop/staging/
@@ -377,6 +381,15 @@ async function createWindow(port) {
       preload: path.join(__dirname, "preload.js"),
     },
   });
+  // register the mpv IPC handlers once and let the host know where to
+  // forward events; wrapped in try/catch — a broken koffi install must not
+  // prevent the window from opening (HTML5 fallback stays available)
+  try {
+    mpvHost.registerIpc();
+    mpvHost.attach(win);
+  } catch (e) {
+    log(`[mpv-host] disabled: ${e.message}`);
+  }
   win.on("maximize", () => win.webContents.send("win:max-changed", true));
   win.on("unmaximize", () => win.webContents.send("win:max-changed", false));
   win.once("ready-to-show", () => {

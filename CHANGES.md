@@ -1,5 +1,32 @@
 # Changes
 
+## v1.7.7 — the Musify playback core: libmpv (2026-11-18)
+
+"use Musify entirely, but our UI" — the last piece was the audio engine
+itself. v1.7.6 ported Musify's resolution/download logic; v1.7.7 ships
+its actual playback core:
+
+- **libmpv is now the playback engine.** Resona bundles `libmpv-2.dll`
+  (the same binary Musify ships) and drives it over the koffi FFI in the
+  Electron main process (`desktop/mpv-host.js`) — mpv's own demuxer,
+  decoder and network stack instead of the browser media pipeline. No
+  codec quirks, no autoplay policies, Musify's playback reliability.
+- **URL policy (sandbox-verified before shipping):** mpv's embedded
+  ffmpeg 403s direct googlevideo URLs (its no-Range GET triggers a 302
+  the follow-up request can't survive), but plays the same-origin byte
+  proxy perfectly — so mpv always plays through `/api/stream`, where the
+  server fetches googlevideo with the minted UA. Verified live: decoded
+  playback, correct 213.16 s duration, seek and pause.
+- **The whole engine is a fallback ladder, not a replacement:** local
+  downloaded copies stay on the HTML5 element (blob URLs, no network);
+  if mpv is missing (web build, broken DLL) or a track fails to load in
+  it, the existing HTML5 direct → proxy → iframe chain serves the track
+  exactly as before. The Musify failure policy (2 s auto-skip, stop
+  after 3) rides on top unchanged.
+- **Relicensed MIT → GPL-3.0-or-later** with THIRD_PARTY_NOTICES.md:
+  porting Musify's logic and shipping its libmpv binary makes Resona a
+  derivative work of GPL projects; the license now says so honestly.
+
 ## v1.7.6 — Musify engine port (2026-11-18)
 
 The playback/download internals of Musify (gokadzev/Musify, GPL-3) —

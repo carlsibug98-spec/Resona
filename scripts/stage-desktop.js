@@ -53,7 +53,7 @@ if (fs.existsSync(nm)) {
 }
 
 // optional: bundle yt-dlp so direct streams work out of the box
-// (Windows: yt-dlp.exe · macOS: yt-dlp_macos · Linux: yt-dlp)
+// (Windows: yt-dlp.exe · macOS: yt-dlp · Linux: yt-dlp)
 const isWin = process.platform === "win32";
 const isMac = process.platform === "darwin";
 const ytdlpName = isWin ? "yt-dlp.exe" : "yt-dlp";
@@ -77,6 +77,59 @@ if (!fs.existsSync(ytdlp)) {
   } catch {
     console.warn(`download of ${ytdlpName} failed — continuing without it.`);
   }
+}
+
+// The mpv playback core (v1.7.7): libmpv-2.dll is vendored at
+// desktop/build-libmpv-2.dll (from Musify's release, GPL-2+ — see
+// THIRD_PARTY_NOTICES.md) and ships as a root extraResource next to
+// server/ and yt-dlp.exe. desktop/mpv-host.js loads it from
+// process.resourcesPath. The koffi FFI must ship inside the server's
+// deps/ tree (it is require()d by mpv-host through Electron's node).
+const libmpvSrc = path.join(root, "desktop", "build-libmpv-2.dll");
+if (fs.existsSync(libmpvSrc)) {
+  // staged unconditionally: the Windows CI runner and local cross-builds
+  // both package from this repo file; only the Windows target ships it
+  // (see the win.extraResources filter in desktop/package.json)
+  fs.copyFileSync(libmpvSrc, path.join(staging, "libmpv-2.dll"));
+  console.log("staged libmpv-2.dll (the Musify playback core)");
+} else {
+  console.warn("libmpv-2.dll missing — mpv engine disabled, HTML5 fallback only");
+}
+const koffiPkg = path.join(root, "node_modules", "koffi");
+if (fs.existsSync(koffiPkg)) {
+  // mpv-host.js requires koffi; it resolves through NODE_PATH (deps/) at
+  // runtime, mirroring the server's own dependency resolution. koffi's
+  // native binary lives in @koromix/koffi-<platform> sibling packages —
+  // stage BOTH the win32 build (the shipped installer) and the local
+  // platform's (so dev runs work); koffi picks whichever loads.
+  const koffiDest = path.join(serverDir, "deps", "koffi");
+  if (fs.existsSync(koffiDest)) fs.rmSync(koffiDest, { recursive: true, force: true });
+  fs.cpSync(koffiPkg, koffiDest, { recursive: true, force: true });
+  const nmKoromix = path.join(root, "node_modules", "@koromix");
+  const destKoromix = path.join(serverDir, "deps", "@koromix");
+  const ensurePkg = (ent) => {
+    const src = path.join(nmKoromix, ent);
+    if (fs.existsSync(src)) {
+      fs.cpSync(src, path.join(destKoromix, ent), { recursive: true, force: true });
+      return true;
+    }
+    return false;
+  };
+  fs.mkdirSync(destKoromix, { recursive: true });
+  // win32 native: present on the Windows CI runner; on other platforms,
+  // fall back to the vendored copy (desktop/vendor/koffi-win32-x64) pulled
+  // once via `npm pack` so local cross-builds produce a working installer
+  if (!ensurePkg("koffi-win32-x64")) {
+    const vendored = path.join(root, "desktop", "vendor", "koffi-win32-x64");
+    if (fs.existsSync(vendored)) {
+      fs.cpSync(vendored, path.join(destKoromix, "koffi-win32-x64"), { recursive: true, force: true });
+    } else {
+      console.warn("koffi-win32-x64 not found — mpv engine will be missing in the Windows build");
+    }
+  }
+  // the local platform's native (dev runs; harmless in the shipped build)
+  ensurePkg(`koffi-${process.platform}-${process.arch}`);
+  console.log("staged koffi (FFI for libmpv) into server deps");
 }
 
 console.log("staging ready:", serverDir);
