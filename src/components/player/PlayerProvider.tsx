@@ -45,24 +45,59 @@ export function PlayerProvider() {
 
   // engine -> store binding
   useEffect(() => {
-    // consecutiveErrors counts FAILED TRACKS, not failed attempts: one
-    // track can legitimately fire 2 errors (embed refusal + audio retry
-    // failure). Without the per-track reset below, 2 flaky tracks + the
-    // next one's first error hit the cap and playback stopped for good.
+    // Musify failure policy (audio_service.dart `_handlePlaybackError`):
+    // a failing track auto-skips to the next song after 2 s — the user
+    // hears one bad song vanish instead of the whole session stopping —
+    // and playback only stops (with the manual Retry banner) after 3
+    // CONSECUTIVE failed tracks. Any track that actually plays resets the
+    // count. This supersedes the v1.7.3 "never advance on failure" rule,
+    // which kept every failure stuck on screen and turned one slow song
+    // on a throttled network into "playback stopped on its own".
+    const ERROR_SKIP_DELAY_MS = 2_000;
+    const MAX_CONSECUTIVE_FAILURES = 3;
     let consecutiveErrors = 0;
     let lastErrorTrack: string | null = null;
+    let pendingSkip: {
+      videoId: string;
+      timer: ReturnType<typeof setTimeout>;
+    } | null = null;
+    // counts failed TRACKS, not failed attempts: one dead track can
+    // legitimately fire several events (embed refusal + audio retry
+    // failure); stacking those would stop playback after a single song.
     const noteError = (videoId: string | null) => {
       if (videoId && videoId !== lastErrorTrack) {
         lastErrorTrack = videoId;
-        consecutiveErrors = 1;
-      } else {
         consecutiveErrors += 1;
       }
+    };
+    const cancelPendingSkip = () => {
+      if (pendingSkip) {
+        clearTimeout(pendingSkip.timer);
+        pendingSkip = null;
+      }
+    };
+    // Musify: "Only retry if still on the same song (user didn't manually
+    // change tracks)" — and anything that starts playing cancels the
+    // window via onState, so a late-recovering track is never skipped
+    // from under the listener.
+    const scheduleSkip = (failedVideoId: string, msg: string) => {
+      cancelPendingSkip();
+      const timer = setTimeout(() => {
+        pendingSkip = null;
+        const p = usePlayer.getState();
+        if (p.current()?.videoId !== failedVideoId) return;
+        if (p.next()) return; // next() loads + plays the successor
+        // end of queue, nothing to advance to — the failure is terminal
+        // for this session, so surface the banner (Retry stays manual)
+        usePlaybackError.getState().show(msg, failedVideoId);
+      }, ERROR_SKIP_DELAY_MS);
+      pendingSkip = { videoId: failedVideoId, timer };
     };
     engine.onState = (s) => {
       if (s.playing) {
         consecutiveErrors = 0;
         lastErrorTrack = null;
+        cancelPendingSkip();
         usePlaybackError.getState().clear();
       }
       usePlayer.getState().syncFromEngine(s);
@@ -77,30 +112,35 @@ export function PlayerProvider() {
       if (p.next()) return;
       void maybeStartRadio();
     };
-    // v1.7.3: a track that fails to start STAYS put. The v1.7.1
-    // auto-advance (scheduleAdvance → p.next()) silently skipped past
-    // failing tracks, which both masked the burst-gating bug behind the
-    // "some tracks don't play" report and moved to other songs without
-    // being asked. Now a failure only surfaces the banner (retry / skip /
-    // dismiss stay manual); the queue never advances on its own.
+    // audio/iframe playback error: below the cap → silent auto-skip
+    // (no banner — it would just flash during the 2 s window); at the
+    // cap → Musify's "Max consecutive errors reached. Stopping playback."
     engine.onError = (msg) => {
       const p = usePlayer.getState();
       const cur = p.current();
-      if (cur) {
-        usePlaybackError.getState().show(msg, cur.videoId);
-      } else {
-        toast(msg);
-      }
       noteError(cur?.videoId ?? null);
+      if (consecutiveErrors >= MAX_CONSECUTIVE_FAILURES) {
+        cancelPendingSkip();
+        if (cur) usePlaybackError.getState().show(msg, cur.videoId);
+        else toast(msg);
+        return;
+      }
+      if (cur) scheduleSkip(cur.videoId, msg);
+      else toast(msg);
     };
     // load() exhausted every source (audio providers AND the embed) —
-    // same treatment as onError; this is the "click play, nothing
-    // starts" case, where sitting still looks like a frozen app
+    // same policy as onError; this is the "click play, nothing starts"
+    // case, where sitting still looks like a frozen app
     engine.onLoadFailed = (msg) => {
       const p = usePlayer.getState();
       const cur = p.current();
-      if (cur) usePlaybackError.getState().show(msg, cur.videoId);
       noteError(cur?.videoId ?? null);
+      if (consecutiveErrors >= MAX_CONSECUTIVE_FAILURES) {
+        cancelPendingSkip();
+        if (cur) usePlaybackError.getState().show(msg, cur.videoId);
+        return;
+      }
+      if (cur) scheduleSkip(cur.videoId, msg);
     };
   }, []);
 

@@ -117,6 +117,36 @@ export class PlayerEngine {
     this.probing = false;
   }
 
+  /**
+   * Musify-style patient start watchdog. A source is only declared dead
+   * when NO media data has arrived within `noDataMs`; a source that is
+   * downloading (buffered bytes exist) but slow to first frame keeps its
+   * full `hardCapMs` budget instead of being killed. The fixed 8 s / 15 s
+   * cutoffs this replaces turned "slow start" into "failed track": on a
+   * throttled network the first bytes legitimately take longer, and
+   * killing the source pushed the same slow stream through the fallback
+   * ladder until everything failed. Musify has no start deadline at all —
+   * the caps here exist so a truly dead source still reaches the embed
+   * fallback and a visible banner. `onFail` is the caller's settled-
+   * guarded callback, so late firing after a successful start is a no-op.
+   */
+  private armStartWatchdog(
+    a: HTMLAudioElement,
+    noDataMs: number,
+    hardCapMs: number,
+    onFail: () => void,
+  ): void {
+    this.armProbeTimer(noDataMs, () => {
+      if (a.buffered.length > 0) {
+        const rest = Math.max(0, hardCapMs - noDataMs);
+        if (rest > 0) this.armProbeTimer(rest, onFail);
+        else onFail();
+      } else {
+        onFail();
+      }
+    });
+  }
+
   /** tear down the audio element src after a failed probe; the async
    * error event it triggers must be attributed to the probe, not real
    * playback (see lastProbeTeardown) */
@@ -249,13 +279,11 @@ export class PlayerEngine {
         // autoplay refusal: metadata may still be loading, keep probing;
         // if nothing arrives at all the timeout below handles it
       });
-      this.armProbeTimer(15_000, () => {
-        if (!settled) {
-          // still buffering after 15s — give up on this source
-          if (a.readyState < 3 && a.currentTime < 0.5) onFail();
-          else onOk();
-        }
-      });
+      // patient start watchdog: a proxy stream with NO data after 15 s is
+      // dead (origin down, rate-limited); one that is downloading but
+      // slow keeps its full 45 s budget. The fixed 15 s kill abandoned
+      // streams that would have played (throttled networks).
+      this.armStartWatchdog(a, 15_000, 45_000, onFail);
       void startSec;
     });
   }
@@ -337,13 +365,12 @@ export class PlayerEngine {
       a.play().catch(() => {
         /* autoplay refusal — the timeout below decides */
       });
-      // direct URLs are known-good or 403 immediately; 8s is plenty
-      this.armProbeTimer(8_000, () => {
-        if (!settled) {
-          if (a.readyState >= 2 && a.currentTime > 0.1) onOk();
-          else onFail();
-        }
-      });
+      // patient start watchdog: a direct URL that produced no data at all
+      // after 12 s is dead (expired, bot-gated); one that is downloading
+      // keeps its full 30 s budget. The fixed 8 s kill assumed "known-good
+      // or 403 immediately" — false on slow networks, where it murdered
+      // streams that would have started.
+      this.armStartWatchdog(a, 12_000, 30_000, onFail);
       void startSec;
     });
   }
