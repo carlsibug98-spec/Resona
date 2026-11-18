@@ -65,3 +65,4 @@ server.log
 # local sqlite database (dev server default path)
 resona.db
 resona.db-*
+3000
