@@ -8,7 +8,6 @@ type Onboarding = "new" | "done";
 interface SettingsState {
   region: string;
   resolverInstances: string;
-  showVideo: boolean;
   autoplayRadio: boolean;
   audioQuality: "standard" | "high";
   lySize: 0 | 1 | 2;
@@ -26,7 +25,6 @@ interface SettingsState {
   setLastBackupAt: (t: number | null) => void;
   setRegion: (r: string) => void;
   setResolverInstances: (s: string) => void;
-  setShowVideo: (v: boolean) => void;
   setAutoplayRadio: (v: boolean) => void;
   setAudioQuality: (q: "standard" | "high") => void;
   setLySize: (s: 0 | 1 | 2) => void;
@@ -42,7 +40,6 @@ export const useSettings = create<SettingsState>()(
     (set, get) => ({
       region: "Global",
       resolverInstances: "",
-      showVideo: true,
       autoplayRadio: true,
       audioQuality: "standard",
       lySize: 1,
@@ -55,7 +52,6 @@ export const useSettings = create<SettingsState>()(
       setLastBackupAt: (lastBackupAt) => set({ lastBackupAt }),
       setRegion: (region) => set({ region }),
       setResolverInstances: (resolverInstances) => set({ resolverInstances }),
-      setShowVideo: (showVideo) => set({ showVideo }),
       setAutoplayRadio: (autoplayRadio) => set({ autoplayRadio }),
       setAudioQuality: (audioQuality) => set({ audioQuality }),
       setLySize: (lySize) => set({ lySize }),
@@ -71,13 +67,12 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: "resona-settings",
-      version: 3,
+      version: 4,
       migrate: (persisted: unknown, version: number) => {
         const s = (persisted || {}) as Record<string, unknown>;
         // v1.4.0: the video button now plays the real music video and
         // autoplay radio exists — flip both on once for pre-1.4 installs.
         if (version < 1) {
-          if (s.showVideo === false) s.showVideo = true;
           if (s.autoplayRadio === undefined) s.autoplayRadio = true;
         }
         // v1.5.0: onboarding flag for the Welcome home. Anyone upgrading
@@ -92,6 +87,12 @@ export const useSettings = create<SettingsState>()(
         if (version < 3) {
           delete s.starterContent;
           delete s.starterAppliedAt;
+        }
+        // v1.7.4: the video player is removed. Drop the setting so it
+        // stops haunting persisted state (its toggle is gone from
+        // Settings; the full-screen view is audio + lyrics only).
+        if (version < 4) {
+          delete s.showVideo;
         }
         return s as unknown as SettingsState;
       },

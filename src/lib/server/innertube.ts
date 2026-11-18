@@ -486,6 +486,40 @@ function parseTwoRow(r: any): AlbumCard | null {
   }
 }
 
+/** a musicTwoRowItemRenderer that navigates to a WATCH endpoint is a song
+ *  (the "Videos" carousel on artist pages); one that browses a playlist is
+ *  an album/single card. v1.7.4: artist "songs" shelves moved into this
+ *  shape (musicShelfRenderer is gone), which emptied every artist page. */
+function twoRowTrack(r: any): Track | null {
+  try {
+    const videoId = r.navigationEndpoint?.watchEndpoint?.videoId;
+    if (!videoId) return null;
+    const title =
+      r.title?.runs?.[0]?.text ||
+      r.title?.simpleText ||
+      "";
+    if (!title) return null;
+    const thumbSrc =
+      r.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
+    const thumb = thumbSrc.length
+      ? thumbSrc[thumbSrc.length - 1].url
+      : `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+    const subRuns = r.subtitle?.runs?.map((x: any) => x.text).join("").trim() || "";
+    // "OxYy • 467 views" — artist is everything before the first separator
+    const artist = subRuns.split(/[·•]/)[0].trim();
+    return {
+      videoId,
+      title,
+      artist: artist || subRuns,
+      artistId: r.navigationEndpoint?.watchEndpoint?.browseId,
+      thumb,
+      views: subRuns.split(/[·•]/).slice(1).join("·").trim() || undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function browseArtist(browseId: string): Promise<ArtistPage> {
   return cached(`artist:${browseId}`, 1000 * 60 * 60, async () => {
     const data = await innertubePost("browse", { browseId });
@@ -495,6 +529,9 @@ export async function browseArtist(browseId: string): Promise<ArtistPage> {
       ...walk(data, "musicImmersiveHeaderRenderer"),
       ...walk(data, "musicDetailHeaderRenderer"),
       ...walk(data, "musicResponsiveHeaderRenderer"),
+      // v1.7.4: artist browse now answers with musicVisualHeaderRenderer
+      // (the old three vanished) — without it every artist name was ""
+      ...walk(data, "musicVisualHeaderRenderer"),
     ];
     let headerThumb: string | undefined;
     if (headers.length) {
@@ -506,6 +543,7 @@ export async function browseArtist(browseId: string): Promise<ArtistPage> {
       const thumbSrc =
         h.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails ||
         h.thumbnail?.croppedSquareThumbnailRenderer?.thumbnail?.thumbnails ||
+        h.thumbnail?.thumbnails ||
         [];
       headerThumb = thumbSrc.length
         ? thumbSrc[thumbSrc.length - 1].url
@@ -540,6 +578,16 @@ export async function browseArtist(browseId: string): Promise<ArtistPage> {
         ...walk(c, "musicTwoRowItemRenderer"),
       ];
       for (const r of rows) {
+        // v1.7.4: "Videos"/"Songs" carousel items are watchable tracks —
+        // the only place artist songs live now. Skipping them (the old
+        // code only mined albums here) left every artist page songless,
+        // which disabled the Play button: "click does nothing".
+        const t = twoRowTrack(r);
+        if (t && !seenSong.has(t.videoId)) {
+          seenSong.add(t.videoId);
+          songs.push(t);
+          continue;
+        }
         const card = parseTwoRow(r);
         if (!card) continue;
         if (seenAlbum.has(card.playlistId + card.title)) continue;

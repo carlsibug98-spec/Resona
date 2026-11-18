@@ -26,7 +26,9 @@ export type ModalState =
   | { kind: "confirmRemoveDownload"; track: Track };
 
 export type PanelTab = "queue" | "lyrics";
-export type NfMode = "lyrics" | "video" | null;
+/** v1.7.4: the video mode is gone — full-screen now playing is audio +
+ *  lyrics only ("lyrics" toggles the lyrics pane, null is cover art) */
+export type NfMode = "lyrics" | null;
 
 interface UiState {
   views: View[];

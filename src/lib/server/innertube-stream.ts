@@ -155,9 +155,20 @@ const CLIENTS: { name: string; client: Record<string, unknown> }[] = [
  * the IP for a while. While active, resolveInnertubeStream posts
  * NOTHING (a burst into a gated IP only extends it) and the caller's
  * fallback chain takes over.
+ *
+ * v1.7.4 — ESCALATING, not instant-blackout: live probing shows the gate
+ * FLAPS per request on residential IPs (one track gated, the next fine
+ * seconds later). The old flat 10-minute blackout turned one unlucky
+ * track — three gated ladder answers in a row — into "nothing plays for
+ * ten minutes" while the gate had already lifted. Now each consecutive
+ * full-gate doubles the backoff (30 s → 1 m → 2 m → 5 m, capped), and
+ * any ladder that gets ANY non-gated answer (success, 4xx, network
+ * error) resets the escalation. The cap stays at 5 minutes: probing a
+ * hard-gated datacenter IP deeper only entrenches it.
  */
-const GATE_MS = 10 * 60_000;
+const GATE_STEPS_MS = [30_000, 60_000, 120_000, 300_000];
 let gateUntil = 0;
+let gateLevel = 0;
 
 /** test hook / diagnostics: is the IP-wide InnerTube gate active? */
 export function innertubeGateActive(): boolean {
@@ -167,6 +178,7 @@ export function innertubeGateActive(): boolean {
 /** test hook: reset the gate between tests */
 export function innertubeGateReset(): void {
   gateUntil = 0;
+  gateLevel = 0;
 }
 
 /**
@@ -287,13 +299,26 @@ export async function resolveInnertubeStream(
   // NOT stop the ladder (the next client often passes) — walk it fully,
   // Musify-style, and only treat the gate as IP-wide when EVERY client
   // came back gated: then further POSTs only deepen the gate and the
-  // caller's fallback chain takes over for a while.
+  // caller's fallback chain takes over for a while (escalating, see
+  // GATE_STEPS_MS).
   let gatedClients = 0;
   for (const { name, client } of CLIENTS) {
     const { stream, botGated } = await tryClient(videoId, name, client, timeoutMs);
-    if (stream) return stream;
+    if (stream) {
+      // any success also proves the gate is gone — reset the escalation
+      gateLevel = 0;
+      return stream;
+    }
     if (botGated) gatedClients++;
   }
-  if (gatedClients === CLIENTS.length) gateUntil = Date.now() + GATE_MS;
+  if (gatedClients === CLIENTS.length && gatedClients > 0) {
+    const ms = GATE_STEPS_MS[Math.min(gateLevel, GATE_STEPS_MS.length - 1)];
+    gateLevel = Math.min(gateLevel + 1, GATE_STEPS_MS.length - 1);
+    gateUntil = Date.now() + ms;
+  } else {
+    // mixed outcome (some client answered non-gated): the IP is not
+    // fully gated — keep the ladder cheap for the next track
+    gateLevel = 0;
+  }
   return null;
 }

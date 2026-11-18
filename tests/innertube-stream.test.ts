@@ -245,6 +245,36 @@ test("flapping gate: first client gated, next client passes — resolve succeeds
   innertubeGateReset();
 });
 
+test("v1.7.4 escalation: a full-gate cycle arms a SHORT gate, not a 10-min blackout", async () => {
+  const { resolveInnertubeStream, innertubeGateActive, innertubeGateReset } = await import(
+    "../src/lib/server/innertube-stream.ts"
+  );
+  innertubeGateReset();
+  await withFetch(
+    (async (_url: string) => {
+      const u = String(_url);
+      if (u.includes("youtube.com/youtubei")) {
+        return new Response(
+          JSON.stringify(playerResponse([], "LOGIN_REQUIRED", "Sign in to confirm you're not a bot")),
+          { status: 200 }
+        );
+      }
+      return new Response("x", { status: 206 });
+    }) as FetchImpl,
+    async () => {
+      await resolveInnertubeStream("esc01234567");
+      assert.ok(innertubeGateActive(), "first full gate arms the gate");
+      // the first step is 30 s — a full 10-minute blackout after ONE bad
+      // track was the v1.7.3 bug: on a flapping residential IP the gate
+      // lifts in seconds, and the app stayed dead for 10 minutes
+      const waitMs = 10_000; // far below the 30 s first step
+      await new Promise((r) => setTimeout(r, waitMs));
+      assert.ok(innertubeGateActive(), "gate must still be active after 10 s (30 s first step)");
+    }
+  );
+  innertubeGateReset();
+});
+
 test("age gate does NOT arm the IP-wide gate — every client is still tried", async () => {
   const { resolveInnertubeStream, innertubeGateActive, innertubeGateReset } = await import(
     "../src/lib/server/innertube-stream.ts"

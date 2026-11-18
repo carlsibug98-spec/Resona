@@ -1,5 +1,71 @@
 # Changes
 
+## v1.7.4 — artist pages were empty and clicks did nothing (2026-11-18)
+
+The symptom: "not playing entirely". Searching worked, but artist pages
+showed a blank hero, the Play button was dead, and clicking tracks led
+nowhere — while other apps (Musify) played the same songs instantly.
+
+### Root cause 1 — YouTube changed the artist-page response shape
+
+YouTube Music's `browse` endpoint stopped returning the renderers
+Resona parsed (`musicImmersiveHeaderRenderer`, `musicShelfRenderer`).
+Every artist page now answers with `musicVisualHeaderRenderer` +
+`musicCarouselShelfRenderer` containing `musicTwoRowItemRenderer`
+items. Resona found nothing it recognized and returned
+`{name: "", songs: []}` — with HTTP 200. The UI treated that as a
+loaded page: empty hero, **disabled Play button**, no error. Clicking a
+track's artist navigated to one of these empty pages, which looked
+exactly like "the app is broken".
+
+Fixed:
+- `browseArtist` now parses `musicVisualHeaderRenderer` (name + avatar)
+  and mines songs from `musicTwoRowItemRenderer` carousel items
+  (title, artist, videoId, view count), alongside the old shapes for
+  compatibility. Verified live: Rick Astley → 25 songs, 10 albums,
+  10 singles; OxYy → 10 songs.
+- The Songs/Albums split is now by navigation target (watch endpoint =
+  song, browse endpoint = album), not by carousel title alone.
+
+### Root cause 2 — the 10-minute InnerTube blackout overcorrected
+
+v1.7.3 armed a flat 10-minute IP-wide blackout after ONE track rolled
+three gated ladder answers. But the bot gate **flaps per request** on
+residential IPs: the next track often passes seconds later. One unlucky
+track made every later track skip the fast path for 10 minutes and
+fall to the (mostly dead) public instance fleet — "nothing plays".
+
+Fixed: escalating backoff — 30 s → 1 m → 2 m → 5 m (capped), reset by
+any non-gated ladder outcome or success. A flapping IP now recovers in
+half a minute instead of ten.
+
+### Also in this release
+
+- **Full-screen player is audio + lyrics only** — the video mode
+  (music-video playback via the YouTube embed, the Video toggle in
+  Settings) is removed. The hidden embed remains internally as the
+  last-resort audio source when direct and proxied streams both fail.
+- Investigated porting Musify's free-public-proxy fallback
+  (proxyscrape/proxifly): live-tested with real routing — free proxy
+  IPs get bot-gated too, so it adds latency without beating the gate.
+  Not adopted; the escalation above plus the verified-URL chain is the
+  better trade.
+- Playback failures always surface a banner with Retry / Skip / Run
+  diagnostics — never silent.
+
+## v1.7.3 — stay on failed tracks, sequential InnerTube ladder (2026-11-17)
+
+- A track that fails to start now stays put with an error banner
+  (retry / skip are manual). v1.7.1's auto-advance silently skipped
+  failing tracks and masked the real breakage behind "a few broken
+  songs".
+- The InnerTube client ladder (ANDROID_VR → sdkless ANDROID → TVHTML5)
+  runs strictly sequentially — the v1.7.0-1.7.2 parallel race
+  burst-POSTed /player 4× per track and tripped YouTube's IP bot-gate.
+- Playback of InnerTube URLs always goes through the byte proxy with
+  the minting client's User-Agent (the <audio> element sends Chrome's
+  UA, which googlevideo rejects for app-client URLs).
+
 ## v1.7.2 — some tracks were silent: dead URLs no longer win (2026-11-17)
 
 The symptom: after v1.7.0, some tracks just wouldn't play — no error,

@@ -5,12 +5,10 @@ import { engine } from "@/lib/player-engine";
 import { usePlayer } from "@/stores/player";
 import { useLibrary } from "@/stores/library";
 import { useSettings } from "@/stores/settings";
-import { useUi } from "@/stores/ui";
 import { usePlaybackError } from "@/stores/playback-error";
 import { PlaybackErrorBanner } from "@/components/player/PlaybackErrorBanner";
 import { toast } from "@/stores/toast";
 import type { Track } from "@/lib/types";
-
 /**
  * When the queue runs out, keep the music going: pull the song radio for
  * the last track and continue. Toggleable in Settings → Playback.
@@ -209,50 +207,16 @@ export function PlayerProvider() {
     }
   }, [track?.videoId, duration, Math.floor(position / 5)]);
 
-  const showVideo = useSettings((s) => s.showVideo);
-  const fullPlayer = useUi((s) => s.fullPlayer);
-  const nfMode = useUi((s) => s.nfMode);
-  // the real YouTube video docks into the mockup's video slot
-  const visibleVideo = showVideo && fullPlayer && nfMode === "video" && !!track;
-
-  // hand playback to the visible video (and back to audio when leaving)
-  useEffect(() => {
-    if (visibleVideo) void engine.enterVideoMode();
-    else void engine.exitVideoMode();
-  }, [visibleVideo]);
-
-  // keep the persistent iframe glued to the mockup's video frame —
-  // the frame lives in a scrollable body, so track it every frame
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host || !visibleVideo) return;
-    let raf = 0;
-    const sync = () => {
-      const frame = document.querySelector<HTMLElement>("[data-nf-video-frame]");
-      if (frame) {
-        const r = frame.getBoundingClientRect();
-        host.style.left = `${r.left}px`;
-        host.style.top = `${r.top}px`;
-        host.style.width = `${r.width}px`;
-        host.style.height = `${r.height}px`;
-        host.classList.add("docked");
-      }
-      raf = requestAnimationFrame(sync);
-    };
-    raf = requestAnimationFrame(sync);
-    return () => {
-      cancelAnimationFrame(raf);
-      host.classList.remove("docked");
-    };
-  }, [visibleVideo]);
-
+  // v1.7.4: no visible video player anymore — the host div stays as the
+  // hidden home of the IFrame embed, which is the last-resort audio
+  // source when direct and proxied streams both fail
   return (
     <>
       <div
         ref={hostRef}
         id="resona-yt-host"
-        aria-hidden={!visibleVideo}
-        className={visibleVideo ? "nf-video-live" : "yt-host-hidden"}
+        aria-hidden={true}
+        className="yt-host-hidden"
       />
       <PlaybackErrorBanner />
     </>

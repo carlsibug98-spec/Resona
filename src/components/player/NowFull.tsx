@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { usePlayer } from "@/stores/player";
 import { useUi } from "@/stores/ui";
-import { useSettings } from "@/stores/settings";
 import { useLyrics, lineIndexAt } from "@/lib/useLyrics";
 import { useCredits } from "@/lib/useCredits";
 import { CoverArt, MiniArt } from "@/lib/art";
@@ -13,10 +12,10 @@ import { toast } from "@/stores/toast";
 import type { Track } from "@/lib/types";
 
 /**
- * Full-screen now playing — markup mirrors the mockup 1:1
- * (art / lyrics / video modes, credits + next-in-queue cards, player bar).
- * The real music video docks over the mockup's video frame; credits come
- * from MusicBrainz.
+ * Full-screen now playing — markup mirrors the mockup 1:1 (art / lyrics
+ * modes, credits + next-in-queue cards, player bar). Credits come from
+ * MusicBrainz. v1.7.4: the video mode is gone — full-screen is audio +
+ * lyrics only.
  */
 export function NowFull() {
   const open = useUi((s) => s.fullPlayer);
@@ -24,7 +23,6 @@ export function NowFull() {
   const setNfMode = useUi((s) => s.setNfMode);
   const setFullPlayer = useUi((s) => s.setFullPlayer);
   const player = usePlayer();
-  const showVideo = useSettings((s) => s.showVideo);
   const track = player.current() as Track | null;
   const lyrics = useLyrics(track, player.duration || track?.duration);
   const credits = useCredits(track);
@@ -66,10 +64,7 @@ export function NowFull() {
   if (!open) return null;
 
   const next = player.queue[player.index + 1] as Track | undefined;
-  const toggleMode = (k: "lyrics" | "video") => setNfMode(nfMode === k ? null : k);
-
-  // the engine docks the real YouTube player over the mockup's video frame
-  const videoReal = showVideo && !!track;
+  const toggleMode = (k: "lyrics") => setNfMode(nfMode === k ? null : k);
 
   // credits: MusicBrainz first, honest fallback keeps the card alive
   const creditPersons: { name: string; role: string }[] =
@@ -98,7 +93,7 @@ export function NowFull() {
 
   return (
     <section
-      className={`nowfull open${nfMode === "lyrics" ? " nfm-lyrics" : ""}${nfMode === "video" ? " nfm-video" : ""}`}
+      className={`nowfull open${nfMode === "lyrics" ? " nfm-lyrics" : ""}`}
       aria-label="Now playing, full screen"
     >
       <header className="nf-top">
@@ -111,15 +106,6 @@ export function NowFull() {
           onClick={() => toggleMode("lyrics")}
         >
           <Icon name="mic" />
-        </button>
-        <button
-          className="nf-tb"
-          aria-pressed={nfMode === "video"}
-          aria-label="Video"
-          title="Video"
-          onClick={() => toggleMode("video")}
-        >
-          <Icon name="video" />
         </button>
         <button
           className="nf-tb"
@@ -149,12 +135,6 @@ export function NowFull() {
       <div className="nf-body">
         <div className="nf-hero">
           <CoverArt track={track} className="nf-art" hue={track ? undefined : 0} />
-          <div
-            className={`nf-video${videoReal ? " nf-video-real" : ""}`}
-            data-nf-video-frame=""
-          >
-            Music video preview
-          </div>
           <div className="nf-lyrics" ref={listRef}>
             {lines.length ? (
               lines.map((l, i) => (
