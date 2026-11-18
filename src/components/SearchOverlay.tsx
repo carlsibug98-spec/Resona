@@ -66,8 +66,8 @@ const noSubscribe = () => () => {};
 export function SearchOverlay() {
   const ui = useUi();
   const [open, setOpen] = useState(false);
-  const [q, setQ] = useState("");
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [q, setQ] = useState("");  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggesting, setSuggesting] = useState(false);
   const [dropTracks, setDropTracks] = useState<Track[]>([]);
   const [dropArtists, setDropArtists] = useState<ArtistHit[]>([]);
   const [recents, setRecents] = useState<string[]>([]);
@@ -83,6 +83,14 @@ export function SearchOverlay() {
 
   const player = usePlayer();
   const navigate = useUi((s) => s.navigate);
+  const view = useUi((s) => s.view());
+
+  // Spotify behavior: the top-bar input mirrors the current search page's
+  // query — navigating to /search (deep link, recent, suggestion) fills it
+  const viewQuery = view.name === "search" ? view.q : undefined;
+  useEffect(() => {
+    if (viewQuery && viewQuery !== q) setQ(viewQuery);
+  }, [viewQuery]);
 
   // measure the input's box whenever the dropdown opens (and on resize):
   // positioning from state keeps refs out of the render path
@@ -136,18 +144,21 @@ export function SearchOverlay() {
 
   /** debounced dropdown fetch: query suggestions + the first song hits.
    *  Short/closed queries schedule a microtask to clear so no state is
-   *  written synchronously inside the effect. */
+   *  written synchronously inside the effect. While in flight the rows
+   *  are skeleton shimmer bars (the reference video's loading state). */
   useEffect(() => {
     const query = q.trim();
     const t = setTimeout(
       () => {
         if (!open || query.length < 2) {
           setSuggestions([]);
+          setSuggesting(false);
           setDropTracks([]);
           setDropArtists([]);
           setCursor(-1);
           return;
         }
+        setSuggesting(true);
         void (async () => {
           ctrlRef.current?.abort();
           const ctrl = new AbortController();
@@ -166,6 +177,8 @@ export function SearchOverlay() {
             setCursor(-1);
           } catch {
             /* dropdown is best-effort */
+          } finally {
+            if (!ctrl.signal.aborted) setSuggesting(false);
           }
         })();
       },
@@ -304,6 +317,21 @@ export function SearchOverlay() {
                   <kbd>Enter</kbd> to search
                 </span>
               </div>
+            )}
+
+            {q.trim().length >= 2 && suggesting && dropRows.length === 0 && (
+              <>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="sdrop-row skel" aria-hidden="true">
+                    <span className="sdrop-ic">
+                      <span className="sk sq" />
+                    </span>
+                    <span className="sdrop-t">
+                      <span className="sk line" />
+                    </span>
+                  </div>
+                ))}
+              </>
             )}
 
             {dropRows.map((row, i) => {

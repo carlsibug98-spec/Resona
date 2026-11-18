@@ -1,5 +1,32 @@
 # Changes
 
+## v1.7.5 — the Spotify search experience (2026-11-18)
+
+Built from the user's reference screen recording (frame-by-frame
+analysis of Spotify's search flow):
+
+- **No in-page search bar.** The top-bar search is the only search box,
+  exactly like the recording — the results page renders whatever query
+  it was navigated with. The old in-page "What do you want to listen
+  to?" bar is gone.
+- **Search-box width matches the reference: ~710px, centered, identical
+  on home and results pages** (measured from the video: x 645–1355 at
+  1920 wide).
+- **Filter tabs** — All / Songs / Playlists / Albums / Artists — with
+  per-type layouts: card grids for Playlists/Albums/Artists, a full
+  song table for Songs, and the combined view for All.
+- **Top-result hero card** beside the song list (Spotify's two-column
+  layout): big artwork, big title, green play button.
+- **Album & community-playlist search results.** `searchCollections`
+  queries YouTube Music's albums / community-playlists filters via the
+  base64 `params` tokens (the plain `filter` name is silently ignored),
+  parsing the new row shape (navigation lives on the item itself,
+  MPRE…/VL… browse ids). Albums show "Single · Artist · Year",
+  playlists show "Creator · views"; both navigate to the album view.
+- **Suggestion dropdown: skeleton shimmer rows** while suggestions
+  load (the grey bars in the recording), and the top-bar input mirrors
+  the current search page's query (deep links, recents).
+
 ## v1.7.4 — artist pages were empty and clicks did nothing (2026-11-18)
 
 The symptom: "not playing entirely". Searching worked, but artist pages

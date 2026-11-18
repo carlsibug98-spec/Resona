@@ -14,7 +14,15 @@ interface AlbumData {
 }
 
 /** album / remote playlist — mockup hero language */
-export function AlbumView({ id, label }: { id: string; label?: string }) {
+export function AlbumView({
+  id,
+  label,
+  subtitle,
+}: {
+  id: string;
+  label?: string;
+  subtitle?: string;
+}) {
   const ui = useUi();
   const player = usePlayer();
   const album = useAsyncData(`album:${id}`, async (signal) => {
@@ -47,7 +55,9 @@ export function AlbumView({ id, label }: { id: string; label?: string }) {
           <div className="muted kicker">ALBUM</div>
           <h1>{name || "…"}</h1>
           <div className="muted">
-            {album.state === "loading" ? "Loading…" : `${tracks.length} songs`}
+            {album.state === "loading"
+              ? "Loading…"
+              : `${tracks.length} songs${subtitle ? ` · ${subtitle}` : ""}`}
           </div>
         </div>
       </div>

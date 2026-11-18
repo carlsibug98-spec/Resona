@@ -39,7 +39,7 @@ function MainView({ view }: { view: View }) {
     case "artist":
       return <ArtistView id={view.id} label={view.label} />;
     case "album":
-      return <AlbumView id={view.id} label={view.label} />;
+      return <AlbumView id={view.id} label={view.label} subtitle={view.subtitle} />;
     case "playlist":
       return <PlaylistView id={view.id} />;
     case "library":

@@ -238,6 +238,79 @@ export interface ArtistHit {
   thumb?: string;
 }
 
+/** an album or community-playlist search hit. `browseId` is an MPRE…
+ *  (album) or VL… (playlist) — navigates to the existing AlbumView. */
+export interface CollectionHit {
+  browseId: string;
+  /** MPRE (album) or VL (community playlist) */
+  kind: "album" | "playlist";
+  title: string;
+  subtitle: string;
+  thumb?: string;
+  /** the radio playlistId that plays this collection (OLAK5uy… or VL…) */
+  radioId?: string;
+}
+
+/**
+ * Album / community-playlist search. These rows navigate on the ITEM
+ * itself (navigationEndpoint.browseEndpoint at the row level, not on a
+ * text run): MPRE… = album, VL… = community playlist. The play overlay
+ * carries a watchPlaylistEndpoint (the collection's radio), col1 runs
+ * carry "Single/Album • artist • year" or "Playlist • creator • N songs".
+ * v1.7.5: the filter needs the base64 `params` token — the plain
+ * `filter:` name is silently ignored and returns songs.
+ */
+const SEARCH_PARAMS_TOKENS = {
+  albums: "EgWKAQIYAWoKEAoQAxAEEAkQBQ==",
+  community_playlists: "EgeKAQQoAEABagoQChADEAQQCRAF",
+} as const;
+
+export async function searchCollections(
+  query: string,
+  kind: "albums" | "community_playlists"
+): Promise<CollectionHit[]> {
+  return cached(`search:${kind}:${query}`, 1000 * 60 * 30, async () => {
+    const data = await innertubePost("search", {
+      query,
+      params: SEARCH_PARAMS_TOKENS[kind],
+    });
+    const out: CollectionHit[] = [];
+    const seen = new Set<string>();
+    for (const item of walk(data, "musicResponsiveListItemRenderer")) {
+      const nav = item?.navigationEndpoint?.browseEndpoint;
+      const browseId: string | undefined = nav?.browseId;
+      if (!browseId || !/^(MPRE|VL)/.test(browseId) || seen.has(browseId)) continue;
+
+      const title: string =
+        item?.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]
+          ?.text || "";
+      if (!title) continue;
+
+      const subRuns =
+        item?.flexColumns?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+      const subtitle = subRuns.map((r: any) => r.text || "").join("").trim();
+
+      const thumbSrc =
+        item?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
+      const radioId: string | undefined =
+        item?.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer
+          ?.playNavigationEndpoint?.watchPlaylistEndpoint?.playlistId;
+
+      seen.add(browseId);
+      out.push({
+        browseId,
+        kind: browseId.startsWith("MPRE") ? "album" : "playlist",
+        title,
+        subtitle,
+        thumb: thumbSrc.length ? thumbSrc[thumbSrc.length - 1].url : undefined,
+        radioId,
+      });
+      if (out.length >= 12) break;
+    }
+    return out;
+  });
+}
+
 /**
  * Artist results for a search query. The `artists` filter returns rows whose
  * artist page navigation is NOT on the title run (it's a watch link there) —

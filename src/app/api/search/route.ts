@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchTracks, searchArtists, getSuggestions } from "@/lib/server/innertube";
+import {
+  searchTracks,
+  searchArtists,
+  searchCollections,
+  getSuggestions,
+} from "@/lib/server/innertube";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -9,6 +14,7 @@ export async function GET(req: NextRequest) {
   const filter =
     req.nextUrl.searchParams.get("filter") === "videos" ? "videos" : "songs";
   const suggest = req.nextUrl.searchParams.get("suggest") === "1";
+  const collections = req.nextUrl.searchParams.get("collections") === "1";
   if (!q) return NextResponse.json({ tracks: [], artists: [] });
 
   // suggestion mode: just the query-completion list for the dropdown
@@ -18,12 +24,20 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // both in parallel; an artist-list failure must not sink the songs
-    const [tracks, artists] = await Promise.all([
+    // parallel; an artist/collection failure must not sink the songs
+    // (collections=1: the full search page wants albums + community
+    // playlists for its filter tabs — the dropdown omits them)
+    const [tracks, artists, albums, playlists] = await Promise.all([
       searchTracks(q, filter),
       searchArtists(q).catch(() => []),
+      ...(collections
+        ? [searchCollections(q, "albums").catch(() => [])]
+        : [Promise.resolve([])]),
+      ...(collections
+        ? [searchCollections(q, "community_playlists").catch(() => [])]
+        : [Promise.resolve([])]),
     ]);
-    return NextResponse.json({ tracks, artists });
+    return NextResponse.json({ tracks, artists, albums, playlists });
   } catch (e) {
     console.error("search error:", e);
     // 502 (not 200-with-empty) so the UI can say "search is unreachable"
