@@ -1,5 +1,41 @@
 # Changes
 
+## v1.7.6 — Musify engine port (2026-11-18)
+
+The playback/download internals of Musify (gokadzev/Musify, GPL-3) —
+studied from its source — merged into Resona, keeping Resona's UI:
+
+- **Audio quality that actually works.** The Standard/High setting was
+  decorative; now it is wired end to end, Musify's
+  `selectAudioOnlyStreamForQuality` adapted: a codec-compatibility score
+  (AAC/mp4 best, opus next, Dolby excluded as last resort) dominates,
+  bitrate breaks ties. High takes the top tier, Standard the lower band
+  (live-verified: 130,677 vs 50,152 bps on the same track through the
+  same client). The setting rides every stream request and every
+  download; per-quality server cache like Musify's
+  `song_<id>_<quality>_url`.
+- **Playlist batch download** (Musify's `OfflinePlaylistService.
+  _processDownloadQueue`): a Download-all button on every playlist —
+  sequential queue (one resolve in flight, no bot-gate-triggering
+  bursts), tracks already saved are skipped and counted, live
+  "Downloading <song> · n/m" progress with a bar, failures counted and
+  reported, cancel stops after the current track.
+- Everything else from Musify's engine was already in Resona (sequential
+  client ladder with per-client retry, minting-UA discipline, bot-gate
+  escalation, next-track preload, offline-first playback).
+- **Playback failure policy (Musify parity, `_handlePlaybackError`)** —
+  a track that fails to start auto-skips to the next song after 2 s
+  (cancelled if the user moves or anything starts playing); playback
+  stops with the manual Retry banner only after 3 consecutive failed
+  tracks, and any track that plays resets the counter. The start
+  watchdogs are patient now too: a source is abandoned only when NO
+  bytes have arrived (12 s direct / 15 s proxy); a
+  downloading-but-slow stream keeps its full 30 s / 45 s budget instead
+  of the old fixed 8 s / 15 s kills. Supersedes the v1.7.3
+  "never advance on failure" rule, which turned one slow song on a
+  throttled network into "playback stopped on its own". Guard test:
+  `tests/playback-failure-policy.test.ts`.
+
 ## v1.7.5 — the Spotify search experience (2026-11-18)
 
 Built from the user's reference screen recording (frame-by-frame

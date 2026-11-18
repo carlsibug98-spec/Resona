@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { cacheGet, cacheSet, fetchWithTimeout, verifyAudioUrl } from "./cache.ts";
-import { resolveInnertubeStream } from "./innertube-stream.ts";
+import { resolveInnertubeStream, type AudioQuality } from "./innertube-stream.ts";
 import {
   buildAudioUrl,
   DEFAULT_INVIDIOUS,
@@ -47,12 +47,15 @@ const YTDLP_BIN = process.env.YTDLP_PATH || "yt-dlp";
 const GATE_TTL = 1000 * 60;
 const gateKey = (videoId: string) => `stream:innertube-gated:${videoId}`;
 
-async function tryInnertube(videoId: string): Promise<StreamResult | null> {
+async function tryInnertube(
+  videoId: string,
+  quality: AudioQuality = "standard"
+): Promise<StreamResult | null> {
   if (cacheGet(gateKey(videoId)) !== null) return null;
   // resolveInnertubeStream verifies each client's URL as part of the
   // ladder (with the minting client's UA), so a non-null answer here is
   // a URL proven to serve bytes — for that same identity
-  const r = await resolveInnertubeStream(videoId);
+  const r = await resolveInnertubeStream(videoId, { quality });
   if (!r) {
     cacheSet(gateKey(videoId), { gated: true }, GATE_TTL);
     return null;
@@ -224,9 +227,12 @@ async function tryInvidious(base: string, videoId: string): Promise<StreamResult
 export async function resolveStream(
   videoId: string,
   extraInstances?: string | null,
-  opts?: { ytdlp?: boolean; fresh?: boolean }
+  opts?: { ytdlp?: boolean; fresh?: boolean; quality?: AudioQuality }
 ): Promise<StreamResult> {
-  const key = `stream:${videoId}:${extraInstances || ""}`;
+  const quality = opts?.quality ?? "standard";
+  // quality is part of the key (Musify's song_${songId}_${quality}_url):
+  // the same video resolved at "standard" and "high" is two different URLs
+  const key = `stream:${videoId}:${quality}:${extraInstances || ""}`;
 
   // success is worth 30 minutes (googlevideo URLs live ~6h); failure only
   // 20 seconds — a transient network hiccup or a gated InnerTube response
@@ -254,7 +260,7 @@ export async function resolveStream(
     //    tripped YouTube's IP bot-gate). One POST per track on the happy
     //    path; results play through the byte proxy with the minting UA.
     //    Bot-gated IPs short-circuit and fall through fast.
-    const fast = await tryInnertube(videoId);
+    const fast = await tryInnertube(videoId, quality);
     if (fast) return fast;
 
     // 2. yt-dlp AND the instance fleet raced together. Running yt-dlp

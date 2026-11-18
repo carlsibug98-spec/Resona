@@ -19,6 +19,8 @@ export function downloadTrack(track: Track): Promise<DownloadStatus> {
       const q = new URLSearchParams({ videoId: t.videoId });
       const instances = useSettings.getState().resolverInstances.trim();
       if (instances) q.set("instances", instances);
+      // downloads honour the user's audio-quality setting too
+      if (useSettings.getState().audioQuality === "high") q.set("quality", "high");
       // same-origin proxy — googlevideo URLs are IP-bound and blocked by CORS
       return fetch(`/api/stream?${q.toString()}`);
     },

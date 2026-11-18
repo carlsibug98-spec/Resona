@@ -173,9 +173,10 @@ export function SettingsView() {
         <div className="sec">
           <h3>Audio quality</h3>
           <p>
-            Preferred quality for streaming and downloads. Actual bitrate depends on the
-            resolver serving the stream — Standard always works, High applies when the
-            configured resolvers provide higher-bitrate sources.
+            Preferred quality for streaming and downloads. Standard picks the
+            lower bitrate tier (about half the data, fine on laptop speakers);
+            High takes the best available stream. Applies to the next track
+            you play and every download after you switch.
           </p>
           <div className="seg">
             <button
@@ -186,11 +187,7 @@ export function SettingsView() {
             </button>
             <button
               className={settings.audioQuality === "high" ? "on" : ""}
-              onClick={() => {
-                settings.setAudioQuality("high");
-                if (!settings.resolverInstances.trim())
-                  toast("High quality needs a resolver — add one below for best results");
-              }}
+              onClick={() => settings.setAudioQuality("high")}
             >
               High
             </button>

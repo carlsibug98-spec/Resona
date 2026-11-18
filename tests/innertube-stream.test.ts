@@ -62,7 +62,8 @@ test("resolveInnertubeStream picks the highest-bitrate audio/mp4 with a clean ur
       );
     }) as FetchImpl,
     async () => {
-      const r = await resolveInnertubeStream("abc12345678");
+      // v1.7.6: quality is explicit — high takes the top tier
+      const r = await resolveInnertubeStream("abc12345678", { quality: "high" });
       assert.ok(r, "should resolve");
       assert.equal(r.url, "https://gv/m4a");
       assert.equal(r.mime, "audio/mp4");
@@ -383,4 +384,87 @@ test("resolveInnertubeStream survives a thrown fetch (network error)", async () 
     }
   );
   void REAL_FETCH;
+});
+
+/* ── v1.7.6 quality selection (Musify's selectAudioOnlyStreamForQuality) ── */
+
+test("audioFormatCandidates: high returns the best candidate, standard drops the top tier", async () => {
+  const { audioFormatCandidates } = await import(
+    "../src/lib/server/innertube-stream.ts"
+  );
+  const fmts = [
+    { mimeType: "audio/mp4; codecs=mp4a.40.2", bitrate: 129_000, url: "https://x/129k" },
+    { mimeType: "audio/webm; codecs=opus", bitrate: 156_000, url: "https://x/156k" },
+    { mimeType: "audio/mp4; codecs=mp4a.40.2", bitrate: 62_000, url: "https://x/62k" },
+  ];
+  // high → the best overall (the 156k opus out-scored? no: AAC tier wins
+  // per Musify's compatibility score — codec tier dominates bitrate)
+  const high = audioFormatCandidates(fmts, "high");
+  assert.equal(high[0].url, "https://x/129k", "AAC tier beats higher-bitrate opus");
+  // standard → the same list minus the top pick (the lower band)
+  const standard = audioFormatCandidates(fmts, "standard");
+  assert.equal(standard[0].url, "https://x/62k", "standard drops the top tier");
+  assert.ok(!standard.some((f) => f.url === "https://x/129k"), "top pick absent from standard");
+});
+
+test("audioFormatCandidates: Dolby codecs are excluded entirely", async () => {
+  const { audioFormatCandidates } = await import(
+    "../src/lib/server/innertube-stream.ts"
+  );
+  const fmts = [
+    { mimeType: 'audio/mp4; codecs="ec-3"', bitrate: 999_000, url: "https://x/dolby" },
+    { mimeType: "audio/mp4; codecs=mp4a.40.2", bitrate: 128_000, url: "https://x/aac" },
+  ];
+  // Dolby is filtered by codecScore; the lone AAC survivor stays
+  // playable in BOTH modes (standard's drop-the-top only applies when a
+  // lower alternative exists)
+  for (const quality of ["standard", "high"] as const) {
+    const picked = audioFormatCandidates(fmts, quality);
+    assert.equal(picked.length, 1, quality);
+    assert.equal(picked[0].url, "https://x/aac");
+  }
+});
+
+test("audioFormatCandidates: ciphered formats stay excluded regardless of quality", async () => {
+  const { audioFormatCandidates } = await import(
+    "../src/lib/server/innertube-stream.ts"
+  );
+  const fmts = [
+    { mimeType: "audio/mp4; codecs=mp4a.40.2", bitrate: 130_000, signatureCipher: "s=abc" },
+    { mimeType: "audio/mp4; codecs=mp4a.40.2", bitrate: 96_000, url: "https://x/96k" },
+  ];
+  for (const quality of ["standard", "high"] as const) {
+    const picked = audioFormatCandidates(fmts, quality);
+    assert.equal(picked.length, 1);
+    assert.equal(picked[0].url, "https://x/96k");
+  }
+});
+
+test("resolveInnertubeStream quality=standard picks a lower format than quality=high", async () => {
+  const { resolveInnertubeStream, innertubeGateReset } = await import(
+    "../src/lib/server/innertube-stream.ts"
+  );
+  innertubeGateReset();
+  const fmts = [
+    { mimeType: "audio/mp4; codecs=mp4a.40.2", bitrate: 129_000, url: "https://x/high" },
+    { mimeType: "audio/mp4; codecs=mp4a.40.2", bitrate: 62_000, url: "https://x/low" },
+  ];
+  const responses = new Map<string, string>();
+  await withFetch(
+    (async (_url: any, init?: RequestInit) => {
+      await clientNameOf(init);
+      return new Response(JSON.stringify(playerResponse(fmts)), {
+        headers: { "content-type": "application/json" },
+      });
+    }) as FetchImpl,
+    async () => {
+      // probe fetches: the URL being verified is read from the Request
+      const high = await resolveInnertubeStream("dQw4w9WgXcQ", { quality: "high" });
+      const low = await resolveInnertubeStream("dQw4w9WgXcQ", { quality: "standard" });
+      responses.set("high", high?.url || "");
+      responses.set("low", low?.url || "");
+    }
+  );
+  assert.equal(responses.get("high"), "https://x/high");
+  assert.equal(responses.get("low"), "https://x/low");
 });

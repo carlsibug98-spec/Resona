@@ -2,6 +2,23 @@
 
 import type { Track } from "@/lib/types";
 import { idbGetAudio } from "@/lib/idb";
+import { useSettings } from "@/stores/settings";
+
+/**
+ * Build a /api/stream URL that carries the user's Audio-quality setting
+ * (Musify's audioQualitySetting → every stream request): ?quality=high
+ * picks the top bitrate tier, standard the lower one. Reading the store
+ * lazily per call means switching the setting applies to the NEXT track
+ * without a player restart.
+ */
+function streamUrl(videoId: string, resolve = false): string {
+  const q = new URLSearchParams({
+    videoId,
+    ...(resolve ? { resolve: "1" } : {}),
+  });
+  if (useSettings.getState().audioQuality === "high") q.set("quality", "high");
+  return `/api/stream?${q.toString()}`;
+}
 
  
 
@@ -117,6 +134,36 @@ export class PlayerEngine {
     this.probing = false;
   }
 
+  /**
+   * Musify-style patient start watchdog. A source is only declared dead
+   * when NO media data has arrived within `noDataMs`; a source that is
+   * downloading (buffered bytes exist) but slow to first frame keeps its
+   * full `hardCapMs` budget instead of being killed. The fixed 8 s / 15 s
+   * cutoffs this replaces turned "slow start" into "failed track": on a
+   * throttled network the first bytes legitimately take longer, and
+   * killing the source pushed the same slow stream through the fallback
+   * ladder until everything failed. Musify has no start deadline at all —
+   * the caps here exist so a truly dead source still reaches the embed
+   * fallback and a visible banner. `onFail` is the caller's settled-
+   * guarded callback, so late firing after a successful start is a no-op.
+   */
+  private armStartWatchdog(
+    a: HTMLAudioElement,
+    noDataMs: number,
+    hardCapMs: number,
+    onFail: () => void,
+  ): void {
+    this.armProbeTimer(noDataMs, () => {
+      if (a.buffered.length > 0) {
+        const rest = Math.max(0, hardCapMs - noDataMs);
+        if (rest > 0) this.armProbeTimer(rest, onFail);
+        else onFail();
+      } else {
+        onFail();
+      }
+    });
+  }
+
   /** tear down the audio element src after a failed probe; the async
    * error event it triggers must be attributed to the probe, not real
    * playback (see lastProbeTeardown) */
@@ -165,7 +212,7 @@ export class PlayerEngine {
   private warmNext() {
     if (!this.nextVideoId || this.nextVideoId === this.currentVideoId) return;
     const id = this.nextVideoId;
-    fetch(`/api/stream?resolve=1&videoId=${encodeURIComponent(id)}`, {
+    fetch(streamUrl(id, true), {
       cache: "no-store",
     }).catch(() => {
       /* best-effort warmth */
@@ -239,7 +286,7 @@ export class PlayerEngine {
         resolve(false);
       };
       this.probing = true;
-      a.src = `/api/stream?videoId=${encodeURIComponent(videoId)}`;
+      a.src = streamUrl(videoId);
       a.addEventListener("canplay", onOk);
       a.addEventListener("loadedmetadata", onOk);
       a.addEventListener("playing", onOk);
@@ -249,13 +296,11 @@ export class PlayerEngine {
         // autoplay refusal: metadata may still be loading, keep probing;
         // if nothing arrives at all the timeout below handles it
       });
-      this.armProbeTimer(15_000, () => {
-        if (!settled) {
-          // still buffering after 15s — give up on this source
-          if (a.readyState < 3 && a.currentTime < 0.5) onFail();
-          else onOk();
-        }
-      });
+      // patient start watchdog: a proxy stream with NO data after 15 s is
+      // dead (origin down, rate-limited); one that is downloading but
+      // slow keeps its full 45 s budget. The fixed 15 s kill abandoned
+      // streams that would have played (throttled networks).
+      this.armStartWatchdog(a, 15_000, 45_000, onFail);
       void startSec;
     });
   }
@@ -282,24 +327,19 @@ export class PlayerEngine {
     let url: string;
     if (srcType === "resolved") {
       try {
-        const r = await fetch(
-          `/api/stream?resolve=1&videoId=${encodeURIComponent(videoId)}`,
-          { cache: "no-store" }
-        );
+        const r = await fetch(streamUrl(videoId, true), { cache: "no-store" });
         if (!r.ok) return false;
         const d = (await r.json()) as { url?: string | null; proxied?: boolean };
         if (!d.url) return false;
         // instance (Piped/Invidious) URLs are cross-origin and must run
         // through the same-origin byte proxy; only googlevideo URLs from
         // InnerTube/yt-dlp go straight into the <audio> element
-        url = d.proxied
-          ? `/api/stream?videoId=${encodeURIComponent(videoId)}`
-          : d.url;
+        url = d.proxied ? streamUrl(videoId) : d.url;
       } catch {
         return false;
       }
     } else {
-      url = `/api/stream?videoId=${encodeURIComponent(videoId)}`;
+      url = streamUrl(videoId);
     }
 
     return new Promise<boolean>((resolve) => {
@@ -337,13 +377,12 @@ export class PlayerEngine {
       a.play().catch(() => {
         /* autoplay refusal — the timeout below decides */
       });
-      // direct URLs are known-good or 403 immediately; 8s is plenty
-      this.armProbeTimer(8_000, () => {
-        if (!settled) {
-          if (a.readyState >= 2 && a.currentTime > 0.1) onOk();
-          else onFail();
-        }
-      });
+      // patient start watchdog: a direct URL that produced no data at all
+      // after 12 s is dead (expired, bot-gated); one that is downloading
+      // keeps its full 30 s budget. The fixed 8 s kill assumed "known-good
+      // or 403 immediately" — false on slow networks, where it murdered
+      // streams that would have started.
+      this.armStartWatchdog(a, 12_000, 30_000, onFail);
       void startSec;
     });
   }

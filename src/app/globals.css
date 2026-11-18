@@ -988,3 +988,10 @@ img.cov{object-fit:cover}
 .sdrop-row.skel{cursor:default;pointer-events:none}
 .sdrop-row.skel .sk.sq{width:20px;height:20px;border-radius:6px}
 .sdrop-row.skel .sk.line{display:block;height:13px;width:70%;margin:4px 0}
+
+/* ── v1.7.6 playlist batch download (Musify's OfflinePlaylistService UI) ── */
+.dl-batch{margin:6px 0 18px;padding:12px 14px;border-radius:12px;background:var(--elev)}
+.dl-batch-top{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px;font-weight:600}
+.dl-batch-top .trunc{min-width:0}
+.dl-batch-bar{height:4px;border-radius:999px;background:var(--line);margin-top:10px;overflow:hidden}
+.dl-batch-bar span{display:block;height:100%;border-radius:inherit;background:var(--brand1);transition:width .3s var(--ease-out)}

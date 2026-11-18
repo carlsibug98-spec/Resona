@@ -182,18 +182,59 @@ export function innertubeGateReset(): void {
 }
 
 /**
- * Pick the best audio-only formats, highest-bitrate audio/mp4 first (the
- * <audio> element skips codecs fine, but mp4/m4a starts fastest in
- * Chromium), then audio/webm. Ciphered formats are skipped — decoding
- * the `s` parameter requires the player JS and is exactly the slow path
- * this module exists to avoid. Returns the sorted candidates so the
- * caller can fall through to the next format when one is dead.
+ * Musify's codec compatibility score (selectAudioOnlyStreamForQuality):
+ * Dolby is excluded outright (audio-element trouble), mp4a/AAC in an mp4
+ * container scores best (starts fastest in Chromium), opus/vorbis next,
+ * anything else last. Bitrate only breaks ties WITHIN a compatibility
+ * tier — a 160 kbps opus still loses to a 128 kbps m4a.
  */
-function audioFormatCandidates(fmts: PlayerFormat[]): PlayerFormat[] {
-  const clean = fmts.filter((f) => f.url && String(f.mimeType || "").startsWith("audio/"));
+function codecScore(mime: string): number {
+  const m = mime.toLowerCase();
+  if (/(ec-3|ac-3|eac3|dolby)/.test(m)) return 0;
+  if (/mp4a|aac/.test(m)) return 3;
+  if (/opus|vorbis/.test(m)) return 2;
+  return 1;
+}
+
+export type AudioQuality = "standard" | "high";
+
+/**
+ * Pick the audio-only formats, sorted best-first. Ciphered formats are
+ * skipped — decoding the `s` parameter requires the player JS and is
+ * exactly the slow path this module exists to avoid.
+ *
+ * Quality (Musify's selectAudioOnlyStreamForQuality, adapted):
+ * - high   → the best candidate (highest compatibility tier, then bitrate)
+ * - standard → the best of the LOWER half — Musify's "medium" pick, which
+ *   halves data use with no audible difference on laptop speakers.
+ * The caller walks the returned list top-down when a URL is dead.
+ */
+export function audioFormatCandidates(
+  fmts: PlayerFormat[],
+  quality: AudioQuality = "standard"
+): PlayerFormat[] {
+  // start from audio-only formats with a usable url, then drop Dolby
+  // (score 0) unless it is the ONLY thing the client served — Musify's
+  // _filterCompatibleAudioOnlySources keeps score >= 2, but a
+  // Dolby-only answer still beats an unplayable track, so it stays as
+  // the last-resort fallback instead of being discarded outright
+  const clean = fmts.filter(
+    (f) => f.url && String(f.mimeType || "").startsWith("audio/")
+  );
+  const scored = clean.filter((f) => codecScore(String(f.mimeType || "")) > 0);
+  const usable = scored.length ? scored : clean;
   const score = (f: PlayerFormat) =>
-    (String(f.mimeType).includes("audio/mp4") ? 1_000_000 : 0) + (f.bitrate || 0);
-  return clean.sort((a, b) => score(b) - score(a));
+    codecScore(String(f.mimeType || "")) * 10_000_000 + (f.bitrate || 0);
+  const sorted = usable.sort((a, b) => score(b) - score(a));
+  if (quality === "high" || sorted.length < 2) return sorted;
+  // standard: drop the top tier of the sorted list (Musify's
+  // selectionPool[(len-1)~/2] targets the middle of the pool — for a
+  // typical ladder of [~160k m4a, ~130k opus, ~70k opus, ~48k m4a] that
+  // lands on the ~130k; taking the SECOND-best candidate gives the same
+  // band while guaranteeing the fallback order stays monotonically worse)
+  // A Dolby-only answer is already filtered to empty by codecScore, so
+  // the guard above keeps single-format answers playable.
+  return sorted.slice(1);
 }
 
 type PlayerOutcome = { status: string; reason: string; fmts: PlayerFormat[] | null };
@@ -239,7 +280,8 @@ async function tryClient(
   videoId: string,
   name: string,
   client: Record<string, unknown>,
-  timeoutMs: number
+  timeoutMs: number,
+  quality: AudioQuality = "standard"
 ): Promise<{ stream: InnertubeStream | null; botGated: boolean }> {
   let outcome: PlayerOutcome;
   try {
@@ -260,11 +302,11 @@ async function tryClient(
   const botGated = outcome.status === "LOGIN_REQUIRED" && /not a bot/i.test(outcome.reason);
   if (botGated) return { stream: null, botGated };
   if (!outcome.fmts) return { stream: null, botGated: false };
-  // verify top formats in bitrate order until one serves bytes — a client
+  // verify top formats in quality order until one serves bytes — a client
   // that answers OK can still hand out a URL that 403s the moment it is
   // fetched, and sometimes only the top itag is dead. The probe MUST use
   // the minting client's UA (see InnertubeStream.ua)
-  for (const f of audioFormatCandidates(outcome.fmts).slice(0, 3)) {
+  for (const f of audioFormatCandidates(outcome.fmts, quality).slice(0, 3)) {
     if (!(await verifyAudioUrl(f.url as string, 5000, String(client.userAgent || "")))) continue;
     return {
       stream: {
@@ -289,9 +331,10 @@ async function tryClient(
  */
 export async function resolveInnertubeStream(
   videoId: string,
-  opts?: { timeoutMs?: number }
+  opts?: { timeoutMs?: number; quality?: AudioQuality }
 ): Promise<InnertubeStream | null> {
   const timeoutMs = opts?.timeoutMs ?? 4000;
+  const quality = opts?.quality ?? "standard";
   if (innertubeGateActive()) return null;
   // Live evidence (sandbox batch repro): the bot gate FLAPS per request —
   // one track's POST comes back "confirm you're not a bot" and the next
@@ -303,7 +346,7 @@ export async function resolveInnertubeStream(
   // GATE_STEPS_MS).
   let gatedClients = 0;
   for (const { name, client } of CLIENTS) {
-    const { stream, botGated } = await tryClient(videoId, name, client, timeoutMs);
+    const { stream, botGated } = await tryClient(videoId, name, client, timeoutMs, quality);
     if (stream) {
       // any success also proves the gate is gone — reset the escalation
       gateLevel = 0;

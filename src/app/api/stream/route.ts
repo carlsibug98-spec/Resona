@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveStream, diagnoseStream } from "@/lib/server/resolver";
+import type { AudioQuality } from "@/lib/server/innertube-stream";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -11,6 +12,11 @@ export async function GET(req: NextRequest) {
   const instances = req.nextUrl.searchParams.get("instances");
   const resolveOnly = req.nextUrl.searchParams.get("resolve") === "1";
   const diagnose = req.nextUrl.searchParams.get("diagnose") === "1";
+  // ?quality=high|standard — the user's Audio-quality setting (Musify's
+  // audioQualitySetting): picks a lower/higher bitrate tier of the same
+  // resolved format ladder
+  const quality: AudioQuality =
+    req.nextUrl.searchParams.get("quality") === "high" ? "high" : "standard";
   if (!videoId || !/^[A-Za-z0-9_-]{6,20}$/.test(videoId)) {
     return NextResponse.json({ error: "invalid_id" }, { status: 400 });
   }
@@ -22,7 +28,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(report);
   }
 
-  const result = await resolveStream(videoId, instances);
+  const result = await resolveStream(videoId, instances, { quality });
 
   // JSON metadata mode (settings health check, diagnostics)
   if (resolveOnly) {
@@ -48,7 +54,7 @@ export async function GET(req: NextRequest) {
   const first = await proxyFetch(result.url, range, result.ua);
   if (first) return shapeAudio(first, result.mime);
 
-  const fresh = await resolveStream(videoId, instances, { fresh: true }).catch(() => null);
+  const fresh = await resolveStream(videoId, instances, { fresh: true, quality }).catch(() => null);
   if (fresh?.url) {
     const second = await proxyFetch(fresh.url, range, fresh.ua);
     if (second) return shapeAudio(second, fresh.mime);
