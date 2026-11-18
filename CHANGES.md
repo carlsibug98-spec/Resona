@@ -26,6 +26,17 @@ analysis of Spotify's search flow):
 - **Suggestion dropdown: skeleton shimmer rows** while suggestions
   load (the grey bars in the recording), and the top-bar input mirrors
   the current search page's query (deep links, recents).
+- **Dropdown spans the search box exactly** — same left edge, same width,
+  zero offset (pixel-measured against the recording: Spotify's dropdown
+  647–1357 vs the box 648–1356). It was previously shifted 60px left and
+  capped at 560px.
+- **Search length capped at Spotify's exact 708px** (pixel-measured
+  x 648–1356 on the 1920-wide reference frame), down from 710px.
+- **Impeccable pass (Emil Kowalski's skills)**: strong custom easing
+  tokens (`--ease-out`, `--ease-in-out` from easing.dev) on the search
+  box, dropdown, and chips; `:active` press states (scale .97) on filter
+  chips and the Top-result card; card titles/subtitles clamp to 2/1
+  lines so deluxe-edition-length names can't stretch cards.
 
 ## v1.7.4 — artist pages were empty and clicks did nothing (2026-11-18)
 

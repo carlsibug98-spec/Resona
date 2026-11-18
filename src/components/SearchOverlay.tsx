@@ -93,7 +93,10 @@ export function SearchOverlay() {
   }, [viewQuery]);
 
   // measure the input's box whenever the dropdown opens (and on resize):
-  // positioning from state keeps refs out of the render path
+  // positioning from state keeps refs out of the render path.
+  // Spotify behavior (pixel-verified in the reference video): the dropdown
+  // spans EXACTLY the search box's box — same left edge, same width — with
+  // a small gap below it. No left-shift, no independent width cap.
   useEffect(() => {
     if (!open) return;
     const place = () => {
@@ -101,8 +104,8 @@ export function SearchOverlay() {
       if (!r) return;
       setDropPos({
         top: r.bottom + 8,
-        left: Math.max(8, r.left - 60),
-        width: Math.min(560, window.innerWidth - Math.max(8, r.left - 60) - 8),
+        left: r.left,
+        width: r.width,
       });
     };
     place();
