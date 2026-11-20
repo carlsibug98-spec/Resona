@@ -1,5 +1,47 @@
 # Changes
 
+## v1.7.10 — the update no longer downloads on startup (2026-11-21)
+
+"fix issue on download on start up" — v1.7.9's restart-first update flow
+overcorrected: it ran the whole update (check + ~155 MB autoDownload +
+quitAndInstall) on the splash, BEFORE the app ever opened. Every launch with
+a pending update held the app up to 30 s on "Downloading update… %" before
+the server even booted, and a fast connection saw the app close itself
+mid-launch while the installer took over. If the silent install then failed
+(AV, SmartScreen, locked file), the next launch started the same 155 MB
+download all over again — the "download on start up" loop.
+
+**New policy — the startup path never downloads and never quits:**
+
+- The boot path (splash → server → window) contains no updater calls at
+  all (`desktop/main.js`): no `checkForUpdates`, no download, no install —
+  the app opens exactly as fast as it does with no update pending, and it
+  can never close itself before the window existed.
+- The updater boots only AFTER the window is up (`beginBackgroundUpdate`,
+  called once `createWindow` resolves): check → background download →
+  progress pushed over IPC (`update:progress`) → the "Restart to apply"
+  banner. The app stays fully usable while the installer streams in.
+- Restart-first apply is unchanged and still the only primary apply:
+  `installAndRestart` stops the server child, quits, the NSIS installer
+  replaces the files while no Resona process is alive and relaunches
+  straight into the new version. `autoInstallOnAppQuit` remains the
+  no-interaction fallback (applies on the next quit).
+- The renderer hears the whole story now: a live status bridge
+  (`src/lib/useDesktopUpdate.ts` — snapshot invoke + progress events), an
+  `UpdateBanner` that shows "Downloading update… X%" and flips to
+  "Restart to apply", and Settings → Updates showing the same state with a
+  Restart button. `preload.js` gained `onUpdateProgress` + `updateStatus`.
+- Release hygiene, sideways catch: the v1.7.9 release shipped while the
+  README still named v1.7.8 (hero line, downloads table, install commands)
+  and carried no v1.7.9 what's-new section — both fixed here; the README
+  now names v1.7.10 everywhere and documents v1.7.9 + v1.7.10.
+
+156 tests green (7 new in `tests/update-policy.test.ts`, which pins the
+policy at source level: no updater calls in `app.whenReady`,
+`beginBackgroundUpdate()` strictly after `createWindow`, the splash-phase
+updater gone, restart-first install intact, the progress bridge wired),
+`tsc --noEmit` clean, eslint clean, CI-built.
+
 ## v1.7.9 — "the song doesn't play" (the Nov-2026 YouTube enforcement fix) (2026-11-20)
 
 Field report (screen recording, v1.7.8): search works, the track loads into

@@ -1,48 +1,42 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { updateBridge, useDesktopUpdateStatus } from "@/lib/useDesktopUpdate";
 
 /**
- * "Restart to apply" banner for a downloaded update.
+ * Update banner for the desktop shell — the visible half of the v1.7.10
+ * update policy (the startup path never downloads and never quits).
  *
- * The desktop main process downloads updates in the background and pushes
- * { version } over IPC (update:ready) once the installer is on disk. Until
- * v1.7.9 that download silently installed on the next quit with no relaunch,
- * which read as "the app never receives the update". Now the banner makes
- * the pending update actionable: Restart hands control back to the main
- * process, which quits the app cleanly, lets the installer replace the
- * files and relaunches straight into the new version.
+ * While the background updater streams the new installer the banner shows
+ * honest progress; once the installer is on disk it flips to
+ * "Restart to apply": Restart hands control to the main process, which
+ * quits the app cleanly, lets the installer replace the files and
+ * relaunches straight into the new version. "Later" dismisses the ready
+ * banner for this version (the quit path still applies it silently as a
+ * last resort, and Settings → Updates keeps a live Restart button).
  *
- * Web-only builds never hear update:ready (no resonaDesktop bridge), so the
- * banner renders nothing there.
+ * Web-only builds have no resonaDesktop bridge, so the banner renders
+ * nothing there.
  */
-interface ResonaUpdateBridge {
-  onUpdateReady?: (cb: (info: { version?: string | null }) => void) => () => void;
-  installUpdate?: () => void;
-}
-
 export function UpdateBanner() {
-  const [version, setVersion] = useState<string | null>(null);
-  const [dismissed, setDismissed] = useState(false);
+  const status = useDesktopUpdateStatus();
+  const [dismissedVersion, setDismissedVersion] = useState<string | null>(null);
 
-  useEffect(() => {
-    const bridge = (window as unknown as { resonaDesktop?: ResonaUpdateBridge })
-      .resonaDesktop;
-    if (!bridge?.onUpdateReady) return;
-    const off = bridge.onUpdateReady((info) => {
-      if (info?.version) setVersion(info.version);
-      else setVersion("a new version");
-    });
-    return () => {
-      try {
-        off();
-      } catch {
-        /* bridge gone while quitting */
-      }
-    };
-  }, []);
+  if (!status) return null;
 
-  if (!version || dismissed) return null;
+  if (status.state === "downloading") {
+    return (
+      <div className="updban" role="status">
+        <b>Updating Resona</b>
+        <span className="trunc">Downloading update… {status.percent ?? 0}%</span>
+      </div>
+    );
+  }
+
+  if (status.state !== "ready") return null;
+
+  const version = status.version || "a new version";
+  if (dismissedVersion === version) return null;
 
   return (
     <div className="updban" role="status">
@@ -52,14 +46,12 @@ export function UpdateBanner() {
         <button
           className="pri"
           onClick={() => {
-            const bridge = (window as unknown as { resonaDesktop?: ResonaUpdateBridge })
-              .resonaDesktop;
-            bridge?.installUpdate?.();
+            updateBridge()?.installUpdate?.();
           }}
         >
           Restart now
         </button>
-        <button onClick={() => setDismissed(true)}>Later</button>
+        <button onClick={() => setDismissedVersion(version)}>Later</button>
       </span>
     </div>
   );

@@ -20,14 +20,25 @@ contextBridge.exposeInMainWorld("resonaDesktop", {
     ipcRenderer.on("thumbs:action", listener);
     return () => ipcRenderer.removeListener("thumbs:action", listener);
   },
-  /** update flow (see desktop/main.js startupUpdate + UpdateBanner.tsx):
-   *  the main process pushes { version } once an update is downloaded, and
-   *  the banner's Restart button asks it to install + relaunch now */
+  /** update flow (see desktop/main.js beginBackgroundUpdate +
+   *  UpdateBanner.tsx): the updater only runs after the window is up. Live
+   *  status arrives over update:progress ({ state: idle | downloading |
+   *  ready | error, percent, version, message }), updateStatus() returns
+   *  the current snapshot for a component that mounts mid-download, and
+   *  { version } is pushed again over update:ready once the installer is
+   *  on disk. The banner's Restart button asks the main process to install
+   *  + relaunch now (restart-first apply). */
   onUpdateReady: (cb) => {
     const listener = (_event, info) => cb(info || {});
     ipcRenderer.on("update:ready", listener);
     return () => ipcRenderer.removeListener("update:ready", listener);
   },
+  onUpdateProgress: (cb) => {
+    const listener = (_event, status) => cb(status || {});
+    ipcRenderer.on("update:progress", listener);
+    return () => ipcRenderer.removeListener("update:progress", listener);
+  },
+  updateStatus: () => ipcRenderer.invoke("update:status"),
   installUpdate: () => ipcRenderer.send("update:install-now"),
   /** the mpv playback core (desktop/mpv-host.js) — undefined on non-desktop
    *  or when libmpv is missing, in which case the HTML5 chain plays on */

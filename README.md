@@ -12,7 +12,7 @@
 ![Issues](https://img.shields.io/github/issues/carlsibug98-spec/Resona?style=flat-square&label=ISSUES&color=1ed760)
 ![License](https://img.shields.io/github/license/carlsibug98-spec/Resona?style=flat-square&label=LICENSE&color=1ed760)
 
-**[⬇️ Download (v1.7.8) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
+**[⬇️ Download (v1.7.10) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
 
 </div>
 
@@ -26,13 +26,23 @@
 
 | Platform | Status | Download | Details |
 | --- | --- | --- | --- |
-| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.7.8** | **[⬇️ Download installer](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.7.8.exe)** | Run the wizard → desktop shortcut · ~160 MB · later versions install themselves at launch |
-| 🍎 **macOS** (Apple Silicon) | ✅ **v1.7.8** | **[⬇️ Download DMG](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.8-arm64.dmg)** | Open → drag to Applications · right-click → Open the first time (unsigned) |
-| 🍎 **macOS** (Intel) | ✅ **v1.7.8** | **[⬇️ Download DMG](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.8-x64.dmg)** | Same steps as Apple Silicon |
-| 🐧 **Linux** (AppImage / .deb, x64) | ✅ **v1.7.8** | **[⬇️ AppImage](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.8.AppImage)** · **[⬇️ .deb](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.8.deb)** | `chmod +x` the AppImage, or `sudo apt install ./Resona-1.7.8.deb` |
+| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.7.10** | **[⬇️ Download installer](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.7.10.exe)** | Run the wizard → desktop shortcut · ~160 MB · later versions install themselves at launch |
+| 🍎 **macOS** (Apple Silicon) | ✅ **v1.7.10** | **[⬇️ Download DMG](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.10-arm64.dmg)** | Open → drag to Applications · right-click → Open the first time (unsigned) |
+| 🍎 **macOS** (Intel) | ✅ **v1.7.10** | **[⬇️ Download DMG](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.10-x64.dmg)** | Same steps as Apple Silicon |
+| 🐧 **Linux** (AppImage / .deb, x64) | ✅ **v1.7.10** | **[⬇️ AppImage](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.10.AppImage)** · **[⬇️ .deb](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.10.deb)** | `chmod +x` the AppImage, or `sudo apt install ./Resona-1.7.10.deb` |
 | 📱 **iOS / Android** | 🧭 Planned | — | Mobile app in design |
 
 > **All releases:** [github.com/carlsibug98-spec/Resona/releases](https://github.com/carlsibug98-spec/Resona/releases) · **Install guide:** [INSTALL-GUIDE.txt](https://github.com/carlsibug98-spec/Resona/releases/latest/download/INSTALL-GUIDE.txt) · **SHA-256:** `SHA256SUMS.txt` in every release
+
+## ✨ What's new in v1.7.10
+
+- **📥 The download-on-startup bug is fixed** — v1.7.9's restart-first update flow ran the whole update (check + ~155 MB download + install) on the splash, *before* the app ever opened: every launch with a pending update sat on "Downloading update… %" for up to 30 s, a fast connection saw the app close itself mid-launch, and a failed silent install meant the next launch downloaded the same 155 MB all over again. Now the startup path **never downloads and never quits** — Resona opens immediately, checks for updates after launch, downloads in the background with a live "Downloading update… X%" banner, and flips to **"Restart to apply"** when the installer is on disk. Restarting still applies it through the same clean quit → install → relaunch sequence as v1.7.9.
+- **🪟 Settings → Updates is honest now** — the panel shows the live desktop-updater state (downloading %, ready, failed) with a Restart button; a failed check never touches startup.
+
+## ✨ What's new in v1.7.9
+
+- **🎧 "The song doesn't play" — fixed (Nov-2026 YouTube enforcement)**: every unauthenticated resolver got bot-gated at once (InnerTube ladder, yt-dlp, the whole Piped/Invidious fleet — verified live), and the one surviving source, the IFrame embed, hung forever in the released 1.7.8 binaries (built from a pre-audit commit without the ready timeout). Resona now fails fast: a chain-health circuit breaker returns dead instantly instead of 10–20 s of doomed probing, the engine plays the embed directly while the chain is dead, a 20 s proof-of-life watchdog declares a hung embed failed, and a total failure banners on the first strike instead of three silent skips.
+- **🔁 Updates restart-first** — an update is only "received" when the app has RESTARTED through it: quit → installer replaces files → relaunch into the new version; a download that lands while running surfaces a "Restart to apply" banner instead of silently deferring.
 
 ## ✨ What's new in v1.7.8
 
@@ -157,20 +167,20 @@
 
 ## 🚀 Install on Windows
 
-1. **Download** `Resona-Setup-1.7.8.exe` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~160 MB) and run the wizard — per-user install (no admin needed), desktop shortcut created. Install over an older copy to update; your library carries over. **From v1.6.0 on, later versions install themselves at launch** — this is the last manual install you need.
+1. **Download** `Resona-Setup-1.7.10.exe` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~160 MB) and run the wizard — per-user install (no admin needed), desktop shortcut created. Install over an older copy to update; your library carries over. **From v1.6.0 on, later versions install themselves at launch** — this is the last manual install you need.
 2. **If Windows SmartScreen shows a warning** — this is expected and safe. Resona is *not code-signed* (a signing certificate costs ~$100+/yr), so Windows warns about every app it hasn't seen before. It does **not** mean a virus was found. To run it:
    - Click **More info** → **Run anyway**. That's it.
-   - Or, if the download finished already: right-click `Resona-Setup-1.7.8.exe` → **Properties** → tick **Unblock** → OK, then double-click it.
+   - Or, if the download finished already: right-click `Resona-Setup-1.7.10.exe` → **Properties** → tick **Unblock** → OK, then double-click it.
 3. Play music. Your library lives in `%APPDATA%/resona`.
 
 **Verify (SHA-256):** compare against `SHA256SUMS.txt` published with every release:
 
 ```
-Get-FileHash .\Resona-Setup-1.7.8.exe   # in PowerShell
+Get-FileHash .\Resona-Setup-1.7.10.exe   # in PowerShell
 ```
 
-**macOS**: the `.dmg` is unsigned — right-click Resona → **Open** the first time (or `xattr -d com.apple.quarantine /Applications/Resona.app`). Apple Silicon machines take `Resona-1.7.8-arm64.dmg`, Intel takes `Resona-1.7.8-x64.dmg`.  
-**Linux**: `chmod +x Resona-1.7.8.AppImage && ./Resona-1.7.8.AppImage`, or install the `.deb` with `sudo apt install ./Resona-1.7.8.deb`.
+**macOS**: the `.dmg` is unsigned — right-click Resona → **Open** the first time (or `xattr -d com.apple.quarantine /Applications/Resona.app`). Apple Silicon machines take `Resona-1.7.10-arm64.dmg`, Intel takes `Resona-1.7.10-x64.dmg`.  
+**Linux**: `chmod +x Resona-1.7.10.AppImage && ./Resona-1.7.10.AppImage`, or install the `.deb` with `sudo apt install ./Resona-1.7.10.deb`.
 
 > Signed builds are on the roadmap — until then the two steps above are the only friction.
 

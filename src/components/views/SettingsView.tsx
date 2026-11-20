@@ -8,6 +8,7 @@ import { exportLibrary, parseBackup, restoreBackup, type ParsedBackup } from "@/
 import type { RestoreMode, Section } from "@/lib/backup-merge";
 import { graduate, markStep } from "@/lib/onboarding";
 import { APP_VERSION, checkForUpdate, RELEASES_URL, type UpdateInfo } from "@/lib/update-check";
+import { updateBridge, useDesktopUpdateStatus } from "@/lib/useDesktopUpdate";
 import { Icon } from "@/components/Icon";
 import { toast } from "@/stores/toast";
 
@@ -21,6 +22,7 @@ export function SettingsView() {
   const [mode, setMode] = useState<RestoreMode>("merge");
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const [checking, setChecking] = useState(false);
+  const deskUpdate = useDesktopUpdateStatus();
   const library = useLibrary();
   const hasData =
     Object.keys(library.liked).length + library.playlists.length + library.history.length > 0;
@@ -333,13 +335,27 @@ export function SettingsView() {
         <div className="sec">
           <h3>Updates</h3>
           <p>
-            Resona checks GitHub for a newer release when it opens. Install the new
-            version from the releases page — the app itself stays up to date manually.
+            Resona checks GitHub for a newer release after it opens — the app is usable
+            right away while the update downloads in the background, then asks to restart.
+            On the web build, install the new version from the releases page.
           </p>
           <div className="status">
             <span>
               <b>Version</b>&nbsp;&nbsp;{APP_VERSION}
-              {update?.hasUpdate && (
+              {deskUpdate?.state === "downloading" && (
+                <span className="muted">
+                  &nbsp;&nbsp;· downloading update… {deskUpdate.percent ?? 0}%
+                </span>
+              )}
+              {deskUpdate?.state === "ready" && (
+                <span style={{ color: "var(--brand2)", fontWeight: 700 }}>
+                  &nbsp;&nbsp;· Resona {deskUpdate.version} ready — restart to apply
+                </span>
+              )}
+              {deskUpdate?.state === "error" && (
+                <span className="muted">&nbsp;&nbsp;· background update failed</span>
+              )}
+              {update?.hasUpdate && !deskUpdate && (
                 <span style={{ color: "var(--brand2)", fontWeight: 700 }}>
                   &nbsp;&nbsp;· update available: {update.latest}
                 </span>
@@ -350,7 +366,15 @@ export function SettingsView() {
               <button className="btn2 ghost" onClick={() => void runUpdateCheck()} disabled={checking}>
                 {checking ? "Checking…" : "Check now"}
               </button>
-              {update?.hasUpdate && (
+              {deskUpdate?.state === "ready" && (
+                <button
+                  className="btn2"
+                  onClick={() => updateBridge()?.installUpdate?.()}
+                >
+                  Restart to apply
+                </button>
+              )}
+              {update?.hasUpdate && !deskUpdate && (
                 <a className="btn2" href={update.url || RELEASES_URL} target="_blank" rel="noreferrer">
                   Get update
                 </a>

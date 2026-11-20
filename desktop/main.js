@@ -278,32 +278,81 @@ p{margin:0;color:#a3a3a3;font-size:13px}
 <h1>Resona</h1><p>Starting up&hellip;</p><div class="spin"></div>
 </body></html>`;
 
-/* ── startup update ──────────────────────────────────────────────────────────
- * Runs before the server boots. Silent install on Windows (NSIS) and Linux
- * AppImage. macOS is unsigned, so it keeps the in-app "update available"
- * prompt.
+/* ── updates (v1.7.10 policy) ────────────────────────────────────────────────
+ * The startup path NEVER downloads and NEVER quits.
  *
- * v1.7.9 rule: an update is only "received" when the app has RESTARTED
- * through it — the NSIS installer must replace the files while no Resona
- * process is alive, then relaunch into the new version. So:
- *  - while the splash is up (before the window exists): a downloaded update
- *    installs immediately (quitAndInstall) and the installer relaunches us
- *    into the new version — the app never opens on a stale build;
- *  - while the app is running: the download lands as a "Restart to apply"
- *    banner in the UI (update:ready -> UpdateBanner.tsx); clicking Restart
- *    runs the same install+restart sequence. autoInstallOnAppQuit stays
- *    enabled as the no-interaction fallback (applies on the next quit),
- *    but it can never be the primary path again — that path installed
- *    silently with no relaunch, which read as "the update never arrived".
- * The wait is capped at UPDATE_WAIT_MS: past it the app opens on the current
- * version and the banner takes over. A failed check never blocks launch.
- * 30 s: the Windows installer is ~150-250 MB; the old 10 s cap made the
- * startup path dead code and deferred EVERY update to the quit path. */
-const UPDATE_WAIT_MS = 30000;
+ * v1.7.9 ran the whole update on the splash (autoDownload + quitAndInstall):
+ * every launch with a pending update held the app up to 30 s on
+ * "Downloading update… %" before the server even booted, and a fast
+ * connection saw the app close itself before it ever opened. If the silent
+ * installer then failed (AV, SmartScreen, locked file), the next launch
+ * started the same ~155 MB download all over again — the "download on
+ * start up" bug.
+ *
+ * Now the updater only boots AFTER the window is up (beginBackgroundUpdate,
+ * called once createWindow resolves): check → background download → progress
+ * pushed over IPC → the "Restart to apply" banner. Restarting IS applying:
+ * installAndRestart stops the server, quits, the NSIS installer replaces
+ * the files while no Resona process is alive and relaunches straight into
+ * the new version. autoInstallOnAppQuit stays enabled as the no-interaction
+ * fallback (applies on the next quit) but is never the primary path again —
+ * that path installed silently with no relaunch, which read as "the update
+ * never arrived". macOS keeps the web fallback (unsigned builds cannot
+ * self-update). A failed check never touches startup at all. */
 
-/** last downloaded update, surfaced to the renderer once the window exists */
+/** last update status, mirrored to the renderer (update:progress) */
+let updateStatus = { state: "idle", percent: null, version: null, message: null };
+
+/** downloaded update waiting for a restart, surfaced via update:ready */
 let updateReady = null;
 let installingUpdate = false;
+let backgroundUpdateStarted = false;
+
+/** merge a patch into the status snapshot and push it to the renderer */
+function pushUpdateStatus(patch) {
+  updateStatus = { ...updateStatus, ...patch };
+  try {
+    if (win && !win.isDestroyed()) win.webContents.send("update:progress", updateStatus);
+  } catch {}
+}
+
+/**
+ * The whole updater runs here — after the window is up, never on the
+ * splash. checkForUpdates() with autoDownload on: an available release
+ * streams to disk in the background while the app is fully usable, each
+ * step is mirrored to the renderer, and the finished download lands as the
+ * "Restart to apply" banner (update:ready -> UpdateBanner.tsx).
+ */
+function beginBackgroundUpdate() {
+  if (!canSelfUpdate() || backgroundUpdateStarted) return;
+  backgroundUpdateStarted = true;
+  log("updates: background check + download started (post-launch)");
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.logger = null;
+
+  autoUpdater.on("download-progress", (p) =>
+    pushUpdateStatus({
+      state: "downloading",
+      percent: Math.max(0, Math.min(100, Math.round(p.percent || 0))),
+    })
+  );
+  autoUpdater.on("update-downloaded", (info) => {
+    updateReady = { version: (info && info.version) || null };
+    pushUpdateStatus({ state: "ready", percent: 100, version: updateReady.version });
+    log(`update downloaded: ${updateReady.version || "unknown"} — waiting for restart`);
+    notifyUpdateReady();
+  });
+  autoUpdater.on("error", (e) => {
+    log(`updater error: ${e && e.message}`);
+    pushUpdateStatus({ state: "error", message: (e && e.message) || "update failed" });
+  });
+
+  autoUpdater.checkForUpdates().catch((e) => {
+    log(`update check failed: ${e && e.message}`);
+    pushUpdateStatus({ state: "error", message: (e && e.message) || "update check failed" });
+  });
+}
 
 /**
  * Apply a downloaded update NOW: stop everything this process owns, hand
@@ -376,59 +425,13 @@ function setSplashStatus(text) {
     .catch(() => {});
 }
 
-function startupUpdate() {
-  if (!canSelfUpdate()) return Promise.resolve();
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.logger = null;
-
-  return new Promise((resolve) => {
-    let finished = false;
-    const finish = (why) => {
-      if (finished) return;
-      finished = true;
-      clearTimeout(timer);
-      // listener hygiene: the one-shot handlers below must not linger for
-      // the whole process lifetime (any later updater error would funnel
-      // into a dead closure)
-      autoUpdater.removeAllListeners("update-not-available");
-      autoUpdater.removeAllListeners("error");
-      log(`startup update: ${why}`);
-      resolve();
-    };
-    const timer = setTimeout(() => {
-      autoUpdater.autoInstallOnAppQuit = true;
-      finish("time limit reached, opening app");
-    }, UPDATE_WAIT_MS);
-
-    autoUpdater.once("update-not-available", () => finish("up to date"));
-    autoUpdater.on("update-available", (info) => setSplashStatus(`Updating to ${info.version}…`));
-    autoUpdater.on("download-progress", (p) =>
-      setSplashStatus(`Downloading update… ${Math.round(p.percent)}%`)
-    );
-    autoUpdater.once("update-downloaded", (info) => {
-      updateReady = { version: (info && info.version) || null };
-      if (finished) {
-        // the app already opened (time limit) — surface the restart banner
-        // instead of silently waiting for the next quit
-        log("update downloaded after launch, prompting restart");
-        notifyUpdateReady();
-        return;
-      }
-      // still on the splash, nothing is running yet: install now and let
-      // the installer relaunch us straight into the new version
-      installAndRestart("startup");
-    });
-    autoUpdater.once("error", (e) => finish(`error, opening app (${e && e.message})`));
-
-    autoUpdater.checkForUpdates().catch((e) => finish(`check failed (${e && e.message})`));
-  });
-}
-
 // explicit "Restart to apply" from the update banner (see preload.js)
 ipcMain.on("update:install-now", () => {
   if (updateReady) installAndRestart("user request");
 });
+
+// current snapshot for a renderer that mounts mid-download (Settings view)
+ipcMain.handle("update:status", () => updateStatus);
 
 function showSplash() {
   splash = new BrowserWindow({
@@ -505,8 +508,8 @@ async function createWindow(port) {
   win.webContents.on("did-finish-load", () => {
     applyTaskbarControls();
     setTimeout(applyTaskbarControls, 1000);
-    // an update may have landed while the window was still loading —
-    // surface the restart banner as soon as the UI can hear it
+    // a reload (did-fail-load retry, manual refresh) must not lose a
+    // ready update — surface the restart banner again
     if (updateReady && !installingUpdate) notifyUpdateReady();
   });
   // open external links in the system browser
@@ -549,7 +552,6 @@ if (!gotLock) {
     log(`resources: ${resourceBase}`);
 
     showSplash();
-    await startupUpdate();
     let port;
     try {
       port = await bootServer();
@@ -584,7 +586,11 @@ if (!gotLock) {
       log("window load failed: " + e.message);
       dialog.showErrorBox("Resona", "The interface failed to load.\n\n" + e.message);
       app.quit();
+      return;
     }
+    // updates only ever run here — after the window is up, never on the
+    // splash (see the v1.7.10 policy note above)
+    beginBackgroundUpdate();
   });
 
   app.on("window-all-closed", () => {
