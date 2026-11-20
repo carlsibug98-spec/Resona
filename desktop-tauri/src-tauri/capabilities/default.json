@@ -11,10 +11,10 @@
   },
   "permissions": [
     "core:default",
-    "allow-server_url",
-    "allow-win_minimize",
-    "allow-win_toggle_max",
-    "allow-win_close",
-    "allow-win_is_max"
+    "allow-server-url",
+    "allow-win-minimize",
+    "allow-win-toggle-max",
+    "allow-win-close",
+    "allow-win-is-max"
   ]
 }
