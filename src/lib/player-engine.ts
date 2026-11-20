@@ -51,10 +51,20 @@ interface MpvBridge {
     playing: boolean;
     buffering: boolean;
     seekable: boolean;
+    /** mpv paused at end-of-file (keep-open=always) — the ONLY end-of-song
+     *  signal that fires, because keep-open suppresses end-file(reason=eof) */
+    eofReached?: boolean;
+    /** mpv is idle (no file loaded) — while a load is pending this means the
+     *  open failed and the engine should fall through to the HTML5 ladder */
+    idleActive?: boolean;
   } | null>;
   shutdown(): Promise<boolean>;
   onFileLoaded(cb: () => void): () => void;
-  onEndFile(cb: () => void): () => void;
+  /** cb receives { reason, error, reasonName } — mpv_end_file_reason from
+   *  client.h: 0 eof · 2 stop · 3 quit · 4 error · 5 redirect (−1 unknown) */
+  onEndFile(cb: (info: { reason: number; error: number; reasonName?: string }) => void): () => void;
+  /** mpv entered idle mode (fast "open failed" signal during a pending load) */
+  onIdle(cb: () => void): () => void;
 }
 
 function mpvBridge(): MpvBridge | null {
@@ -69,6 +79,13 @@ export interface EngineState {
   duration: number;
   buffering: boolean;
 }
+
+/** mpv's state plus the EOF/idle flags the engine's queue decisions need */
+type MpvState = EngineState & { eofReached: boolean; idleActive: boolean };
+
+/** mpv_end_file_reason (mpv client.h) */
+const MPV_END_FILE_EOF = 0;
+const MPV_END_FILE_ERROR = 4;
 
 type Listener = (s: EngineState) => void;
 
@@ -142,9 +159,30 @@ export class PlayerEngine {
   private mpvReady = false;
   private usingMpv = false;
   private mpvLoadedVideoId: string | null = null;
-  /** last known mpv state — getState() is sync but the bridge is async,
-   *  so the tick refreshes this in the background (see startTick) */
-  private mpvStateCache: EngineState | null = null;
+  /** the track mpv is still OPENING (tryMpv → waitForMpvLoad window). While
+   *  set, end-file/idle events mean "the open failed", never "song finished".
+   *  v1.7.7 conflated the two and auto-advanced the queue on every failed
+   *  load — the heart of the "always reload and stop" report. */
+  private mpvPendingVideoId: string | null = null;
+  /** latched by an idle or end-file(error) event while a load is pending */
+  private mpvLoadFailed = false;
+  /** true only while the ENGINE itself commands mpv to stop, so the
+   *  end-file(reason=stop) that command triggers cannot advance the queue */
+  private mpvStopping = false;
+  /** one-shot per loaded track: fires onEnded exactly once at end-of-song
+   *  (from the eof-reached watcher, or end-file(eof) on hosts without
+   *  keep-open). Without the latch the 400 ms tick would re-fire onEnded
+   *  every poll while mpv sits at EOF. */
+  private mpvEofFired = false;
+  /** the volume mpv must start each new track with — mpv boots at 100 and
+   *  v1.7.7 never applied the user's setting on the mpv path */
+  private lastVolumePct = 90;
+  /** generation counter for load(): a newer load must silence every pending
+   *  await of an older one (rapid skips used to let the stale ladder finish
+   *  AFTER the new load and overwrite the engine's track/state — the queue
+   *  showed one song while the engine played another) */
+  private loadGen = 0;
+  private mpvStateCache: MpvState | null = null;
   /**
    * When a probe's src was last torn down (pause/removeAttribute/load).
    * The <audio> element emits its "error" event asynchronously AFTER the
@@ -282,12 +320,13 @@ export class PlayerEngine {
         if (!ok) return;
         this.mpv = bridge;
         this.mpvReady = true;
-        // end-of-file → advance the queue, same as the audio element's
-        // "ended" listener. keep-open=always means mpv pauses at EOF and
-        // this event is our single "track finished" signal.
-        bridge.onEndFile(() => {
-          if (this.usingMpv) this.onEnded();
-        });
+        // end-of-file → advance the queue. With keep-open=always mpv NEVER
+        // sends this at a natural end-of-song (playloop handle_keep_open
+        // keeps the file loaded) — the eof-reached watcher in startTick is
+        // the primary advance signal; end-file(eof) only fires on hosts
+        // where keep-open is off.
+        bridge.onEndFile((info) => this.onMpvEndFile(info));
+        bridge.onIdle(() => this.onMpvIdle());
         bridge.onFileLoaded(() => {
           // the file is demuxed and ready — count it as playing data for
           // the diagnostics surface
@@ -299,6 +338,45 @@ export class PlayerEngine {
       });
   }
 
+  /** mpv went idle: between tracks that is normal (idle=yes), but while an
+   *  open is pending it means the URL failed — fail the wait fast instead of
+   *  burning its full 12 s budget (v1.7.7 paid that dead air on EVERY track,
+   *  because the renderer handed mpv a relative URL it could only try to
+   *  open as a local file path). */
+  private onMpvIdle(): void {
+    if (this.mpvPendingVideoId) this.mpvLoadFailed = true;
+  }
+
+  /**
+   * end-file with the reason attached. The three cases are OPPOSITE queue
+   * decisions and must never be conflated:
+   *  - pending load + end-file(error)  → the open failed: fall to HTML5
+   *  - playing track + end-file(error) → the stream died mid-song: a real
+   *    playback ERROR through the Musify failure policy (count + auto-skip),
+   *    NOT a silent queue advance
+   *  - end-file(eof)                   → end-of-song: advance the queue
+   *  - end-file(stop/quit)             → our own stop/shutdown: ignore
+   */
+  private onMpvEndFile(info: { reason: number; error: number; reasonName?: string }): void {
+    if (this.mpvPendingVideoId) {
+      // the file never finished opening: any end-file now is a failure
+      this.mpvLoadFailed = true;
+      return;
+    }
+    if (!this.usingMpv) return;
+    if (info.reason === MPV_END_FILE_ERROR) {
+      this.usingMpv = false;
+      this.mpvLoadedVideoId = null;
+      this.onError(`mpv stream error (${info.reasonName || "error"})`);
+      return;
+    }
+    if (this.mpvStopping) return; // our own stop command
+    if (info.reason === MPV_END_FILE_EOF && !this.mpvEofFired) {
+      this.mpvEofFired = true;
+      this.onEnded();
+    }
+  }
+
   /**
    * Play a network track through the mpv core via the same-origin byte
    * proxy (sandbox-verified path: mpv's ffmpeg 403s direct googlevideo
@@ -307,24 +385,53 @@ export class PlayerEngine {
    */
   private async tryMpv(videoId: string, startSec: number): Promise<boolean> {
     if (!this.mpv || !this.mpvReady) return false;
+    const gen = this.loadGen;
     try {
-      const url = streamUrl(videoId); // the byte proxy, quality param rides along
-      await this.mpv.load(url, startSec);
-      this.usingMpv = true;
+      // mpv lives in the Electron MAIN process: a renderer-relative URL like
+      // /api/stream?videoId=… is, to it, a LOCAL FILE PATH. v1.7.7 shipped
+      // exactly that — mpv failed every open, waitForMpvLoad burned its full
+      // 12 s on every track, and only then did the HTML5 ladder start. The
+      // window is loaded from http://127.0.0.1:<port> (the Next server), so
+      // absolutizing against window.location.origin is always correct here.
+      const rel = streamUrl(videoId); // the byte proxy, quality param rides along
+      const url = /^https?:\/\//i.test(rel)
+        ? rel
+        : new URL(rel, window.location.origin).toString();
+      this.mpvLoadFailed = false;
+      this.mpvPendingVideoId = videoId;
       this.mpvLoadedVideoId = videoId;
-      // wait (bounded) for the file to actually load — a URL mpv can't
-      // open fails at loadfile/end-file within a few seconds
+      this.usingMpv = true; // state plumbing during the wait; end-file gating treats pending separately
+      await this.mpv.load(url, startSec);
+      if (gen !== this.loadGen) return false; // a newer load owns the engine now
+      // wait (bounded) for the file to actually load — a URL mpv can't open
+      // now fails FAST (idle / end-file(error) events latch mpvLoadFailed)
+      // instead of always paying the full deadline
       const loaded = await this.waitForMpvLoad(videoId);
+      if (gen !== this.loadGen) return false;
       if (!loaded) {
-        await this.mpv.stop().catch(() => {});
-        this.usingMpv = false;
-        this.mpvLoadedVideoId = null;
+        if (gen === this.loadGen) await this.mpvStop();
         return false;
       }
-      this.mpvStateCache = { playing: false, position: startSec, duration: 0, buffering: true };
+      this.mpvPendingVideoId = null;
+      this.mpvEofFired = false;
+      this.mpvStateCache = {
+        playing: false,
+        position: startSec,
+        duration: 0,
+        buffering: true,
+        eofReached: false,
+        idleActive: false,
+      };
+      // mpv boots at volume 100 — apply the user's setting NOW, not only on
+      // the next slider move (v1.7.7 played every mpv track at full blast)
+      void this.mpv.volume(this.lastVolumePct).catch(() => {});
       return true;
     } catch {
-      this.usingMpv = false;
+      if (gen === this.loadGen) {
+        this.usingMpv = false;
+        this.mpvLoadedVideoId = null;
+        this.mpvPendingVideoId = null;
+      }
       return false;
     }
   }
@@ -332,23 +439,30 @@ export class PlayerEngine {
   /**
    * Bounded wait for mpv's state to report a loaded file (duration > 0).
    * The host's file-loaded event fires on demux-open; polling state is the
-   * belt-and-braces path.
+   * belt-and-braces path — and the idle / end-file(error) listeners latch
+   * mpvLoadFailed so a dead URL fails within milliseconds of mpv noticing.
    */
   private async waitForMpvLoad(videoId: string): Promise<boolean> {
     const deadline = Date.now() + 12_000;
     while (Date.now() < deadline) {
       if (this.mpvLoadedVideoId !== videoId) return false; // superseded
+      if (this.mpvLoadFailed) return false; // open failed — fall through fast
       const s = await this.mpv!.state().catch(() => null);
       if (s && s.duration > 0) return true;
-      await new Promise((r) => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 100));
     }
     return false;
   }
 
   private async mpvStop(): Promise<void> {
+    // mark our own stop so the end-file(reason=stop) mpv emits for this
+    // command can never be read as end-of-song (mpvStopping guard)
+    this.mpvStopping = true;
     this.usingMpv = false;
     this.mpvLoadedVideoId = null;
+    this.mpvPendingVideoId = null;
     await this.mpv?.stop().catch(() => {});
+    this.mpvStopping = false;
   }
 
   private ensureAudio(): HTMLAudioElement {
@@ -391,6 +505,7 @@ export class PlayerEngine {
   private tryProxiedAudio(videoId: string, startSec: number): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
       const a = this.ensureAudio();
+      const gen = this.loadGen;
       let settled = false;
       const cleanup = () => {
         a.removeEventListener("canplay", onOk);
@@ -401,15 +516,19 @@ export class PlayerEngine {
       const onOk = () => {
         if (settled) return;
         settled = true;
-        this.probing = false;
         cleanup();
+        // a stale attempt (a newer load() started meanwhile) must not touch
+        // the live probing flag — its "success" belongs to a dead ladder
+        if (gen !== this.loadGen) return resolve(false);
+        this.probing = false;
         resolve(true);
       };
       const onFail = () => {
         if (settled) return;
         settled = true;
-        this.probing = false;
         cleanup();
+        if (gen !== this.loadGen) return resolve(false); // don't kill the newer src
+        this.probing = false;
         this.killAudioSrc();
         resolve(false);
       };
@@ -472,6 +591,7 @@ export class PlayerEngine {
 
     return new Promise<boolean>((resolve) => {
       const a = this.ensureAudio();
+      const gen = this.loadGen;
       let settled = false;
       const cleanup = () => {
         a.removeEventListener("playing", onOk);
@@ -481,15 +601,17 @@ export class PlayerEngine {
       const onOk = () => {
         if (settled) return;
         settled = true;
-        this.probing = false;
         cleanup();
+        if (gen !== this.loadGen) return resolve(false); // stale attempt
+        this.probing = false;
         resolve(true);
       };
       const onFail = () => {
         if (settled) return;
         settled = true;
-        this.probing = false;
         cleanup();
+        if (gen !== this.loadGen) return resolve(false); // stale attempt
+        this.probing = false;
         this.killAudioSrc();
         resolve(false);
       };
@@ -530,8 +652,25 @@ export class PlayerEngine {
               position: s.position,
               duration: s.duration,
               buffering: s.buffering,
+              eofReached: !!s.eofReached,
+              idleActive: !!s.idleActive,
             };
             this.onState(this.mpvStateCache);
+            // END-OF-SONG ADVANCE (the one v1.7.7 lost): keep-open=always
+            // makes mpv pause at EOF and NEVER send end-file(reason=eof) —
+            // mpv's playloop flips stop_play to KEEP_PLAYING before
+            // end_current_file ever runs, so the queue sat in silence after
+            // every natural track end. eof-reached=true in the polled state
+            // is the signal that actually arrives.
+            if (
+              s.eofReached &&
+              !this.mpvEofFired &&
+              this.mpvLoadedVideoId === this.currentVideoId &&
+              !this.mpvPendingVideoId
+            ) {
+              this.mpvEofFired = true;
+              this.onEnded();
+            }
           })
           .catch(() => {});
         if (this.mpvStateCache) this.onState(this.mpvStateCache);
@@ -545,6 +684,9 @@ export class PlayerEngine {
   /** apply the stored volume to whichever engine is live; safe at any time */
   applyVolume(v: number) {
     const vol = Math.max(0, Math.min(100, Math.round(v * 100)));
+    // remember for mpv: every fresh mpv load boots at volume 100 and needs
+    // the user's current setting re-applied on the new track
+    this.lastVolumePct = vol;
     if (this.usingMpv && this.mpv) {
       void this.mpv.volume(vol).catch(() => {});
       return;
@@ -645,6 +787,11 @@ export class PlayerEngine {
   }
 
   async load(track: Track, startSec = 0): Promise<void> {
+    // generation guard: every await below re-checks `gen` — if a newer load
+    // started meanwhile, this one must return WITHOUT mutating engine state
+    // (two ladders running to completion used to race for the shared audio
+    // element and the last one to resolve won, regardless of the queue index)
+    const gen = ++this.loadGen;
     // invalidate any probe still armed for the previous track: its 8/15s
     // timer must not settle this attempt (rapid skips used to trigger
     // exactly that, failing a source that was fine)
@@ -656,8 +803,10 @@ export class PlayerEngine {
     // stay on the HTML5 element; shipping 150 MB blobs over IPC to mpv
     // buys nothing)
     const local = await idbGetAudio(track.videoId).catch(() => null);
+    if (gen !== this.loadGen) return;
     if (local) {
       await this.mpvStop();
+      if (gen !== this.loadGen) return;
       this.stopYT();
       this.currentIsAudio = true;
       const a = this.ensureAudio();
@@ -677,6 +826,7 @@ export class PlayerEngine {
     // path; HTML5 direct/proxy/iframe remain the fallback ladder below.
     if (this.mpvReady) {
       const viaMpv = await this.tryMpv(track.videoId, startSec);
+      if (gen !== this.loadGen) return; // superseded — newer load owns the engine
       if (viaMpv) {
         this.currentIsAudio = true; // state plumbing treats "audio" as the non-iframe mode
         this.stopAudio();
@@ -691,9 +841,11 @@ export class PlayerEngine {
     // (~150-400 ms via InnerTube) and the browser fetches it itself —
     // no proxy hop. Falls back to the byte proxy, then the IFrame embed.
     await this.mpvStop();
+    if (gen !== this.loadGen) return;
     this.mpvStateCache = null;
     this.stopAudio();
     const direct = await this.tryDirectAudio(track.videoId, startSec, "resolved");
+    if (gen !== this.loadGen) return;
     if (direct) {
       this.currentIsAudio = true;
       this.stopYT();
@@ -709,6 +861,7 @@ export class PlayerEngine {
       return;
     }
     const proxied = await this.tryProxiedAudio(track.videoId, startSec);
+    if (gen !== this.loadGen) return;
     if (proxied) {
       this.currentIsAudio = true;
       this.stopYT();
@@ -742,6 +895,7 @@ export class PlayerEngine {
     this.startTick();
     try {
       const yt = await this.ensureYT();
+      if (gen !== this.loadGen) return; // superseded while the API booted
       yt.loadVideoById({
         videoId: track.videoId,
         startSeconds: Math.floor(startSec),
@@ -783,6 +937,13 @@ export class PlayerEngine {
     if (this.usingMpv && this.mpv) {
       const s = await this.mpv.state().catch(() => null);
       if (s && s.duration > 0) {
+        // keep-open parks mpv paused AT EOF — resuming from there would
+        // immediately re-hit EOF, so replay from the top instead (and let
+        // the EOF watcher fire again for the next advance)
+        if (s.eofReached) {
+          this.mpvEofFired = false;
+          await this.mpv.seek(0).catch(() => {});
+        }
         await this.mpv.play().catch(() => {});
         return;
       }
@@ -840,6 +1001,10 @@ export class PlayerEngine {
 
   seek(sec: number): void {
     if (this.usingMpv && this.mpv) {
+      // any manual seek un-latches the one-shot EOF advance — repeat-one
+      // replays the SAME loaded file (keep-open), so without this the
+      // second playthrough would sit at EOF forever
+      this.mpvEofFired = false;
       void this.mpv.seek(sec).catch(() => {});
       this.onState(this.getState());
       return;

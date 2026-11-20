@@ -37,12 +37,30 @@ let koffi = null;
 let lib = null;
 let F = null;
 let MpvEvent = null;
+let MpvEventEndFile = null;
 let loadError = null;
 
 // mpv client-api event ids we care about (client.h)
 const EV_END_FILE = 7;
 const EV_FILE_LOADED = 8;
 const EV_IDLE = 11;
+
+// mpv_end_file_reason (client.h, since API 1.9): the renderer MUST see the
+// reason — an end-file(reason=error) is a dead stream, an end-file(reason=eof)
+// is end-of-song. Collapsing both into one signal made v1.7.7 auto-advance the
+// queue on every failed load.
+const MPV_END_FILE_REASON_EOF = 0;
+const MPV_END_FILE_REASON_STOP = 2;
+const MPV_END_FILE_REASON_QUIT = 3;
+const MPV_END_FILE_REASON_ERROR = 4;
+const MPV_END_FILE_REASON_REDIRECT = 5;
+const REASON_NAMES = {
+  [MPV_END_FILE_REASON_EOF]: "eof",
+  [MPV_END_FILE_REASON_STOP]: "stop",
+  [MPV_END_FILE_REASON_QUIT]: "quit",
+  [MPV_END_FILE_REASON_ERROR]: "error",
+  [MPV_END_FILE_REASON_REDIRECT]: "redirect",
+};
 
 function loadMpv() {
   if (lib) return true;
@@ -93,6 +111,12 @@ function loadMpv() {
       reply_userdata: "uint64",
       data: "void*",
     });
+    // mpv_event_end_file { mpv_end_file_reason reason; int error; } — two
+    // int32s, no padding surprises. Decoded from the event's data pointer.
+    MpvEventEndFile = koffi.struct("MpvEventEndFile", {
+      reason: "int32",
+      error: "int32",
+    });
     return true;
   } catch (e) {
     loadError = e.message;
@@ -133,7 +157,21 @@ function pumpEvents() {
       if (ev.event_id === EV_FILE_LOADED) {
         send("mpv:file-loaded", {});
       } else if (ev.event_id === EV_END_FILE) {
-        send("mpv:end-file", {});
+        // decode the end-file reason from the event's data pointer; a decode
+        // hiccup must NOT kill the pump (it used to be one try around the
+        // whole drain — one bad event silenced every event after it)
+        let reason = -1;
+        let error = 0;
+        try {
+          if (ev.data) {
+            const ef = koffi.decode(ev.data, 0, MpvEventEndFile);
+            reason = typeof ef?.reason === "number" ? ef.reason : -1;
+            error = typeof ef?.error === "number" ? ef.error : 0;
+          }
+        } catch {
+          /* keep unknown reason — the renderer treats -1 conservatively */
+        }
+        send("mpv:end-file", { reason, error, reasonName: REASON_NAMES[reason] || "unknown" });
       } else if (ev.event_id === EV_IDLE) {
         send("mpv:idle", {});
       }
@@ -171,7 +209,9 @@ function mpvEscape(url) {
 function registerIpc() {
   ipcMain.handle("mpv:available", () => {
     try {
-      return loadMpv() && !!ensureCtx;
+      // honest check: libmpv loaded (the `&& !!ensureCtx` this replaces was
+      // always true — a function reference — and told the renderer nothing)
+      return loadMpv();
     } catch {
       return false;
     }
@@ -231,6 +271,13 @@ function registerIpc() {
     const paused = getStr("pause");
     const buffering = getStr("paused-for-cache");
     const seekable = getStr("seekable");
+    // eof-reached is the ONLY end-of-song signal this app gets: with
+    // keep-open=always mpv never unloads the file at EOF and therefore never
+    // sends end-file(reason=eof) — mpv playloop handle_keep_open flips
+    // stop_play to KEEP_PLAYING before end_current_file ever runs. Without
+    // surfacing this, the queue sat in silence at every natural track end.
+    const eofReached = getStr("eof-reached");
+    const idleActive = getStr("idle-active");
     return {
       position: pos !== null ? parseFloat(pos) : 0,
       duration: dur !== null ? parseFloat(dur) : 0,
@@ -238,6 +285,8 @@ function registerIpc() {
       playing: paused === "no" && pos !== null,
       buffering: buffering === "yes",
       seekable: seekable === "yes",
+      eofReached: eofReached === "yes",
+      idleActive: idleActive === "yes",
     };
   });
 

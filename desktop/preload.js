@@ -37,10 +37,21 @@ contextBridge.exposeInMainWorld("resonaDesktop", {
       ipcRenderer.on("mpv:file-loaded", l);
       return () => ipcRenderer.removeListener("mpv:file-loaded", l);
     },
+    /** cb receives { reason, error, reasonName } — mpv_end_file_reason:
+     *  0 eof · 2 stop · 3 quit · 4 error · 5 redirect (−1 unknown). The
+     *  engine must know WHY a file ended: error means "this stream died",
+     *  eof means "song finished" — they are opposite queue decisions. */
     onEndFile: (cb) => {
-      const l = () => cb();
+      const l = (_e, info) => cb(info || { reason: -1, error: 0, reasonName: "unknown" });
       ipcRenderer.on("mpv:end-file", l);
       return () => ipcRenderer.removeListener("mpv:end-file", l);
+    },
+    /** mpv entered idle mode — while a load is pending this is the fast
+     *  "the URL could not be opened" signal (bad path, refused connection) */
+    onIdle: (cb) => {
+      const l = () => cb();
+      ipcRenderer.on("mpv:idle", l);
+      return () => ipcRenderer.removeListener("mpv:idle", l);
     },
   },
 });

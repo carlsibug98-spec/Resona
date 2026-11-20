@@ -12,7 +12,7 @@
 ![Issues](https://img.shields.io/github/issues/carlsibug98-spec/Resona?style=flat-square&label=ISSUES&color=1ed760)
 ![License](https://img.shields.io/github/license/carlsibug98-spec/Resona?style=flat-square&label=LICENSE&color=1ed760)
 
-**[⬇️ Download (v1.7.7) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
+**[⬇️ Download (v1.7.8) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
 
 </div>
 
@@ -26,13 +26,19 @@
 
 | Platform | Status | Download | Details |
 | --- | --- | --- | --- |
-| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.7.7** | **[⬇️ Download installer](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.7.7.exe)** | Run the wizard → desktop shortcut · ~175 MB · later versions install themselves at launch |
-| 🍎 **macOS** (Apple Silicon) | ✅ **v1.7.7** | **[⬇️ Download DMG](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.7-arm64.dmg)** | Open → drag to Applications · right-click → Open the first time (unsigned) |
-| 🍎 **macOS** (Intel) | ✅ **v1.7.7** | **[⬇️ Download DMG](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.7-x64.dmg)** | Same steps as Apple Silicon |
-| 🐧 **Linux** (AppImage / .deb, x64) | ✅ **v1.7.7** | **[⬇️ AppImage](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.7.AppImage)** · **[⬇️ .deb](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.7.deb)** | `chmod +x` the AppImage, or `sudo apt install ./Resona-1.7.7.deb` |
+| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.7.8** | **[⬇️ Download installer](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.7.8.exe)** | Run the wizard → desktop shortcut · ~160 MB · later versions install themselves at launch |
+| 🍎 **macOS** (Apple Silicon) | ✅ **v1.7.8** | **[⬇️ Download DMG](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.8-arm64.dmg)** | Open → drag to Applications · right-click → Open the first time (unsigned) |
+| 🍎 **macOS** (Intel) | ✅ **v1.7.8** | **[⬇️ Download DMG](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.8-x64.dmg)** | Same steps as Apple Silicon |
+| 🐧 **Linux** (AppImage / .deb, x64) | ✅ **v1.7.8** | **[⬇️ AppImage](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.8.AppImage)** · **[⬇️ .deb](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.8.deb)** | `chmod +x` the AppImage, or `sudo apt install ./Resona-1.7.8.deb` |
 | 📱 **iOS / Android** | 🧭 Planned | — | Mobile app in design |
 
 > **All releases:** [github.com/carlsibug98-spec/Resona/releases](https://github.com/carlsibug98-spec/Resona/releases) · **Install guide:** [INSTALL-GUIDE.txt](https://github.com/carlsibug98-spec/Resona/releases/latest/download/INSTALL-GUIDE.txt) · **SHA-256:** `SHA256SUMS.txt` in every release
+
+## ✨ What's new in v1.7.8
+
+- **🎧 The "always reloads and stops" bug is fixed — root-caused, not guessed.** Three independent defects in the v1.7.7 mpv core: mpv was handed a *relative* URL it could only open as a file path (12 s of dead air on EVERY track); a failed load fired "end of song" and auto-advanced the queue while the stale ladder kept racing behind it (failures stacked until playback stopped after 3 songs); and with `keep-open=always` mpv **never sends the end-of-file event** v1.7.7 relied on (verified in mpv's playloop source), so even healthy tracks ended in silence. All three fixed: absolute URLs, reason-aware end-file handling, and an `eof-reached` watcher that advances the queue exactly once per track.
+- **⚡ Failed opens fall through in milliseconds** — the idle/error events now latch the mpv wait instead of burning its full 12 s deadline, and a load-generation counter makes rapid skip-clicks safe (a stale ladder can no longer finish after a newer load and play the wrong song).
+- **🔊 Your volume applies to mpv now** — every fresh mpv load starts at the user's setting instead of 100% (v1.7.7 never applied it on the mpv path), and resuming from end-of-file replays from the top instead of re-hitting EOF.
 
 ## ✨ What's new in v1.7.7
 
@@ -151,20 +157,20 @@
 
 ## 🚀 Install on Windows
 
-1. **Download** `Resona-Setup-1.7.7.exe` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~175 MB) and run the wizard — per-user install (no admin needed), desktop shortcut created. Install over an older copy to update; your library carries over. **From v1.6.0 on, later versions install themselves at launch** — this is the last manual install you need.
+1. **Download** `Resona-Setup-1.7.8.exe` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~160 MB) and run the wizard — per-user install (no admin needed), desktop shortcut created. Install over an older copy to update; your library carries over. **From v1.6.0 on, later versions install themselves at launch** — this is the last manual install you need.
 2. **If Windows SmartScreen shows a warning** — this is expected and safe. Resona is *not code-signed* (a signing certificate costs ~$100+/yr), so Windows warns about every app it hasn't seen before. It does **not** mean a virus was found. To run it:
    - Click **More info** → **Run anyway**. That's it.
-   - Or, if the download finished already: right-click `Resona-Setup-1.7.7.exe` → **Properties** → tick **Unblock** → OK, then double-click it.
+   - Or, if the download finished already: right-click `Resona-Setup-1.7.8.exe` → **Properties** → tick **Unblock** → OK, then double-click it.
 3. Play music. Your library lives in `%APPDATA%/resona`.
 
 **Verify (SHA-256):** compare against `SHA256SUMS.txt` published with every release:
 
 ```
-Get-FileHash .\Resona-Setup-1.7.7.exe   # in PowerShell
+Get-FileHash .\Resona-Setup-1.7.8.exe   # in PowerShell
 ```
 
-**macOS**: the `.dmg` is unsigned — right-click Resona → **Open** the first time (or `xattr -d com.apple.quarantine /Applications/Resona.app`). Apple Silicon machines take `Resona-1.7.7-arm64.dmg`, Intel takes `Resona-1.7.7-x64.dmg`.  
-**Linux**: `chmod +x Resona-1.7.7.AppImage && ./Resona-1.7.7.AppImage`, or install the `.deb` with `sudo apt install ./Resona-1.7.7.deb`.
+**macOS**: the `.dmg` is unsigned — right-click Resona → **Open** the first time (or `xattr -d com.apple.quarantine /Applications/Resona.app`). Apple Silicon machines take `Resona-1.7.8-arm64.dmg`, Intel takes `Resona-1.7.8-x64.dmg`.  
+**Linux**: `chmod +x Resona-1.7.8.AppImage && ./Resona-1.7.8.AppImage`, or install the `.deb` with `sudo apt install ./Resona-1.7.8.deb`.
 
 > Signed builds are on the roadmap — until then the two steps above are the only friction.
 

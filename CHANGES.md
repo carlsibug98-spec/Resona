@@ -1,5 +1,48 @@
 # Changes
 
+## v1.7.8 — the playback root-cause fix (2026-11-20)
+
+"Music playback not playing the song — it always reloads and stops": root-caused
+to three independent defects in the v1.7.7 mpv core, all fixed. Found by reading
+the mpv client API (`client.h`) and mpv's own playloop source, not by guessing:
+
+- **mpv was handed a relative URL and opened it as a file path.** The renderer
+  built `/api/stream?videoId=…` (correct for a browser element) and sent it
+  over IPC verbatim — but mpv runs in the main process, where that string is a
+  local file path. Every open failed, `waitForMpvLoad` burned its full 12 s on
+  EVERY track before the HTML5 ladder even started, and the HTML5 ladder then
+  raced bot-gated networks. That is the "always reload". Now the engine
+  absolutizes against `window.location.origin` (the window IS loaded from
+  `http://127.0.0.1:<port>`, the same Next server the proxy lives on).
+- **A failed load auto-advanced the queue.** `tryMpv` set `usingMpv = true`
+  before the load was confirmed, and every end-file event — including
+  `end-file(reason=error)` for the failed open — was treated as end-of-song:
+  `onEnded` fired, `next()` loaded the next track, the stale ladder for the
+  OLD track then finished over the NEW track's engine state. The queue index
+  and the audio desynced, failures stacked, and after 3 consecutive failures
+  the Musify policy stopped playback. That is the "and stop". Now the engine
+  receives the end-file REASON (`mpv_event_end_file` decoded over koffi):
+  error-while-pending → fail fast to HTML5; error-while-playing → a counted
+  playback error; eof → advance; stop/quit (our own commands) → ignore.
+- **End-of-song never advanced at all.** With `keep-open=always` mpv does NOT
+  send `end-file(reason=eof)` at a natural end of track — verified in mpv's
+  playloop: `handle_keep_open()` flips `stop_play` to `KEEP_PLAYING` before
+  `end_current_file()` ever runs, so the file stays loaded (paused at EOF) and
+  the event that v1.7.7 relied on for queue advance never fires. The engine
+  now watches the `eof-reached` property in the 400 ms tick (surfaced by
+  `mpv:state`) and advances exactly once per track (latched, un-latched by
+  seek so repeat-one replays work).
+- **Supporting fixes:** failed mpv opens now fall through to HTML5 within
+  milliseconds (idle/error events latch the wait instead of the full 12 s
+  deadline); the user's volume is applied to every fresh mpv load (mpv boots
+  at 100 and v1.7.7 never applied the setting on the mpv path); a load
+  generation counter makes rapid track switches safe — a stale ladder can no
+  longer finish after a newer load and overwrite the engine's track; resuming
+  from keep-open's end-of-file pause replays from the top instead of
+  re-hitting EOF; the host's event pump isolates per-event decode failures so
+  one bad event can no longer silence every event after it; `mpv:available`
+  reports an honest libmpv check.
+
 ## v1.7.7 — the Musify playback core: libmpv (2026-11-18)
 
 "use Musify entirely, but our UI" — the last piece was the audio engine
