@@ -32,12 +32,14 @@ jobs:
               desktop-tauri/src-tauri/target/release/bundle/nsis/*.exe
           - name: Linux (Rust shell)
             os: ubuntu-latest
-            targets: appimage,deb
+            # deb only: linuxdeploy (AppImage tooling) is unreliable on the
+            # ubuntu-24.04 runner even with libfuse2 — the Linux AppImage
+            # remains the Electron build's job
+            targets: deb
             triple: x86_64-unknown-linux-gnu
             tauri_config: tauri.linux.conf.json
             ytdlp: yt-dlp
             bundle_globs: |
-              desktop-tauri/src-tauri/target/release/bundle/appimage/*.AppImage
               desktop-tauri/src-tauri/target/release/bundle/deb/*.deb
     runs-on: ${{ matrix.os }}
     steps:
