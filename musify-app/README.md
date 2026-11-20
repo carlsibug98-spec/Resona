@@ -58,7 +58,9 @@ with a normal network they fill in normally.
 cd musify-app
 flutter pub get
 flutter analyze   # clean
-flutter test      # 222 passing; the 3 network/multicast tests need real internet
+flutter test      # all green: 222 passing, 12 skipped (live YouTube tests
+                  # skip when YouTube rate-limits the machine, discovery test
+                  # is hermetic over loopback)
 flutter run       # android / windows / linux
 ```
 

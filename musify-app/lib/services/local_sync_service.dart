@@ -165,6 +165,7 @@ typedef _Reply = (int, Map<String, dynamic>);
 class LocalSyncService {
   LocalSyncService._()
     : _testDiscovery = null,
+      _testDiscoveryAddresses = null,
       _pairingNow = DateTime.now,
       _replyTimeout = _shortTimeout,
       _bodyTimeout = _mergeTimeout,
@@ -177,8 +178,10 @@ class LocalSyncService {
     DateTime Function()? pairingNow,
     Duration? replyTimeout,
     Duration? bodyTimeout,
+    List<String>? discoveryAddresses,
     this._allowLoopbackPeers = true,
   }) : _testDiscovery = discovery,
+       _testDiscoveryAddresses = discoveryAddresses,
        _pairingNow = pairingNow ?? DateTime.now,
        _replyTimeout = replyTimeout ?? _shortTimeout,
        _bodyTimeout = bodyTimeout ?? _mergeTimeout;
@@ -221,6 +224,10 @@ class LocalSyncService {
   final ValueNotifier<bool> serverRunning = ValueNotifier(false);
 
   final Future<List<DiscoveredSyncDevice>> Function()? _testDiscovery;
+
+  /// Where [discoverDevices] sends its request instead of the real broadcast
+  /// addresses, so a test does not depend on how the host is networked.
+  final List<String>? _testDiscoveryAddresses;
   final DateTime Function() _pairingNow;
 
   /// Peers are on the local network; only tests talk to each other over loopback.
@@ -1742,6 +1749,10 @@ class LocalSyncService {
 
   /// The limited broadcast plus each interface's /24 broadcast.
   Future<List<InternetAddress>> _broadcastAddresses() async {
+    final override = _testDiscoveryAddresses;
+    if (override != null) {
+      return override.map(InternetAddress.new).toList();
+    }
     final addresses = <String>{'255.255.255.255'};
     try {
       final interfaces = await NetworkInterface.list(

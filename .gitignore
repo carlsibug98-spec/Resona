@@ -48,6 +48,9 @@ dev.log
 dev.out.log
 test
 prompt
+# the bare `test` above also hid the Flutter app's suite; keep it tracked
+!musify-app/test/
+!musify-app/test/**
 
 server.log
 # Skills directory
