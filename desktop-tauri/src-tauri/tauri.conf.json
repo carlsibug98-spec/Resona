@@ -24,7 +24,6 @@
       "icons/icon.png"
     ],
     "externalBin": ["binaries/node"],
-    "resources": ["resources/**"],
     "windows": {
       "nsis": {
         "installMode": "currentUser",

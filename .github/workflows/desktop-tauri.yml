@@ -26,7 +26,7 @@ jobs:
             os: windows-latest
             targets: nsis
             triple: x86_64-pc-windows-msvc
-            node_dist: node-v22.14.0-win-x64.zip
+            tauri_config: tauri.win.conf.json
             ytdlp: yt-dlp.exe
             bundle_globs: |
               desktop-tauri/src-tauri/target/release/bundle/nsis/*.exe
@@ -34,7 +34,7 @@ jobs:
             os: ubuntu-latest
             targets: appimage,deb
             triple: x86_64-unknown-linux-gnu
-            node_dist: node-v22.14.0-linux-x64.tar.xz
+            tauri_config: tauri.linux.conf.json
             ytdlp: yt-dlp
             bundle_globs: |
               desktop-tauri/src-tauri/target/release/bundle/appimage/*.AppImage
@@ -65,42 +65,45 @@ jobs:
         run: node scripts/stage-desktop.js
 
       # Reuse the EXACT staged server the Electron build ships: standalone
-      # server + static + public, node_modules renamed to deps.
+      # server + static + public, node_modules renamed to deps. Literal
+      # directory resources (no globs) so dotfiles like .next/ ship intact.
       - name: Collect resources for the Tauri bundle
         shell: bash
         run: |
           mkdir -p desktop-tauri/src-tauri/resources
           cp -r desktop/staging/server desktop-tauri/src-tauri/resources/server
           cp "desktop/staging/${{ matrix.ytdlp }}" desktop-tauri/src-tauri/resources/ || true
+          echo "resources ready:"; du -sh desktop-tauri/src-tauri/resources/server | head -1
+          test -f desktop-tauri/src-tauri/resources/server/server.js
+          test -d desktop-tauri/src-tauri/resources/server/deps
 
       # The sidecar: a real Node runtime (Tauri has none). externalBin wants
       # it at src-tauri/binaries/node-<triple>(.exe) — Tauri strips the triple
       # into binaries/node(.exe) inside the installed app.
-      - name: Fetch Node sidecar
+      - name: Fetch Node sidecar (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path desktop-tauri/src-tauri/binaries | Out-Null
+          Invoke-WebRequest -Uri "https://nodejs.org/dist/v22.14.0/node-v22.14.0-win-x64.zip" -OutFile "$env:RUNNER_TEMP\node.zip"
+          Expand-Archive -Path "$env:RUNNER_TEMP\node.zip" -DestinationPath "$env:RUNNER_TEMP\node-pkg" -Force
+          Copy-Item "$env:RUNNER_TEMP\node-pkg\node-v22.14.0-win-x64\node.exe" "desktop-tauri/src-tauri/binaries/node-x86_64-pc-windows-msvc.exe"
+          Get-ChildItem desktop-tauri/src-tauri/binaries/
+
+      - name: Fetch Node sidecar (Linux)
+        if: runner.os == 'Linux'
         shell: bash
-        env:
-          NODE_DIST: ${{ matrix.node_dist }}
-          TRIPLE: ${{ matrix.triple }}
         run: |
           mkdir -p desktop-tauri/src-tauri/binaries
-          curl -sL --max-time 300 -o /tmp/node-pkg "https://nodejs.org/dist/v22.14.0/${NODE_DIST}"
-          cd /tmp
-          # bsdtar (windows-latest's tar) auto-detects zip; GNU tar handles xz —
-          # one extraction path for both platforms
-          tar -xf node-pkg
-          case "${NODE_DIST}" in
-            *win-x64*)
-              cp "node-v22.14.0-win-x64/node.exe" "$GITHUB_WORKSPACE/desktop-tauri/src-tauri/binaries/node-${TRIPLE}.exe"
-              ;;
-            *linux-x64*)
-              cp "node-v22.14.0-linux-x64/bin/node" "$GITHUB_WORKSPACE/desktop-tauri/src-tauri/binaries/node-${TRIPLE}"
-              ;;
-          esac
-          ls -la "$GITHUB_WORKSPACE/desktop-tauri/src-tauri/binaries/"
+          curl -sL --max-time 300 -o /tmp/node-pkg https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-x64.tar.xz
+          tar -xf /tmp/node-pkg -C /tmp
+          cp /tmp/node-v22.14.0-linux-x64/bin/node desktop-tauri/src-tauri/binaries/node-x86_64-unknown-linux-gnu
+          ls -la desktop-tauri/src-tauri/binaries/
 
       - name: Build Tauri app
         working-directory: desktop-tauri
-        run: npx -y @tauri-apps/cli@latest build --bundles ${{ matrix.targets }}
+        shell: bash
+        run: npx -y @tauri-apps/cli@latest build --bundles ${{ matrix.targets }} --config src-tauri/${{ matrix.tauri_config }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
