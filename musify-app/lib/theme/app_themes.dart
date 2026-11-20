@@ -50,7 +50,9 @@ ThemeData getAppTheme(ColorScheme colorScheme) {
   final isLight = colorScheme.brightness == Brightness.light;
 
   final bg = isLight ? ResonaColors.bgLight : ResonaColors.bgDark;
-  final surface = isLight ? ResonaColors.surfaceLight : ResonaColors.surfaceDark;
+  final surface = isLight
+      ? ResonaColors.surfaceLight
+      : ResonaColors.surfaceDark;
   final elev = isLight ? ResonaColors.elevLight : ResonaColors.elevDark;
   final text = isLight ? ResonaColors.textLight : ResonaColors.textDark;
   final muted = isLight ? ResonaColors.mutedLight : ResonaColors.mutedDark;
@@ -101,7 +103,10 @@ ThemeData getAppTheme(ColorScheme colorScheme) {
     canvasColor: bg,
     cardColor: surface,
     hoverColor: hover,
-    splashColor: Colors.white.withValues(alpha: 0.06),
+    // light mode needs a dark ink splash, a white one is invisible there
+    splashColor: isLight
+        ? Colors.black.withValues(alpha: 0.05)
+        : Colors.white.withValues(alpha: 0.06),
     highlightColor: Colors.transparent,
     splashFactory: InkRipple.splashFactory,
     cardTheme: base.cardTheme.copyWith(
@@ -239,7 +244,11 @@ ThemeData getAppTheme(ColorScheme colorScheme) {
       backgroundColor: elev,
       side: BorderSide.none,
       shape: const StadiumBorder(),
-      labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: muted),
+      labelStyle: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: muted,
+      ),
       secondaryLabelStyle: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,
@@ -294,7 +303,7 @@ ThemeData getAppTheme(ColorScheme colorScheme) {
     ),
     popupMenuTheme: base.popupMenuTheme.copyWith(
       color: elev,
-      shadowColor: Colors.black.withValues(alpha: 0.5),
+      shadowColor: Colors.black.withValues(alpha: isLight ? 0.18 : 0.5),
       elevation: 16,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(ResonaColors.radiusLg),
@@ -331,7 +340,11 @@ ThemeData getAppTheme(ColorScheme colorScheme) {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: line),
       ),
-      textStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: text),
+      textStyle: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        color: text,
+      ),
     ),
     tabBarTheme: base.tabBarTheme.copyWith(
       labelColor: text,

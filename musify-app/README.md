@@ -5,7 +5,10 @@ This folder is [gokadzev/Musify](https://github.com/gokadzev/Musify)
 on top of it**. Every feature of Musify still works — YouTube Music
 streaming, offline downloads, playlists, local sync, listening stats,
 equalizer — the presentation layer was rebuilt to match
-[Resona](https://github.com/carlsibug98-spec/Resona).
+[Resona](https://github.com/carlsibug98-spec/Resona). Dark is the source of
+truth and light is a full sibling variant; the shell, player bar and
+now-playing panel also respond to window width the way Resona's responsive
+mockup does.
 
 ## What changed vs upstream
 
@@ -42,6 +45,9 @@ with a normal network they fill in normally.
 | Home | `lib/screens/home_page.dart` | Hero heading + `.qtile` quick tiles grid on wide screens |
 | Playlist hero | `lib/widgets/playlist_page/playlist_sliver_app_bar.dart`, `playlist_header.dart` | `.phero`: bottom-left 180px cover, huge `w800 -0.03em` title |
 | Now playing | `lib/screens/now_playing_page.dart` | `.npp-bg`: layered radial hue glows over near-black with dark scrim |
+| Light theme | `lib/theme/app_themes.dart`, `lib/theme/resona_ui.dart`, `lib/screens/now_playing_page.dart` | Full light variant of the same system: `#F3F3F5` bg, white surfaces, ink splash + soft popup shadows, pastel radial glows for now-playing, theme-aware chrome |
+| Responsive player bar | `lib/widgets/mini_player.dart` | 3 width tiers — full 3-zone grid ≥900px, center stack 640–899px, compact row <640px (artwork + title, prev/play/next, like, 2px progress hairline on the top edge) so phone widths no longer overflow |
+| Sidebar collapse | `lib/screens/bottom_navigation_page.dart` | Collapses automatically under 760px (Resona breakpoint) and can also be pinned collapsed from the library header; width animates (220ms) for smooth window resizes |
 | Misc | section headers (`.section-h`), chips (`.chip`), announcements (`.nudge`), bar radius constants | Restyled to Resona tokens |
 | Shell paint | `lib/screens/bottom_navigation_page.dart` | Shell now paints the app background itself so no platform-default white bleeds through around the cards; brand row uses a green brand chip (the bundled wordmark glyph is white) |
 | Web runtime | `lib/main.dart`, `lib/utilities/platform_utils.dart`, `lib/services/linux_media_controls.dart` | Platform guards (`kIsWeb`) for `Platform.*` getters, `Hive.initFlutter()` IndexedDB storage, `AudioService.init` on web, and a JS-safe position clamp sentinel — the app boots on Flutter Web |

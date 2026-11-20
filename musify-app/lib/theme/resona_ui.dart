@@ -51,6 +51,15 @@ abstract final class ResonaColors {
   static const lineLight = Color(0x14000000); // rgba(0,0,0,.08)
   static const hoverLight = Color(0x0D000000); // rgba(0,0,0,.05)
 
+  // ── now-playing panel (`.npp-bg`) ────────────────────────────────
+  /// `.npp-bg` base under the radial glows.
+  static const nppBaseDark = Color(0xFF0D0D10);
+  static const nppBaseLight = Color(0xFFEDEDF2);
+
+  /// `.npp::after` scrim that washes the glows out.
+  static const nppScrimDark = Color(0x5908080C);
+  static const nppScrimLight = Color(0x2EFFFFFF);
+
   /// global radius token `--r`
   static const radius = 10.0;
 
@@ -105,23 +114,24 @@ Gradient resonaGrad(int hue) {
 }
 
 /// Two radial stops used by Resona's now-playing panel background
-/// (`.npp-bg`): hue at 70/42 and hue+60 at 65/32.
-Color resonaGlowA(int hue) =>
-    HSLColor.fromAHSL(0.75, hue.toDouble(), 0.7, 0.42).toColor();
+/// (`.npp-bg`): hue at 70/42 and hue+60 at 65/32. With [light] the stops
+/// become pastel washes over the light base instead.
+Color resonaGlowA(int hue, {bool light = false}) => light
+    ? HSLColor.fromAHSL(0.85, hue.toDouble(), 0.65, 0.85).toColor()
+    : HSLColor.fromAHSL(0.75, hue.toDouble(), 0.7, 0.42).toColor();
 
-Color resonaGlowB(int hue) => HSLColor.fromAHSL(
-  0.7,
-  ((hue + 60) % 360).toDouble(),
-  0.65,
-  0.32,
-).toColor();
+Color resonaGlowB(int hue, {bool light = false}) => light
+    ? HSLColor.fromAHSL(0.8, ((hue + 60) % 360).toDouble(), 0.6, 0.82).toColor()
+    : HSLColor.fromAHSL(
+        0.7,
+        ((hue + 60) % 360).toDouble(),
+        0.65,
+        0.32,
+      ).toColor();
 
-Color resonaGlowC(int hue) => HSLColor.fromAHSL(
-  0.5,
-  ((hue - 40) % 360).toDouble(),
-  0.6,
-  0.3,
-).toColor();
+Color resonaGlowC(int hue, {bool light = false}) => light
+    ? HSLColor.fromAHSL(0.6, ((hue - 40) % 360).toDouble(), 0.55, 0.8).toColor()
+    : HSLColor.fromAHSL(0.5, ((hue - 40) % 360).toDouble(), 0.6, 0.3).toColor();
 
 /// The frosted play disc shown over covers on hover in Resona
 /// (`.cover-fab`): #1f1f1f disc, white icon.

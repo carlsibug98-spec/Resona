@@ -77,8 +77,7 @@ class MiniPlayer extends StatelessWidget {
 
             final hasNext =
                 state.queue.length > 1 &&
-                (state.playbackState.queueIndex ?? 0) <
-                    state.queue.length - 1;
+                (state.playbackState.queueIndex ?? 0) < state.queue.length - 1;
 
             return _PlayerBarBody(
               metadata: metadata,
@@ -139,45 +138,102 @@ class _PlayerBarBodyState extends State<_PlayerBarBody> {
     final metadata = widget.metadata;
     final state = widget.state;
     final colorScheme = Theme.of(context).colorScheme;
-    final isWide = MediaQuery.sizeOf(context).width >= 900;
 
-    return GestureDetector(
-      onVerticalDragUpdate: _handleVerticalDrag,
-      child: Container(
-        height: MiniPlayer.playerHeight,
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-          borderRadius: BorderRadius.circular(MiniPlayer._borderRadius),
-          border: Border.all(color: colorScheme.outlineVariant),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          child: Row(
-            children: [
-              // ── now playing ──
-              _NowPlayingInfo(
-                metadata: metadata,
-                onOpen: _navigateToNowPlaying,
-              ),
-              const Spacer(),
-              // ── controls + seek ──
-              _CenterControls(
-                metadata: metadata,
-                state: state,
-                hasNext: widget.hasNext,
-              ),
-              const Spacer(),
-              // ── like / volume ──
-              if (isWide)
-                _RightControls(metadata: metadata)
-              else
-                const SizedBox.shrink(),
-            ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Three tiers, like Resona's responsive player bar:
+        // compact (<640): artwork + title, prev/play/next, like, plus a
+        //   progress hairline across the top edge instead of the seek row;
+        // medium (640-899): full center stack, no right controls;
+        // wide (>=900): the full three-zone grid.
+        final compact = constraints.maxWidth < 640;
+        final isWide = constraints.maxWidth >= 900;
+
+        return GestureDetector(
+          onVerticalDragUpdate: _handleVerticalDrag,
+          child: Container(
+            height: MiniPlayer.playerHeight,
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: BorderRadius.circular(MiniPlayer._borderRadius),
+              border: Border.all(color: colorScheme.outlineVariant),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              children: [
+                if (compact)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: _ProgressHairline(
+                      fraction: _positionFraction(state, metadata),
+                      color: colorScheme.primary,
+                      trackColor: colorScheme.outlineVariant,
+                    ),
+                  ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 18),
+                  child: Row(
+                    children: [
+                      // ── now playing ──
+                      if (compact)
+                        Expanded(
+                          child: _NowPlayingInfo(
+                            metadata: metadata,
+                            onOpen: _navigateToNowPlaying,
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          width: 220,
+                          child: _NowPlayingInfo(
+                            metadata: metadata,
+                            onOpen: _navigateToNowPlaying,
+                          ),
+                        ),
+                      if (compact) ...[
+                        const SizedBox(width: 8),
+                        _CompactTransport(
+                          state: state,
+                          hasNext: widget.hasNext,
+                        ),
+                        const SizedBox(width: 2),
+                        _LikeButton(metadata: metadata),
+                      ] else ...[
+                        const Spacer(),
+                        // ── controls + seek ──
+                        _CenterControls(
+                          metadata: metadata,
+                          state: state,
+                          hasNext: widget.hasNext,
+                        ),
+                        const Spacer(),
+                        // ── like / volume ──
+                        if (isWide)
+                          _RightControls(metadata: metadata)
+                        else
+                          const SizedBox.shrink(),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
+  }
+
+  /// Playback fraction used by the compact progress hairline.
+  double _positionFraction(FullPlayerState state, MediaItem metadata) {
+    final total = state.position.duration > Duration.zero
+        ? state.position.duration
+        : (metadata.duration ?? Duration.zero);
+    if (total.inMilliseconds == 0) return 0;
+    return (state.position.position.inMilliseconds / total.inMilliseconds)
+        .clamp(0.0, 1.0);
   }
 }
 
@@ -194,59 +250,56 @@ class _NowPlayingInfo extends StatelessWidget {
     return GestureDetector(
       onTap: onOpen,
       behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 220,
-        child: Row(
-          children: [
-            Hero(
-              tag: 'now_playing_artwork',
-              child: SongArtworkWidget(
-                metadata: metadata,
-                size: MiniPlayer._artworkSize,
-                errorWidgetIconSize: 20,
-                borderRadius: MiniPlayer._artworkRadius,
-              ),
+      child: Row(
+        children: [
+          Hero(
+            tag: 'now_playing_artwork',
+            child: SongArtworkWidget(
+              metadata: metadata,
+              size: MiniPlayer._artworkSize,
+              errorWidgetIconSize: 20,
+              borderRadius: MiniPlayer._artworkRadius,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  MarqueeWidget(
-                    manualScrollEnabled: false,
-                    animationDuration: const Duration(seconds: 8),
-                    backDuration: const Duration(seconds: 2),
-                    pauseDuration: const Duration(seconds: 2),
-                    child: Text(
-                      metadata.title,
-                      style: TextStyle(
-                        color: colorScheme.onSurface,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                MarqueeWidget(
+                  manualScrollEnabled: false,
+                  animationDuration: const Duration(seconds: 8),
+                  backDuration: const Duration(seconds: 2),
+                  pauseDuration: const Duration(seconds: 2),
+                  child: Text(
+                    metadata.title,
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  if (metadata.artist?.isNotEmpty ?? false) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      metadata.artist!,
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                ),
+                if (metadata.artist?.isNotEmpty ?? false) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    metadata.artist!,
+                    style: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
                     ),
-                  ],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -295,11 +348,7 @@ class _CenterControls extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           // seek line
-          _SeekLine(
-            state: state,
-            metadata: metadata,
-            colorScheme: colorScheme,
-          ),
+          _SeekLine(state: state, metadata: metadata, colorScheme: colorScheme),
         ],
       ),
     );
@@ -322,9 +371,7 @@ class _ShuffleButton extends StatelessWidget {
         colorScheme: colorScheme,
         isActive: shuffled,
         onPressed: () => audioHandler.setShuffleMode(
-          shuffled
-              ? AudioServiceShuffleMode.none
-              : AudioServiceShuffleMode.all,
+          shuffled ? AudioServiceShuffleMode.none : AudioServiceShuffleMode.all,
         ),
       ),
     );
@@ -488,14 +535,15 @@ class _SeekLineState extends State<_SeekLine> {
         ? _dragFraction
         : totalDuration.inMilliseconds == 0
         ? 0.0
-        : (positionData.position.inMilliseconds /
-                  totalDuration.inMilliseconds)
+        : (positionData.position.inMilliseconds / totalDuration.inMilliseconds)
               .clamp(0.0, 1.0);
 
     void seekToFraction(double fraction) {
       if (totalDuration.inMilliseconds == 0) return;
       audioHandler.seek(
-        Duration(milliseconds: (fraction * totalDuration.inMilliseconds).round()),
+        Duration(
+          milliseconds: (fraction * totalDuration.inMilliseconds).round(),
+        ),
       );
     }
 
@@ -544,9 +592,9 @@ class _SeekLineState extends State<_SeekLine> {
                   onHorizontalDragStart: (details) =>
                       handleLocalOffset(details.localPosition),
                   onHorizontalDragUpdate: (details) {
-                    final fraction = ((details.localPosition.dx) /
-                            constraints.maxWidth)
-                        .clamp(0.0, 1.0);
+                    final fraction =
+                        ((details.localPosition.dx) / constraints.maxWidth)
+                            .clamp(0.0, 1.0);
                     setState(() {
                       _dragging = true;
                       _dragFraction = fraction;
@@ -578,11 +626,10 @@ class _SeekLineState extends State<_SeekLine> {
                       ),
                       if (_dragging)
                         Positioned(
-                          left:
-                              (current * constraints.maxWidth - 5).clamp(
-                                0.0,
-                                constraints.maxWidth - 10,
-                              ),
+                          left: (current * constraints.maxWidth - 5).clamp(
+                            0.0,
+                            constraints.maxWidth - 10,
+                          ),
                           child: Container(
                             width: 10,
                             height: 10,
@@ -620,42 +667,12 @@ class _RightControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final ytid = metadata.extras?['ytid']?.toString() ?? '';
-
     return SizedBox(
       width: 220,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          if (ytid.isNotEmpty && !offlineMode.value)
-            ValueListenableBuilder<List>(
-              valueListenable: userLikedSongsList,
-              builder: (_, __, ___) {
-                final liked = isSongAlreadyLiked(ytid);
-                return IconButton(
-                  onPressed: () {
-                    updateSongLikeStatus(
-                      ytid,
-                      !liked,
-                      songData: mediaItemToMap(metadata),
-                    );
-                  },
-                  splashColor: Colors.transparent,
-                  highlightColor: Colors.transparent,
-                  icon: Icon(
-                    liked
-                        ? FluentIcons.heart_24_filled
-                        : FluentIcons.heart_24_regular,
-                    color: liked
-                        ? colorScheme.primary
-                        : colorScheme.onSurfaceVariant,
-                    size: 22,
-                  ),
-                  visualDensity: VisualDensity.compact,
-                );
-              },
-            ),
+          _LikeButton(metadata: metadata),
           const VolumeControl(),
         ],
       ),
@@ -679,8 +696,7 @@ class VolumeControl extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              onPressed: () =>
-                  audioHandler.setVolume(volume > 0 ? 0.0 : 1.0),
+              onPressed: () => audioHandler.setVolume(volume > 0 ? 0.0 : 1.0),
               splashColor: Colors.transparent,
               highlightColor: Colors.transparent,
               icon: Icon(
@@ -713,6 +729,108 @@ class VolumeControl extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+// ── compact (<640px) pieces ─────────────────────────────────────────────────
+
+/// Prev / play / next only — the compact transport row.
+class _CompactTransport extends StatelessWidget {
+  const _CompactTransport({required this.state, required this.hasNext});
+
+  final FullPlayerState state;
+  final bool hasNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _IconControlButton(
+          icon: FluentIcons.previous_24_filled,
+          colorScheme: colorScheme,
+          onPressed: audioHandler.hasPrevious
+              ? () => audioHandler.skipToPrevious()
+              : null,
+        ),
+        _PlayButton(state: state, colorScheme: colorScheme),
+        _IconControlButton(
+          icon: FluentIcons.next_24_filled,
+          colorScheme: colorScheme,
+          onPressed: hasNext ? audioHandler.skipToNext : null,
+        ),
+      ],
+    );
+  }
+}
+
+/// The like toggle, shared by the wide right controls and the compact row.
+class _LikeButton extends StatelessWidget {
+  const _LikeButton({required this.metadata});
+
+  final MediaItem metadata;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final ytid = metadata.extras?['ytid']?.toString() ?? '';
+
+    if (ytid.isEmpty || offlineMode.value) {
+      return const SizedBox.shrink();
+    }
+
+    return ValueListenableBuilder<List>(
+      valueListenable: userLikedSongsList,
+      builder: (_, __, ___) {
+        final liked = isSongAlreadyLiked(ytid);
+        return IconButton(
+          onPressed: () {
+            updateSongLikeStatus(
+              ytid,
+              !liked,
+              songData: mediaItemToMap(metadata),
+            );
+          },
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          icon: Icon(
+            liked ? FluentIcons.heart_24_filled : FluentIcons.heart_24_regular,
+            color: liked ? colorScheme.primary : colorScheme.onSurfaceVariant,
+            size: 22,
+          ),
+          visualDensity: VisualDensity.compact,
+        );
+      },
+    );
+  }
+}
+
+/// Resona `.seek` as a 2px hairline pinned to the top edge of the compact
+/// bar — the slim-progress variant of the player bar.
+class _ProgressHairline extends StatelessWidget {
+  const _ProgressHairline({
+    required this.fraction,
+    required this.color,
+    required this.trackColor,
+  });
+
+  final double fraction;
+  final Color color;
+  final Color trackColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 2,
+      color: trackColor,
+      child: FractionallySizedBox(
+        alignment: Alignment.centerLeft,
+        widthFactor: fraction.clamp(0.0, 1.0),
+        child: ColoredBox(color: color),
+      ),
     );
   }
 }

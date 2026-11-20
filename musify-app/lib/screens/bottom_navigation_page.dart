@@ -53,6 +53,9 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
   /// Track the previously selected shell branch to detect reselects.
   int? _previousShellIndex;
 
+  /// User-pinned sidebar collapse, on top of the width-driven one.
+  bool _sidebarCollapsed = false;
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -101,23 +104,29 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        final collapsed = constraints.maxWidth < 760;
+                        // Resona collapses the sidebar under 760px; the user
+                        // can also pin it collapsed from the library header.
+                        final widthDriven = constraints.maxWidth < 760;
+                        final collapsed = widthDriven || _sidebarCollapsed;
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _ResonaSideNav(
                               currentShellIndex: widget.child.currentIndex,
                               collapsed: collapsed,
+                              widthDriven: widthDriven,
                               isOffline: isOfflineMode,
                               goBranch: goBranch,
+                              onSetCollapsed: (value) =>
+                                  setState(() => _sidebarCollapsed = value),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.surfaceContainerLow,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerLow,
                                   borderRadius: BorderRadius.circular(
                                     ResonaColors.radius,
                                   ),
@@ -328,10 +337,7 @@ class _SearchPill extends StatelessWidget {
 }
 
 class _SettingsAvatar extends StatelessWidget {
-  const _SettingsAvatar({
-    required this.colorScheme,
-    required this.goBranch,
-  });
+  const _SettingsAvatar({required this.colorScheme, required this.goBranch});
 
   final ColorScheme colorScheme;
   final void Function(int shellIndex) goBranch;
@@ -366,92 +372,118 @@ class _SettingsAvatar extends StatelessWidget {
 // ─────────────────────────── sidebar ──────────────────────────────────────
 
 /// Resona sidebar: brand row + the "Your Library" card with filter chips
-/// and library rows. Collapses to a strip of covers under 760px.
+/// and library rows. Collapses to a strip of covers under 760px or when
+/// pinned from the header; the width animates so window resizes stay smooth.
 class _ResonaSideNav extends StatelessWidget {
   const _ResonaSideNav({
     required this.currentShellIndex,
     required this.collapsed,
+    required this.widthDriven,
     required this.isOffline,
     required this.goBranch,
+    required this.onSetCollapsed,
   });
 
   final int currentShellIndex;
   final bool collapsed;
+
+  /// Whether the collapsed state comes from the window width — then the
+  /// expand affordance is pointless and stays hidden.
+  final bool widthDriven;
   final bool isOffline;
   final void Function(int shellIndex) goBranch;
+  final ValueChanged<bool> onSetCollapsed;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return SizedBox(
-      width: collapsed ? 84 : 300,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // brand row
-          GestureDetector(
-            onTap: () => goBranch(0),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: const BoxDecoration(
-                      // brand chip: the bundled wordmark glyph is white, so
-                      // it needs the green chip behind it to stay visible
-                      color: ResonaColors.brand,
-                      shape: BoxShape.circle,
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Image.asset(
-                      'assets/icons/musify_icon.png',
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  if (!collapsed) ...[
-                    const SizedBox(width: 10),
-                    Text(
-                      'Musify',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.02,
-                        color: colorScheme.onSurface,
+    return ClipRect(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        width: collapsed ? 84 : 300,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // brand row
+            GestureDetector(
+              onTap: () => goBranch(0),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: const BoxDecoration(
+                        // brand chip: the bundled wordmark glyph is white,
+                        // so it needs the green chip behind it to stay
+                        // visible
+                        color: ResonaColors.brand,
+                        shape: BoxShape.circle,
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Image.asset(
+                        'assets/icons/musify_icon.png',
+                        fit: BoxFit.cover,
                       ),
                     ),
+                    if (!collapsed) ...[
+                      const SizedBox(width: 10),
+                      Text(
+                        'Musify',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.02,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          // your library card
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(ResonaColors.radius),
+            const SizedBox(height: 8),
+            // your library card
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(ResonaColors.radius),
+                ),
+                child: collapsed
+                    ? _CollapsedLibrary(
+                        colorScheme: colorScheme,
+                        widthDriven: widthDriven,
+                        onExpand: () => onSetCollapsed(false),
+                      )
+                    : _LibraryCard(
+                        colorScheme: colorScheme,
+                        goBranch: goBranch,
+                        onCollapse: () => onSetCollapsed(true),
+                      ),
               ),
-              child: collapsed
-                  ? _CollapsedLibrary(colorScheme: colorScheme)
-                  : _LibraryCard(colorScheme: colorScheme, goBranch: goBranch),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
 class _LibraryCard extends StatelessWidget {
-  const _LibraryCard({required this.colorScheme, required this.goBranch});
+  const _LibraryCard({
+    required this.colorScheme,
+    required this.goBranch,
+    required this.onCollapse,
+  });
 
   final ColorScheme colorScheme;
   final void Function(int shellIndex) goBranch;
+  final VoidCallback onCollapse;
 
   @override
   Widget build(BuildContext context) {
@@ -479,6 +511,17 @@ class _LibraryCard extends StatelessWidget {
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              // pin the sidebar collapsed, like Resona's panel toggle
+              IconButton(
+                onPressed: onCollapse,
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Collapse sidebar',
+                icon: Icon(
+                  FluentIcons.chevron_left_24_regular,
+                  size: 18,
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
               IconButton(
@@ -529,8 +572,7 @@ class _LibraryRows extends StatelessWidget {
                       rows.add(
                         _LibRowData(
                           title: context.l10n?.likedPlaylists ?? 'Liked',
-                          subtitle:
-                              'Playlist · ${likedPlaylists.length} items',
+                          subtitle: 'Playlist · ${likedPlaylists.length} items',
                           like: true,
                           onTap: () => goBranch(2),
                         ),
@@ -541,8 +583,7 @@ class _LibraryRows extends StatelessWidget {
                       final songs = (playlist['list'] as List?)?.length ?? 0;
                       rows.add(
                         _LibRowData(
-                          title:
-                              playlist['title']?.toString() ?? 'Playlist',
+                          title: playlist['title']?.toString() ?? 'Playlist',
                           subtitle: 'Playlist · $songs songs',
                           hue: resonaHue(
                             playlist['ytid']?.toString() ??
@@ -562,8 +603,7 @@ class _LibraryRows extends StatelessWidget {
                       rows.add(
                         _LibRowData(
                           title: context.l10n?.offlineMode ?? 'Offline songs',
-                          subtitle:
-                              '${offlineSongs.length} saved offline',
+                          subtitle: '${offlineSongs.length} saved offline',
                           download: true,
                           onTap: () => goBranch(2),
                         ),
@@ -574,8 +614,7 @@ class _LibraryRows extends StatelessWidget {
                       return Padding(
                         padding: const EdgeInsets.all(16),
                         child: Text(
-                          context.l10n?.noPlaylistsAdded ??
-                              'Nothing here yet. Like a song or create a playlist.',
+                          context.l10n?.noPlaylistsAdded ?? 'Nothing here yet. Like a song or create a playlist.',
                           style: TextStyle(
                             fontSize: 12,
                             height: 1.5,
@@ -758,9 +797,15 @@ class _MiniCover extends StatelessWidget {
 }
 
 class _CollapsedLibrary extends StatelessWidget {
-  const _CollapsedLibrary({required this.colorScheme});
+  const _CollapsedLibrary({
+    required this.colorScheme,
+    required this.widthDriven,
+    required this.onExpand,
+  });
 
   final ColorScheme colorScheme;
+  final bool widthDriven;
+  final VoidCallback onExpand;
 
   @override
   Widget build(BuildContext context) {
@@ -776,6 +821,24 @@ class _CollapsedLibrary extends StatelessWidget {
                 return ListView(
                   padding: const EdgeInsets.all(12),
                   children: [
+                    // expand affordance — only when the collapse was pinned
+                    // by the user, not forced by the window width
+                    if (!widthDriven)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Center(
+                          child: IconButton(
+                            onPressed: onExpand,
+                            visualDensity: VisualDensity.compact,
+                            tooltip: 'Expand sidebar',
+                            icon: Icon(
+                              FluentIcons.chevron_right_24_regular,
+                              size: 18,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ),
                     for (final playlist in customPlaylists.take(6))
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),
@@ -787,8 +850,7 @@ class _CollapsedLibrary extends StatelessWidget {
                           },
                           child: _MiniCover(
                             data: _LibRowData(
-                              title:
-                                  playlist['title']?.toString() ?? 'P',
+                              title: playlist['title']?.toString() ?? 'P',
                               subtitle: '',
                               hue: resonaHue(
                                 playlist['ytid']?.toString() ?? '',

@@ -108,6 +108,9 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
   }
 
   Widget _buildAppBar(BuildContext context, ColorScheme colorScheme) {
+    // On the light glow backdrop the chrome flips to dark ink.
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final chromeFg = isLight ? ResonaColors.textLight : Colors.white;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
@@ -116,8 +119,10 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
             iconSize: 26,
             icon: const Icon(FluentIcons.chevron_down_24_regular),
             style: IconButton.styleFrom(
-              backgroundColor: Colors.white.withValues(alpha: 0.1),
-              foregroundColor: Colors.white,
+              backgroundColor: isLight
+                  ? Colors.black.withValues(alpha: 0.08)
+                  : Colors.white.withValues(alpha: 0.1),
+              foregroundColor: chromeFg,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -131,7 +136,9 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
 }
 
 /// Resona `.npp-bg` + `.npp::after`: three radial hue glows on the near-black
-/// base with a dark scrim on top.
+/// base with a dark scrim on top. In light mode the same hue glows become
+/// pastel washes over the light base so the whole immersive panel flips with
+/// the theme (everything on top follows the color scheme).
 class _NppBackground extends StatelessWidget {
   const _NppBackground({required this.hue});
 
@@ -139,18 +146,22 @@ class _NppBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const base = Color(0xFF0D0D10);
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final base = isLight ? ResonaColors.nppBaseLight : ResonaColors.nppBaseDark;
     return Stack(
       fit: StackFit.expand,
       children: [
-        const ColoredBox(color: base),
+        ColoredBox(color: base),
         // hue glow, upper left
         DecoratedBox(
           decoration: BoxDecoration(
             gradient: RadialGradient(
               center: const Alignment(-0.5, -0.6),
               radius: 1.2,
-              colors: [resonaGlowA(hue), base],
+              colors: [
+                resonaGlowA(hue, light: isLight),
+                base,
+              ],
               stops: const [0, 1],
             ),
           ),
@@ -161,7 +172,10 @@ class _NppBackground extends StatelessWidget {
             gradient: RadialGradient(
               center: const Alignment(0.7, 0.8),
               radius: 1.1,
-              colors: [resonaGlowB(hue), base],
+              colors: [
+                resonaGlowB(hue, light: isLight),
+                base,
+              ],
               stops: const [0, 1],
             ),
           ),
@@ -172,13 +186,20 @@ class _NppBackground extends StatelessWidget {
             gradient: RadialGradient(
               center: const Alignment(0.6, -0.8),
               radius: 0.9,
-              colors: [resonaGlowC(hue), base],
+              colors: [
+                resonaGlowC(hue, light: isLight),
+                base,
+              ],
               stops: const [0, 1],
             ),
           ),
         ),
         // `.npp::after` scrim
-        const ColoredBox(color: Color(0x5908080C)),
+        ColoredBox(
+          color: isLight
+              ? ResonaColors.nppScrimLight
+              : ResonaColors.nppScrimDark,
+        ),
       ],
     );
   }
