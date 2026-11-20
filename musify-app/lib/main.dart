@@ -305,15 +305,25 @@ void main() async {
 
 Future<void> initialisation() async {
   try {
-    final docsDir = (await getApplicationDocumentsDirectory()).path;
-    applicationDirPath = '$docsDir/Musify';
-    final migrate = await needsStorageMigration(applicationDirPath);
-    if (migrate) {
-      await migrateLegacyBoxFiles(oldDir: docsDir, newDir: applicationDirPath);
-    }
-    await FilePaths.ensureDirectoriesExist();
+    var migrated = false;
+    if (isWebPlatform) {
+      // Web: hive_ce resolves storage through its IndexedDB backend and there
+      // is no application documents directory to resolve.
+      await Hive.initFlutter();
+    } else {
+      final docsDir = (await getApplicationDocumentsDirectory()).path;
+      applicationDirPath = '$docsDir/Musify';
+      migrated = await needsStorageMigration(applicationDirPath);
+      if (migrated) {
+        await migrateLegacyBoxFiles(
+          oldDir: docsDir,
+          newDir: applicationDirPath,
+        );
+      }
+      await FilePaths.ensureDirectoriesExist();
 
-    Hive.init(applicationDirPath);
+      Hive.init(applicationDirPath);
+    }
 
     await Future.wait([
       Hive.openBox('settings'),
@@ -322,13 +332,13 @@ Future<void> initialisation() async {
       Hive.openBox('cache'),
     ]);
 
-    if (migrate) {
+    if (migrated) {
       await migrateOfflineSongFiles();
       await markStorageMigrated(applicationDirPath);
     }
 
     // Nothing else removes cache entries nobody asks for again.
-    unawaited(cleanupOldCacheEntries());
+    if (!isWebPlatform) unawaited(cleanupOldCacheEntries());
 
     unawaited(() async {
       try {
@@ -342,7 +352,7 @@ Future<void> initialisation() async {
       }
     }());
 
-    if (isMobilePlatform) {
+    if (isMobilePlatform || isWebPlatform) {
       audioHandler = await AudioService.init(
         builder: MusifyAudioHandler.new,
         config: const AudioServiceConfig(

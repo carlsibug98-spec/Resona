@@ -104,14 +104,22 @@ class LinuxMediaControls extends DBusObject {
   bool get _canSeek =>
       _active && (_item?.duration ?? Duration.zero) > Duration.zero;
 
+  /// Upper bound for the reported position when the media item has no
+  /// duration. The full 64-bit sentinel cannot be represented in
+  /// JavaScript-compiled builds, so web falls back to a ~36 minute cap.
+  static const int _maxPositionMicros = kIsWeb ? 0x3fffffff : 0x7fffffffffffffff;
+
   DBusObjectPath get _trackId => DBusObjectPath(
     _item == null
         ? '/org/mpris/MediaPlayer2/TrackList/NoTrack'
         : '/org/mpris/MediaPlayer2/track/t${utf8.encode(_item!.id).map((b) => b.toRadixString(16).padLeft(2, '0')).join()}',
   );
 
-  int get _position => (position?.call() ?? _state.position).inMicroseconds
-      .clamp(0, _item?.duration?.inMicroseconds ?? 0x7fffffffffffffff);
+  int get _position => (position?.call() ?? _state.position)
+      .inMicroseconds
+      .clamp(0, _item?.duration?.inMicroseconds ?? _maxPositionMicros)
+      // ignore: noop_primitive_operations
+      .toInt();
 
   Map<String, DBusValue> get _rootProperties => {
     'CanQuit': const DBusBoolean(false),

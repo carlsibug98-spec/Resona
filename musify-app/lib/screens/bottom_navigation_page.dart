@@ -82,59 +82,64 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
 
           // Resona grid: top bar / [sidebar | main] / player bar with 8px
           // gaps. SafeArea only reserves room on platforms that have
-          // notches or system bars (desktop insets are all zero).
-          return SafeArea(
-            left: false,
-            right: false,
-            child: Column(
-              children: [
-                _ResonaTopBar(
-                  currentShellIndex: widget.child.currentIndex,
-                  isOffline: isOfflineMode,
-                  goBranch: goBranch,
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final collapsed = constraints.maxWidth < 760;
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _ResonaSideNav(
-                            currentShellIndex: widget.child.currentIndex,
-                            collapsed: collapsed,
-                            isOffline: isOfflineMode,
-                            goBranch: goBranch,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerLow,
-                                borderRadius: BorderRadius.circular(
-                                  ResonaColors.radius,
-                                ),
-                              ),
-                              clipBehavior: Clip.antiAlias,
-                              child: widget.child,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+          // notches or system bars (desktop insets are all zero). The whole
+          // shell paints the app background so no platform-default white
+          // bleeds through around the cards.
+          return ColoredBox(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            child: SafeArea(
+              left: false,
+              right: false,
+              child: Column(
+                children: [
+                  _ResonaTopBar(
+                    currentShellIndex: widget.child.currentIndex,
+                    isOffline: isOfflineMode,
+                    goBranch: goBranch,
                   ),
-                ),
-                const SizedBox(height: 8),
-                // player bar spans the full width, like Resona row 3;
-                // it renders nothing while no track is loaded
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 8, left: 8),
-                  child: MiniPlayer(),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final collapsed = constraints.maxWidth < 760;
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _ResonaSideNav(
+                              currentShellIndex: widget.child.currentIndex,
+                              collapsed: collapsed,
+                              isOffline: isOfflineMode,
+                              goBranch: goBranch,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerLow,
+                                  borderRadius: BorderRadius.circular(
+                                    ResonaColors.radius,
+                                  ),
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: widget.child,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // player bar spans the full width, like Resona row 3;
+                  // it renders nothing while no track is loaded
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8, left: 8),
+                    child: MiniPlayer(),
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -395,7 +400,9 @@ class _ResonaSideNav extends StatelessWidget {
                     width: 36,
                     height: 36,
                     decoration: const BoxDecoration(
-                      color: Color(0xFFFAFAFA),
+                      // brand chip: the bundled wordmark glyph is white, so
+                      // it needs the green chip behind it to stay visible
+                      color: ResonaColors.brand,
                       shape: BoxShape.circle,
                     ),
                     clipBehavior: Clip.antiAlias,

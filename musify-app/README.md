@@ -13,6 +13,22 @@ Ported from Resona's `globals.css` design system (black background,
 `#121212` surfaces, `#1F1F1F` elevation, white 10% hairlines, `#B3B3B3`
 muted text, `#1ED760` brand green, 10px radius):
 
+## Screenshots
+
+Captured from a `flutter build web --release` run at 1440×900 (dark theme):
+
+| Home | Search |
+| :---: | :---: |
+| ![Home](docs/screenshots/home.png) | ![Search](docs/screenshots/search.png) |
+
+| Library | Preferences |
+| :---: | :---: |
+| ![Library](docs/screenshots/library.png) | ![Preferences](docs/screenshots/settings.png) |
+
+The sandbox the screenshots were taken in blocks the YouTube Music API, so
+recommended-song rows and playlist contents show their loading states;
+with a normal network they fill in normally.
+
 | Area | File(s) | Change |
 | --- | --- | --- |
 | Design tokens | `lib/theme/resona_ui.dart` (new) | Resona palette, `hueFor()` stable per-item hue, `plGrad`/`grad` gradients, npp glow colors |
@@ -27,6 +43,8 @@ muted text, `#1ED760` brand green, 10px radius):
 | Playlist hero | `lib/widgets/playlist_page/playlist_sliver_app_bar.dart`, `playlist_header.dart` | `.phero`: bottom-left 180px cover, huge `w800 -0.03em` title |
 | Now playing | `lib/screens/now_playing_page.dart` | `.npp-bg`: layered radial hue glows over near-black with dark scrim |
 | Misc | section headers (`.section-h`), chips (`.chip`), announcements (`.nudge`), bar radius constants | Restyled to Resona tokens |
+| Shell paint | `lib/screens/bottom_navigation_page.dart` | Shell now paints the app background itself so no platform-default white bleeds through around the cards; brand row uses a green brand chip (the bundled wordmark glyph is white) |
+| Web runtime | `lib/main.dart`, `lib/utilities/platform_utils.dart`, `lib/services/linux_media_controls.dart` | Platform guards (`kIsWeb`) for `Platform.*` getters, `Hive.initFlutter()` IndexedDB storage, `AudioService.init` on web, and a JS-safe position clamp sentinel — the app boots on Flutter Web |
 
 ## Verify locally
 
@@ -38,9 +56,14 @@ flutter test      # 222 passing; the 3 network/multicast tests need real interne
 flutter run       # android / windows / linux
 ```
 
-`flutter build web` needs the same 2-line patch to
-`lib/services/linux_media_controls.dart` upstream Musify needs (the file
-targets Linux desktop only).
+Web also works now — the runtime guards from the table above are part of
+this repo, so the only remaining upstream web blocker is the Linux MPRIS
+position clamp, fixed here too:
+
+```bash
+flutter create . --platforms web   # once, to add the web/ scaffold
+flutter run -d chrome
+```
 
 ## License
 
