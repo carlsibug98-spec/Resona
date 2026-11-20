@@ -50,11 +50,21 @@ jobs:
         run: |
           echo "version=$(sed -n 's/^version: \([0-9][0-9.]*\).*/\1/p' pubspec.yaml)" >> "$GITHUB_OUTPUT"
 
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer (single Setup.exe)
+        shell: pwsh
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAPP_VERSION=${{ steps.ver.outputs.version }} installer.iss'
+
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: musify-app-windows-x64
-          path: musify-app/musify-app-windows-x64.zip
+          path: |
+            musify-app/musify-app-windows-x64.zip
+            musify-app/installer/Musify-Setup-*.exe
           if-no-files-found: error
 
       - name: Attach build to GitHub Release
@@ -68,7 +78,18 @@ jobs:
             Windows build of the Musify Flutter app with the Resona UI
             (gokadzev/Musify v${{ steps.ver.outputs.version }}, GPL-3.0).
 
-            Unzip anywhere and run musify.exe. If SmartScreen warns about an
-            unknown publisher, choose More info > Run anyway.
+            - Musify-Setup-*.exe — one-file installer (recommended)
+            - musify-app-*.zip — portable, unzip anywhere and run musify.exe
+
+            Builds are unsigned, so SmartScreen may show "unknown publisher";
+            choose More info > Run anyway.
           overwrite: true
           make_latest: true
+
+      - name: Attach installer to GitHub Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          file: musify-app/installer/Musify-Setup-${{ steps.ver.outputs.version }}.exe
+          asset_name: Musify-Setup-${{ steps.ver.outputs.version }}.exe
+          tag: musify-app-v${{ steps.ver.outputs.version }}
+          overwrite: true
