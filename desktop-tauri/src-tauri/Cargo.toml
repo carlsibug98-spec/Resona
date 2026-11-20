@@ -1,0 +1,32 @@
+[package]
+name = "resona-tauri"
+version = "1.7.8"
+description = "Resona — the Rust (Tauri 2) desktop shell around the same Next.js server the Electron shell boots"
+authors = ["carlsibug98-spec"]
+license = "GPL-3.0-or-later"
+repository = "https://github.com/carlsibug98-spec/Resona"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "resona_tauri_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Deliberately minimal: tauri core only — no shell plugin, no reqwest, no
+# tokio. The sidecar (bundled Node) is spawned with std::process::Command and
+# readiness is polled with std::net::TcpStream, so the compile surface (and
+# the chance of a CI surprise) stays tiny.
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tauri = { version = "2", features = [] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

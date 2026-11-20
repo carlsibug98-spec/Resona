@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Resona</title>
+<style>
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: #0b0b0d;
+    color: #e8e8ea;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 18px; user-select: none;
+  }
+  .logo {
+    width: 72px; height: 72px; border-radius: 18px;
+    background: linear-gradient(135deg, #1ed760, #0e8f43);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 40px; color: #04140a;
+  }
+  h1 { font-size: 20px; margin: 0; font-weight: 600; letter-spacing: 0.02em; }
+  p { margin: 0; color: #9a9aa2; font-size: 13px; max-width: 460px; text-align: center; line-height: 1.5; }
+  .spin {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 3px solid #26262b; border-top-color: #1ed760;
+    animation: s 0.9s linear infinite;
+  }
+  @keyframes s { to { transform: rotate(360deg); } }
+  .err {
+    display: none; background: #1a1214; border: 1px solid #4a2229;
+    color: #f0b8bf; padding: 10px 14px; border-radius: 8px; font-size: 12px;
+    max-width: 520px; text-align: center; word-break: break-word;
+  }
+</style>
+</head>
+<body>
+  <div class="logo">R</div>
+  <h1>Resona</h1>
+  <div class="spin" id="spin"></div>
+  <p id="msg">Starting the music server…</p>
+  <div class="err" id="err"></div>
+  <script>
+    // The Rust shell opens this splash first, then boots the Node sidecar.
+    // Once the server answers, navigate to the real app (same-origin policy
+    // does not apply here — CSP is disabled in tauri.conf.json on purpose).
+    (function () {
+      var tries = 0;
+      function fail(why) {
+        document.getElementById("spin").style.display = "none";
+        document.getElementById("msg").textContent =
+          "Resona could not start its music server.";
+        var e = document.getElementById("err");
+        e.textContent = why;
+        e.style.display = "block";
+      }
+      function poll() {
+        if (!window.__TAURI__ || !window.__TAURI__.core) {
+          setTimeout(poll, 500);
+          return;
+        }
+        window.__TAURI__.core.invoke("server_url").then(function (url) {
+          fetch(url + "/", { cache: "no-store" })
+            .then(function (r) {
+              if (r.ok) { location.href = url + "/"; return; }
+              throw new Error("HTTP " + r.status);
+            })
+            .catch(function () {
+              tries += 1;
+              if (tries > 150) fail("The server on " + url + " never answered. Check <data>/logs/server.log for details.");
+              else setTimeout(poll, 800);
+            });
+        }).catch(function (e) { fail(String(e)); });
+      }
+      poll();
+    })();
+  </script>
+</body>
+</html>

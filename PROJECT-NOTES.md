@@ -100,3 +100,29 @@ windows-latest CI runner is the only safe Windows deliverable.
   - `20261115-2353-51.0192320.mp4` — Resona search returning "No results" for "maha" (bug report)
   - `Screen Recording 2026-11-16 075322.mp4` — Spotify search dropdown reference (recent searches, suggestions, top song rows, ↑↓/Enter hints, right Now Playing panel)
   - `20261115-2356-53.4633929.mp4` — Spotify library collapse (expanded ↔ icon rail) + Now Playing panel hide/show chevrons
+
+## The Rust (Tauri 2) shell — desktop-tauri/ (added v1.7.8)
+
+Second desktop shell, same app: `desktop-tauri/` wraps the SAME Next.js
+standalone server bundle in a Tauri 2 window (pattern borrowed from
+openspot-music-app's src-tauri). Additive to Electron, NOT a replacement and
+NOT a rewrite of the app.
+
+- `desktop-tauri/src-tauri/src/lib.rs` — spawns the Node sidecar with the
+  exact Electron env (NODE_PATH=deps, RESONA_DB_PATH under the same data dir
+  so both shells share one library, YTDLP_PATH), polls readiness, opens the
+  frameless window, installs a `window.resonaDesktop` shim via
+  initialization_script (minimize/max/close/is-max + maximize events; thumbar
+  stubbed; **mpv deliberately absent** — the renderer's HTML5 ladder, fixed
+  in v1.7.8, is the playback path here).
+- `desktop-tauri/ui/index.html` — bundled splash; polls `invoke('server_url')`
+  and navigates to `http://127.0.0.1:<port>/` when the server answers.
+- Sidecar: tauri `externalBin: binaries/node` — CI downloads a real Node
+  (v22.14.0) per platform because Tauri has no embedded JS runtime (that is
+  the one real size cost vs Electron, which embeds one).
+- Build: `.github/workflows/desktop-tauri.yml` — reuses `npm install →
+  npx next build → node scripts/stage-desktop.js`, copies desktop/staging/
+  server into src-tauri/resources/server, drops the Node sidecar in
+  binaries/, runs `npx @tauri-apps/cli build --bundles nsis|appimage,deb`.
+- Local dev is impossible in the sandbox (no cargo/webkit); the CI run is
+  the verification. If the workflow is red, fix lib.rs/CI and re-push.

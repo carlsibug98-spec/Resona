@@ -1,0 +1,8 @@
+# CI-time generated inputs (see .github/workflows/desktop-tauri.yml)
+src-tauri/target/
+src-tauri/gen/
+src-tauri/resources/
+src-tauri/binaries/
+src-tauri/Cargo.lock
+src-tauri/Cargo.lock.bak
+node_modules/

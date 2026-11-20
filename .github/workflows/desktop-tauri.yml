@@ -1,0 +1,110 @@
+name: Build Resona-Tauri (Rust shell)
+
+# The Rust/Tauri desktop shell (desktop-tauri/) — the same Next.js server
+# bundle the Electron build stages, wrapped in a Tauri 2 window. Windows
+# first (NSIS), Linux (AppImage + deb) second; both ride CI exactly like
+# desktop.yml and musify-windows.yml do.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "desktop-tauri/**"
+      - ".github/workflows/desktop-tauri.yml"
+      - "scripts/stage-desktop.js"
+      - "package.json"
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows (Rust shell)
+            os: windows-latest
+            targets: nsis
+            triple: x86_64-pc-windows-msvc
+            node_dist: node-v22.14.0-win-x64.zip
+            ytdlp: yt-dlp.exe
+            bundle_globs: |
+              desktop-tauri/src-tauri/target/release/bundle/nsis/*.exe
+          - name: Linux (Rust shell)
+            os: ubuntu-latest
+            targets: appimage,deb
+            triple: x86_64-unknown-linux-gnu
+            node_dist: node-v22.14.0-linux-x64.tar.xz
+            ytdlp: yt-dlp
+            bundle_globs: |
+              desktop-tauri/src-tauri/target/release/bundle/appimage/*.AppImage
+              desktop-tauri/src-tauri/target/release/bundle/deb/*.deb
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Linux system deps for Tauri (WebKitGTK etc.) — the runner's apt has sudo
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web app (standalone)
+        run: npx next build
+
+      - name: Stage desktop server bundle
+        run: node scripts/stage-desktop.js
+
+      # Reuse the EXACT staged server the Electron build ships: standalone
+      # server + static + public, node_modules renamed to deps.
+      - name: Collect resources for the Tauri bundle
+        shell: bash
+        run: |
+          mkdir -p desktop-tauri/src-tauri/resources
+          cp -r desktop/staging/server desktop-tauri/src-tauri/resources/server
+          cp "desktop/staging/${{ matrix.ytdlp }}" desktop-tauri/src-tauri/resources/ || true
+
+      # The sidecar: a real Node runtime (Tauri has none). externalBin wants
+      # it at src-tauri/binaries/node-<triple>(.exe) — Tauri strips the triple
+      # into binaries/node(.exe) inside the installed app.
+      - name: Fetch Node sidecar
+        shell: bash
+        env:
+          NODE_DIST: ${{ matrix.node_dist }}
+          TRIPLE: ${{ matrix.triple }}
+        run: |
+          mkdir -p desktop-tauri/src-tauri/binaries
+          curl -sL --max-time 300 -o /tmp/node-pkg "https://nodejs.org/dist/v22.14.0/${NODE_DIST}"
+          cd /tmp
+          # bsdtar (windows-latest's tar) auto-detects zip; GNU tar handles xz —
+          # one extraction path for both platforms
+          tar -xf node-pkg
+          case "${NODE_DIST}" in
+            *win-x64*)
+              cp "node-v22.14.0-win-x64/node.exe" "$GITHUB_WORKSPACE/desktop-tauri/src-tauri/binaries/node-${TRIPLE}.exe"
+              ;;
+            *linux-x64*)
+              cp "node-v22.14.0-linux-x64/bin/node" "$GITHUB_WORKSPACE/desktop-tauri/src-tauri/binaries/node-${TRIPLE}"
+              ;;
+          esac
+          ls -la "$GITHUB_WORKSPACE/desktop-tauri/src-tauri/binaries/"
+
+      - name: Build Tauri app
+        working-directory: desktop-tauri
+        run: npx -y @tauri-apps/cli@latest build --bundles ${{ matrix.targets }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Resona-Tauri-${{ runner.os }}
+          path: ${{ matrix.bundle_globs }}
+          if-no-files-found: error
