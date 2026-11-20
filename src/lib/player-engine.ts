@@ -101,6 +101,26 @@ let ytPromise: Promise<void> | null = null;
 const ytDeadEmbeds = new Map<string, number>();
 const YT_DEAD_TTL = 1000 * 60 * 10;
 
+/**
+ * Server-reported chain death. When /api/stream's resolve says the whole
+ * resolution chain is down (chain-health breaker open: InnerTube gated,
+ * yt-dlp gated, the instance fleet dead — the Nov-2026 enforcement
+ * reality), every further ladder rung is doomed: each would just 502
+ * after the server walked its dead providers. While this window is
+ * fresh, load() skips mpv/direct/proxy entirely and goes straight to
+ * the YouTube IFrame embed — the only source that plays without
+ * server-side stream resolution. Refreshed on every "dead" answer, so
+ * the fast path stays active while the outage lasts and drops away
+ * (one honest server probe per ~60 s) the moment it ends.
+ */
+let chainDeadUntil = 0;
+function markChainDead(ms = 60_000): void {
+  chainDeadUntil = Math.max(chainDeadUntil, Date.now() + ms);
+}
+function isChainDead(): boolean {
+  return Date.now() < chainDeadUntil;
+}
+
 function isYtEmbedDead(videoId: string): boolean {
   const until = ytDeadEmbeds.get(videoId);
   if (!until) return false;
@@ -576,8 +596,18 @@ export class PlayerEngine {
       try {
         const r = await fetch(streamUrl(videoId, true), { cache: "no-store" });
         if (!r.ok) return false;
-        const d = (await r.json()) as { url?: string | null; proxied?: boolean };
-        if (!d.url) return false;
+        const d = (await r.json()) as {
+          url?: string | null;
+          proxied?: boolean;
+          chain?: string | null;
+        };
+        if (!d.url) {
+          // the server could not resolve this track; when it reports the
+          // WHOLE chain down, remember it — later tracks skip the doomed
+          // ladder and go straight to the embed
+          if (d.chain === "dead") markChainDead();
+          return false;
+        }
         // instance (Piped/Invidious) URLs are cross-origin and must run
         // through the same-origin byte proxy; only googlevideo URLs from
         // InnerTube/yt-dlp go straight into the <audio> element
@@ -839,6 +869,17 @@ export class PlayerEngine {
     // the mpv core (Musify's engine): its own demuxer + network stack via
     // the byte proxy. Tried FIRST for network tracks — it is the robust
     // path; HTML5 direct/proxy/iframe remain the fallback ladder below.
+    // EXCEPT when the server reported the whole chain dead (breaker open):
+    // then every rung below the embed is doomed — each would 502 after
+    // the server walked its dead providers again — so skip them all and
+    // put the IFrame embed (no resolution needed) on stage immediately.
+    if (isChainDead()) {
+      await this.mpvStop();
+      if (gen !== this.loadGen) return;
+      this.mpvStateCache = null;
+      await this.playViaEmbed(track, startSec, gen);
+      return;
+    }
     if (this.mpvReady) {
       const viaMpv = await this.tryMpv(track.videoId, startSec);
       if (gen !== this.loadGen) return; // superseded — newer load owns the engine
@@ -895,6 +936,15 @@ export class PlayerEngine {
     // fallback: YouTube IFrame embed. Skipped entirely when the embed
     // already refused this video recently (100/101/150) — repeating the
     // full chain for a known-dead video was 30 s of dead air per click.
+    await this.playViaEmbed(track, startSec, gen);
+  }
+
+  /**
+   * The last ladder rung: the YouTube IFrame embed. Used both as the
+   * normal ladder tail AND as the whole ladder replacement while the
+   * server's chain-health breaker is open (chainDead fast path).
+   */
+  private async playViaEmbed(track: Track, startSec: number, gen: number): Promise<void> {
     if (isYtEmbedDead(track.videoId)) {
       this.currentIsAudio = false;
       this.stopAudio();
@@ -916,23 +966,59 @@ export class PlayerEngine {
         startSeconds: Math.floor(startSec),
       });
       yt.playVideo();
-      // if the embed never signals life (blocked script, bot-gated embed,
-      // autoplay refused), surface a failure instead of leaving a zombie
-      // engine that "automatically pauses" on the next play click
-      this.armProbeTimer(12_000, () => {
-        const st = this.getState();
-        if (
-          this.currentVideoId === track.videoId &&
-          !st.playing &&
-          st.position === 0 &&
-          !st.buffering
-        ) {
-          this.onLoadFailed("Couldn't start playback — open Diagnostics for details");
-        }
-      });
+      // bounded proof-of-life: the embed must show PLAYING or ADVANCING
+      // TIME within 20 s or the track is declared failed (see
+      // armEmbedWatchdog)
+      this.armEmbedWatchdog(track.videoId, gen);
     } catch {
       this.onLoadFailed("Couldn't start any stream — check your connection");
     }
+  }
+
+  /**
+   * Hard end-to-end watchdog for the IFrame embed. The embed is the last
+   * ladder rung: when it also dies the UI must learn within seconds —
+   * not hang forever. Two hang modes exist and neither was covered
+   * before (the v1.7.8 release shipped ensureYT WITHOUT even its ready
+   * timeout — the recorded "click play, nothing happens, no banner, no
+   * skip, ever" session):
+   *  - the player never becomes ready / never starts (blocked API,
+   *    refused video): state stays -1/5, time 0
+   *  - the player starts buffering and sits there forever (bot-gated
+   *    googlevideo inside the iframe): state 3, time 0 — the old 12 s
+   *    probe treated buffering as "maybe still starts" and never fired
+   * The watchdog demands PROOF OF LIFE within 20 s: state 1 (playing) or
+   * currentTime > 0.5 s (started, then buffering). No proof →
+   * onLoadFailed, which now banners immediately (see PlayerProvider).
+   * A track that recovers late still clears the banner: onState
+   * playing=true resets the failure policy.
+   */
+  private armEmbedWatchdog(videoId: string, gen: number): void {
+    const deadline = Date.now() + 20_000;
+    const iv = setInterval(() => {
+      if (gen !== this.loadGen || this.currentVideoId !== videoId) {
+        clearInterval(iv);
+        return;
+      }
+      let alive = false;
+      try {
+        const st = this.yt?.getPlayerState?.();
+        const t = this.yt?.getCurrentTime?.() || 0;
+        alive = st === 1 || t > 0.5;
+      } catch {
+        /* player not ready yet */
+      }
+      if (alive) {
+        clearInterval(iv);
+        return;
+      }
+      if (Date.now() > deadline) {
+        clearInterval(iv);
+        if (gen === this.loadGen && this.currentVideoId === videoId) {
+          this.onLoadFailed("Couldn't start playback — open Diagnostics for details");
+        }
+      }
+    }, 1000);
   }
 
   getVideoMode(): boolean {

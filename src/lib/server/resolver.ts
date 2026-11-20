@@ -23,6 +23,12 @@ export interface StreamResult {
   provider: string | null;
   bitrate?: number;
   mime?: string;
+  /** "dead" when the WHOLE resolution chain is down (the chain-health
+   *  breaker below is open): the engine reads this and skips its own
+   *  doomed ladder — mpv/direct/proxy would each just 502 — going
+   *  straight to the YouTube IFrame embed, the only source that still
+   *  plays without server-side stream resolution. */
+  chain?: "ok" | "dead";
   /** the User-Agent of the client that minted `url` — googlevideo ties
    * app-client URLs to this identity; the byte proxy presents it when
    * fetching. Absent for fleet results (their proxies set their own). */
@@ -112,6 +118,44 @@ async function tryYtDlp(videoId: string): Promise<StreamResult | null> {
     bitrate: 128_000,
     mime: "audio/mp4",
   };
+}
+
+/* ------------------- chain-health circuit breaker ---------------------- */
+
+/**
+ * v1.7.9 — the Nov-2026 field report ("the song doesn't play"): YouTube's
+ * anonymous-access enforcement now bot-gates EVERY unauthenticated
+ * resolver at once — the InnerTube client ladder, yt-dlp without cookies,
+ * and the public Piped/Invidious fleet (verified live: even alive
+ * instances answer SignInConfirmNotBotException). One resolve walk costs
+ * ~10-20 s of doomed provider probing, and the old code re-paid it for
+ * EVERY track while the real player (the IFrame embed, which needs no
+ * stream resolution at all) sat waiting behind it.
+ *
+ * The breaker: after ONE full-chain miss, every resolve for the next
+ * 60 s short-circuits to { url: null, chain: "dead" } with zero provider
+ * traffic — the route answers 502 immediately and the engine goes
+ * straight to the embed. The window also acts as the recovery probe:
+ * when it expires, one honest walk runs again (so a transient YouTube
+ * outage self-heals within a minute), and ANY successful resolve
+ * reopens the chain instantly.
+ */
+const CHAIN_DEAD_MS = 1000 * 60;
+let chainDeadUntil = 0;
+
+/** test hook / diagnostics: is the chain-health breaker open? */
+export function chainDeadActive(): boolean {
+  return Date.now() < chainDeadUntil;
+}
+
+/** test hook: reopen the chain */
+export function chainDeadReset(): void {
+  chainDeadUntil = 0;
+}
+
+/** test hook: open the breaker for a fixed window (as a full miss would) */
+export function chainDeadOpenFor(ms: number = CHAIN_DEAD_MS): void {
+  chainDeadUntil = Math.max(chainDeadUntil, Date.now() + ms);
 }
 
 /* --------------------- public instance fleet state ---------------------- */
@@ -261,13 +305,23 @@ export async function resolveStream(
   if (pending) return pending;
 
   const task = (async (): Promise<StreamResult> => {
+    // chain-health breaker: a full miss opened the dead window — answer
+    // immediately, walk NOTHING (the recovery walk happens when the
+    // window expires; the engine is already on the embed meanwhile)
+    if (Date.now() < chainDeadUntil) {
+      return { url: null, provider: null, chain: "dead" };
+    }
+
     // 1. InnerTube /player — the client ladder, tried sequentially
     //    (v1.7.3: the parallel 4-client race burst-POSTed /player and
     //    tripped YouTube's IP bot-gate). One POST per track on the happy
     //    path; results play through the byte proxy with the minting UA.
     //    Bot-gated IPs short-circuit and fall through fast.
     const fast = await tryInnertube(videoId, quality);
-    if (fast) return fast;
+    if (fast) {
+      chainDeadUntil = 0; // the chain works again — reopen instantly
+      return fast;
+    }
 
     // 2. yt-dlp AND the instance fleet raced together. Running yt-dlp
     //    alone first cost its full 1-25 s on machines where it also fails
@@ -290,8 +344,15 @@ export async function resolveStream(
       ...invidious.map((base) => tryInvidious(base, videoId))
     );
     const first = await firstTruthy(races);
-    if (first) return first;
-    return { url: null, provider: null };
+    if (first) {
+      chainDeadUntil = 0; // the chain works again — reopen instantly
+      return first;
+    }
+    // full miss: every provider answered "no" — open the breaker so the
+    // NEXT track skips this 10-20 s walk entirely (the engine puts the
+    // IFrame embed on stage while this window is open)
+    chainDeadUntil = Date.now() + CHAIN_DEAD_MS;
+    return { url: null, provider: null, chain: "dead" };
   })();
 
   inflight.set(key, task);

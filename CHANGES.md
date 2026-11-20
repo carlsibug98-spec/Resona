@@ -1,6 +1,61 @@
 # Changes
 
-## Unreleased — the update flow fix + full app audit (2026-11-20)
+## v1.7.9 — "the song doesn't play" (the Nov-2026 YouTube enforcement fix) (2026-11-20)
+
+Field report (screen recording, v1.7.8): search works, the track loads into
+the player bar, durations resolve — and **nothing ever plays**. Total silence,
+no error banner, the play button flips back after a moment, and the queue
+silently hops tracks. Root-caused to three stacked failures, all fixed:
+
+1. **Every unauthenticated resolver is bot-gated at once (Nov 2026).**
+   Verified live against the real endpoints: the InnerTube client ladder
+   (android-vr / android-sdkless / TVHTML5) answers
+   `LOGIN_REQUIRED — Sign in to confirm you're not a bot` on all three
+   clients, yt-dlp (latest, every player client) errors the same way
+   without cookies, and even alive Piped instances answer
+   `SignInConfirmNotBotException`. One resolve walk now costs 10–20 s of
+   doomed provider probing per track.
+2. **The last surviving source — the IFrame embed — hung forever.** The
+   v1.7.8 *release binaries* were built from the pre-audit commit
+   (`c57610d`), which shipped `ensureYT()` **without** its ready timeout:
+   a blocked/never-ready embed made `load()` hang with no failure event,
+   no banner, no skip — the exact recording. Even with the timeout, the
+   post-`loadVideoById` probe treated eternal `buffering` as "maybe still
+   starts" and never fired. Now the embed has a hard proof-of-life
+   watchdog (20 s: state must be PLAYING or time must advance, or the
+   track is declared failed).
+3. **Failures surfaced nothing.** The 3-strikes banner policy meant the
+   user sat through silent skips for minutes before any message. A TOTAL
+   failure (the ladder already exhausted every audio source AND the
+   embed) now banners on the first strike; the auto-skip still runs and
+   a track that starts playing clears the banner.
+
+**The fix — fail fast, play the embed, tell the truth:**
+- **Server: chain-health circuit breaker** (`resolver.ts`). After one
+  full-chain miss, every resolve for the next 60 s returns
+  `{ url: null, chain: "dead" }` immediately — zero provider traffic —
+  while the window doubles as the recovery probe (one honest walk per
+  60 s; any success reopens the chain instantly).
+- **Route: the 502 carries `chain: "dead"`** so the renderer can react.
+- **Engine: the chainDead fast path.** While the breaker is open, `load()`
+  skips mpv/direct/proxy entirely (each would just 502) and goes straight
+  to the IFrame embed — the only source that plays without server-side
+  stream resolution.
+- **Engine: `armEmbedWatchdog`.** Proof of life (playing state or
+  advancing time) within 20 s or `onLoadFailed` — no more infinite hang.
+- **PlayerProvider: banner on first total failure**, and the delayed skip
+  never fires for a track that started playing inside the window.
+- **Release hygiene:** the version now lives in FIVE synced places and a
+  test asserts all five agree (the v1.7.8 tag shipped its player fix from
+  a pre-audit commit because the release assets were built before the
+  audit landed — this time the binaries are cut from the tested HEAD).
+
+149 tests green (7 new), `tsc --noEmit` clean, CI-built.
+
+## Also shipping in v1.7.9 — the update flow fix + full app audit (2026-11-20)
+
+(Committed after the v1.7.8 binaries were cut — the released 1.7.8 exe does
+NOT contain these; v1.7.9 is the first release that ships them.)
 
 "the app opens right after when updating, the app isn't receiving the update,
 it should restart first" — root-caused and fixed. The startup-update window

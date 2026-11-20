@@ -41,7 +41,15 @@ export async function GET(req: NextRequest) {
   // reliable way to serve direct streams to the client.
   if (!result.url) {
     return NextResponse.json(
-      { error: "unresolvable", provider: null },
+      {
+        error: "unresolvable",
+        provider: null,
+        // "dead" = the chain-health breaker is open (every provider is
+        // down). The renderer's engine reads this and skips its own
+        // doomed ladder for the next tracks, going straight to the
+        // IFrame embed.
+        chain: result.chain ?? null,
+      },
       { status: 502 }
     );
   }

@@ -1,6 +1,6 @@
 [package]
 name = "resona-tauri"
-version = "1.7.8"
+version = "1.7.9"
 description = "Resona — the Rust (Tauri 2) desktop shell around the same Next.js server the Electron shell boots"
 authors = ["carlsibug98-spec"]
 license = "GPL-3.0-or-later"

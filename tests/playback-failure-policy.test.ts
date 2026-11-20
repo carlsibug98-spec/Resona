@@ -91,3 +91,46 @@ test("the watchdog grants the full budget once media data has arrived", () => {
   assert.ok(/buffered\.length > 0/.test(wd[0]), "progress check required");
   assert.ok(/hardCapMs - noDataMs/.test(wd[0]), "remaining-budget arithmetic required");
 });
+
+/* ------------------------ v1.7.9 additions ------------------------ */
+
+test("a TOTAL failure (loadFailed) banners on the first strike, not the third", () => {
+  const body = handlerBody("engine.onLoadFailed");
+  // below the cap: banner + guarded skip (the ladder already exhausted
+  // every source AND the embed — waiting for 2 more silent skips was the
+  // recorded "nothing plays and nothing is said" session)
+  assert.ok(
+    new RegExp(`if \\(cur\\) \\{[\\s\\S]*?usePlaybackError\\.getState\\(\\)\\.show[\\s\\S]*?scheduleSkip\\(`).test(body),
+    "onLoadFailed must banner AND schedule the skip below the cap"
+  );
+});
+
+test("the delayed skip never fires for a track that started playing", () => {
+  const sched = code.match(/const scheduleSkip = [\s\S]*?\n    \};/);
+  assert.ok(sched, "expected scheduleSkip helper");
+  assert.ok(/p\.isPlaying\) return/.test(sched[0]), "playing-track guard required");
+});
+
+test("the IFrame embed has a hard proof-of-life watchdog (no infinite hang)", () => {
+  const wd = engineSrc.match(/private armEmbedWatchdog\([\s\S]*?\n  \}/);
+  assert.ok(wd, "expected armEmbedWatchdog helper");
+  assert.ok(/20_000/.test(wd[0]), "watchdog deadline must be 20 s");
+  assert.ok(/getPlayerState/.test(wd[0]) && /getCurrentTime/.test(wd[0]), "proof of life = playing state or advancing time");
+  assert.ok(/onLoadFailed/.test(wd[0]), "watchdog must surface the failure");
+  // the buffering-blind 12 s probe it replaces must be gone from the
+  // embed path (it never fired while state stayed "buffering")
+  assert.ok(!/armProbeTimer\(12_000, \(\) => \{/.test(engineSrc), "old buffering-blind probe must be replaced");
+});
+
+test("server-reported chain death short-circuits the ladder to the embed", () => {
+  // engine side
+  assert.ok(/function markChainDead\(/.test(engineSrc), "engine must track chain death");
+  assert.ok(/if \(isChainDead\(\)\) \{/.test(engineSrc), "load() must fast-path to the embed while the chain is dead");
+  assert.ok(/d\.chain === "dead"\s*\)?;\s*\n?\s*markChainDead\(\)|if \(d\.chain === "dead"\) markChainDead\(\)/.test(engineSrc), "a dead resolve answer must mark the chain dead");
+  // server side
+  const resolverSrc = readFileSync(join(providerDir, "../src/lib/server/resolver.ts"), "utf8");
+  assert.ok(/CHAIN_DEAD_MS/.test(resolverSrc), "resolver must have the chain-health breaker window");
+  assert.ok(/chainDeadActive/.test(resolverSrc), "breaker must be observable (diagnostics/tests)");
+  const routeSrc = readFileSync(join(providerDir, "../src/app/api/stream/route.ts"), "utf8");
+  assert.ok(/chain: result\.chain/.test(routeSrc), "the route must pass the chain hint to the client");
+});

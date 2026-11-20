@@ -92,6 +92,10 @@ export function PlayerProvider() {
         pendingSkip = null;
         const p = usePlayer.getState();
         if (p.current()?.videoId !== failedVideoId) return;
+        // a track that STARTED playing inside the skip window is not a
+        // failure anymore (the watchdog may have fired just before
+        // playback began) — never skip a playing track
+        if (p.isPlaying) return;
         if (p.next()) return; // next() loads + plays the successor
         // end of queue, nothing to advance to — the failure is terminal
         // for this session, so surface the banner (Retry stays manual)
@@ -135,8 +139,13 @@ export function PlayerProvider() {
       else toast(msg);
     };
     // load() exhausted every source (audio providers AND the embed) —
-    // same policy as onError; this is the "click play, nothing starts"
-    // case, where sitting still looks like a frozen app
+    // that is a network/YouTube reachability condition, not one bad
+    // track. The Nov-2026 field report sat through silent skips with NO
+    // banner because this path waited for the 3rd consecutive failure:
+    // with every provider down, the user gets the banner on the FIRST
+    // total failure instead (auto-skip still runs; a later track that
+    // actually plays clears it via onState). The skip timer also honors
+    // a track that started playing inside the window.
     engine.onLoadFailed = (msg) => {
       const p = usePlayer.getState();
       const cur = p.current();
@@ -144,9 +153,15 @@ export function PlayerProvider() {
       if (consecutiveErrors >= MAX_CONSECUTIVE_FAILURES) {
         cancelPendingSkip();
         if (cur) usePlaybackError.getState().show(msg, cur.videoId);
+        else toast(msg);
         return;
       }
-      if (cur) scheduleSkip(cur.videoId, msg);
+      if (cur) {
+        usePlaybackError.getState().show(msg, cur.videoId);
+        scheduleSkip(cur.videoId, msg);
+      } else {
+        toast(msg);
+      }
     };
   }, []);
 

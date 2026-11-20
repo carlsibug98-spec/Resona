@@ -169,7 +169,11 @@ test("resolveStream returns url:null (not a dead URL) when every provider's URLs
 });
 
 test("v1.7.3: InnerTube results are marked proxied and carry the minting UA", async () => {
-  const { resolveStream } = await import("../src/lib/server/resolver.ts");
+  const { resolveStream, chainDeadReset } = await import("../src/lib/server/resolver.ts");
+  // the breaker is process-wide module state: the "every provider dead"
+  // test above opened it, and an open breaker short-circuits BEFORE the
+  // InnerTube walk — reopen so this test exercises the real ladder
+  chainDeadReset();
   const videoId = "uaIdentity01";
   await withFetch(
     (async (url: string | URL | Request) => {
@@ -195,6 +199,88 @@ test("v1.7.3: InnerTube results are marked proxied and carry the minting UA", as
       assert.ok(r.ua && r.ua.includes("android"), `must carry the minting UA, got ${r.ua}`);
       // and the proxy route presents that UA upstream (route-level test
       // stubs are impractical here; the contract is documented in code)
+    }
+  );
+});
+
+/* ------------------------ v1.7.9: chain breaker ------------------------ */
+
+test("chain breaker: after a full miss the next resolve short-circuits with chain:'dead' and walks NO providers", async () => {
+  const { resolveStream, chainDeadActive, chainDeadReset } = await import(
+    "../src/lib/server/resolver.ts"
+  );
+  chainDeadReset();
+  let fetchCalls = 0;
+  await withFetch(
+    (async () => {
+      fetchCalls++;
+      return new Response("nope", { status: 404 });
+    }) as FetchImpl,
+    async () => {
+      // track 1: the honest full-chain walk (every provider dead) → miss
+      const r1 = await resolveStream("brkr1x2y3z4a", null, { ytdlp: false, fresh: true });
+      assert.equal(r1.url, null);
+      assert.equal(r1.chain, "dead", "a full miss must be reported as chain:'dead'");
+      assert.ok(chainDeadActive(), "a full miss must open the breaker");
+      const callsAfterFirst = fetchCalls;
+      assert.ok(callsAfterFirst > 0, "the first resolve must actually walk providers");
+
+      // track 2 (fresh video, fresh cache key): the breaker is open —
+      // the route must answer WITHOUT any provider traffic. Note the
+      // short-circuit must NOT extend the window (that would livelock
+      // the outage forever) — only a fresh full miss or a success
+      // changes it
+      const r2 = await resolveStream("brkr2x3y4z5b", null, { ytdlp: false, fresh: true });
+      assert.equal(r2.url, null);
+      assert.equal(r2.chain, "dead");
+      assert.equal(
+        fetchCalls,
+        callsAfterFirst,
+        "the breaker must skip the provider walk entirely while open"
+      );
+
+      // reopening: the next successful resolve clears it (verified in the
+      // 'verifyAudioUrl accepts 206' style walk below via chainDeadReset)
+      chainDeadReset();
+      assert.ok(!chainDeadActive(), "chainDeadReset must reopen the chain");
+    }
+  );
+});
+
+test("chain breaker: after the window expires the recovery walk runs and a success reopens the chain", async () => {
+  const { resolveStream, chainDeadActive, chainDeadOpenFor } = await import(
+    "../src/lib/server/resolver.ts"
+  );
+  // a tiny window that expires naturally while the test waits — the
+  // production window is 60 s; the semantics are identical
+  chainDeadOpenFor(40);
+  await withFetch(
+    (async (url: string | URL | Request) => {
+      const u = String(url);
+      if (u.includes("youtube.com/youtubei"))
+        return json({
+          playabilityStatus: { status: "OK" },
+          streamingData: {
+            adaptiveFormats: [
+              { mimeType: "audio/mp4", bitrate: 130_000, url: "https://gv/audio" },
+            ],
+          },
+        });
+      if (u === "https://gv/audio") return new Response("x", { status: 206 });
+      return new Response("nope", { status: 404 });
+    }) as FetchImpl,
+    async () => {
+      // while the window is open: zero provider traffic
+      const dead = await resolveStream("brkr3x3y4z5c", null, { ytdlp: false, fresh: true });
+      assert.equal(dead.url, null);
+      assert.equal(dead.chain, "dead");
+      assert.ok(chainDeadActive(), "precondition: breaker open");
+
+      // wait out the window: the next resolve is an honest recovery walk
+      await new Promise((r) => setTimeout(r, 60));
+      const ok = await resolveStream("brkr4x3y4z5d", null, { ytdlp: false, fresh: true });
+      assert.ok(ok.url, "the recovery walk must succeed once the window expires");
+      assert.ok(!chainDeadActive(), "any success must reopen the chain instantly");
     }
   );
 });

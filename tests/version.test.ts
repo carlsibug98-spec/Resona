@@ -52,3 +52,37 @@ test("root and desktop-shell package versions never drift (release-integrity gua
   assert.equal(root, desktop, `root (${root}) and desktop (${desktop}) versions must match`);
   assert.match(root, /^\d+\.\d+\.\d+$/);
 });
+
+test("ALL five version sources agree (release-integrity guard, v1.7.9)", () => {
+  // The v1.7.8 release shipped a player fix built from a pre-audit
+  // commit while the repo already carried 1.7.8 in five places that can
+  // drift independently — and the renderer's update banner (version.ts)
+  // compares a DIFFERENT file than electron-updater (desktop/package.json).
+  // One source of truth, asserted everywhere: root package.json,
+  // desktop/package.json, src/lib/version.ts, tauri.conf.json, Cargo.toml.
+  const base = join(dirname(fileURLToPath(import.meta.url)), "..");
+  const root = JSON.parse(readFileSync(join(base, "package.json"), "utf8")).version;
+  const desktop = JSON.parse(readFileSync(join(base, "desktop/package.json"), "utf8")).version;
+  const tauri = JSON.parse(readFileSync(join(base, "desktop-tauri/src-tauri/tauri.conf.json"), "utf8")).version;
+  const versionTs = readFileSync(join(base, "src/lib/version.ts"), "utf8");
+  const appVersion = versionTs.match(/APP_VERSION = "([^"]+)"/)?.[1];
+  const cargo = readFileSync(join(base, "desktop-tauri/src-tauri/Cargo.toml"), "utf8");
+  const cargoVersion = cargo.match(/^version = "([^"]+)"/m)?.[1];
+  const all = [
+    ["package.json", root],
+    ["desktop/package.json", desktop],
+    ["src/lib/version.ts", appVersion],
+    ["tauri.conf.json", tauri],
+    ["Cargo.toml", cargoVersion],
+  ] as const;
+  for (const [name, v] of all) {
+    assert.ok(v, `${name} must carry a version`);
+    assert.match(v as string, /^\d+\.\d+\.\d+$/, `${name} version must be semver`);
+  }
+  const distinct = new Set(all.map(([, v]) => v));
+  assert.equal(
+    distinct.size,
+    1,
+    `version drift across ${all.map(([n, v]) => `${n}=${v}`).join(", ")}`
+  );
+});
