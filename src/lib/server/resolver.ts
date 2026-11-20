@@ -6,6 +6,7 @@ import {
   DEFAULT_INVIDIOUS,
   DEFAULT_PIPED,
   firstTruthy,
+  isSafeStreamUrl,
   mergeInstanceLists,
   orderInstances,
   parseInstanceSetting,
@@ -173,6 +174,9 @@ async function tryPiped(base: string, videoId: string): Promise<StreamResult | n
     const data = (await res.json()) as { audioStreams?: PipedAudioStream[] };
     const best = pickPipedAudio(data.audioStreams || []);
     if (!best?.url) return null;
+    // the URL decides where the byte proxy (and the verify probe) fetch:
+    // an instance response must not aim them at loopback/private targets
+    if (!isSafeStreamUrl(best.url)) return null;
     // the instance's API answered; its stream URL still has to serve
     // bytes — a 403-happy instance must not be pinned as "working"
     if (!(await verifyAudioUrl(best.url))) return null;
@@ -206,6 +210,8 @@ async function tryInvidious(base: string, videoId: string): Promise<StreamResult
     // working even when the resolving IP differs from the streaming IP
     const url = buildAudioUrl(base, videoId, best);
     if (!url) return null;
+    // same guard as the piped path: the relay must stay on public https
+    if (!isSafeStreamUrl(url)) return null;
     // the instance's API answered; its stream URL still has to serve
     // bytes before this instance is trusted or pinned
     if (!(await verifyAudioUrl(url))) return null;

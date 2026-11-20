@@ -66,6 +66,12 @@ export async function GET(req: NextRequest) {
  * `ua` carries the identity that minted the URL: googlevideo 403s an
  * app-client URL fetched under a different User-Agent (see resolver). */
 async function proxyFetch(url: string, range: string | null, ua?: string): Promise<Response | null> {
+  // headers deadline: a stalled upstream must not hold the route (and the
+  // media element) open for undici's ~300 s inactivity default. The body
+  // itself has no deadline — songs legitimately stream for minutes, so the
+  // timer is cleared as soon as the headers arrive.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
   try {
     const upstream = await fetch(url, {
       headers: {
@@ -73,11 +79,14 @@ async function proxyFetch(url: string, range: string | null, ua?: string): Promi
         ...(range ? { Range: range } : {}),
       },
       cache: "no-store",
+      signal: ctrl.signal,
     });
     if (!upstream.ok || !upstream.body) return null;
     return upstream;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

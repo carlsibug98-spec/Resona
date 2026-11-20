@@ -114,7 +114,10 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     const s = get();
     const idx = Math.max(0, Math.min(startIndex, tracks.length - 1));
     order = s.shuffle ? shuffled(tracks.length, idx) : Array.from({ length: tracks.length }, (_, i) => i);
-    orderPos = 0;
+    // orderPos must point AT the current track inside `order`: shuffle puts
+    // it at 0 (shuffled() starts with `first`), identity order puts it at
+    // idx — otherwise "play album from track 3 → next" jumped to track 1.
+    orderPos = s.shuffle ? 0 : idx;
     const track = tracks[idx];
     set({
       queue: tracks,
@@ -136,7 +139,7 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     const s = get();
     if (index < 0 || index >= s.queue.length) return;
     order = s.shuffle ? shuffled(s.queue.length, index) : Array.from({ length: s.queue.length }, (_, i) => i);
-    orderPos = 0;
+    orderPos = s.shuffle ? 0 : index;
     set({ index, position: 0, duration: s.queue[index].duration || 0 });
     engine.load(s.queue[index]).catch(() => {});
     prefetchUpcoming(s.queue);
@@ -147,6 +150,20 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     const queue = [...s.queue];
     const at = next ? s.index + 1 : queue.length;
     queue.splice(at, 0, track);
+    // keep the play order coherent with the new queue layout — without
+    // this the appended track is NEVER played (order ends before it) and
+    // an inserted one ends the session right after it plays
+    if (s.shuffle) {
+      if (next) {
+        const pos = order.indexOf(s.index);
+        order.splice(pos + 1, 0, at);
+      } else {
+        order.push(queue.length - 1);
+      }
+    } else {
+      order = Array.from({ length: queue.length }, (_, i) => i);
+      orderPos = s.index >= 0 ? s.index : 0;
+    }
     set({ queue });
   },
 
@@ -172,11 +189,25 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
 
   removeFromQueue: (index) => {
     const s = get();
-    if (index === s.index) return;
+    if (index < 0 || index >= s.queue.length || index === s.index) return;
     const queue = s.queue.filter((_, i) => i !== index);
+    const nextIndex = index < s.index ? s.index - 1 : s.index;
+    // rebuild the play order for the new layout: stale shuffle indices
+    // pointed past the queue (dead session early) or at shifted entries
+    // (the wrong track replayed)
+    if (s.shuffle) {
+      const pos = order.indexOf(index);
+      order = order
+        .filter((i) => i !== index)
+        .map((i) => (i > index ? i - 1 : i));
+      if (pos >= 0 && pos < orderPos) orderPos = Math.max(0, orderPos - 1);
+    } else {
+      order = Array.from({ length: queue.length }, (_, i) => i);
+      orderPos = nextIndex;
+    }
     set({
       queue,
-      index: index < s.index ? s.index - 1 : s.index,
+      index: nextIndex,
     });
   },
 
@@ -304,6 +335,21 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
 
   syncFromEngine: (st) => {
     const s = get();
+    // the engine ticks at 400 ms (twice per cycle on mpv) and there are
+    // 15+ store subscribers, most without selectors: a state object that
+    // changes on every tick re-renders the whole app all the time. Skip
+    // the set() entirely when nothing visible changed.
+    const cur = s.queue[s.index];
+    const needsBackfill =
+      st.duration > 0 && !!cur && !(cur.duration && cur.duration > 0);
+    if (
+      st.position === s.position &&
+      st.playing === s.isPlaying &&
+      st.buffering === s.buffering &&
+      (st.duration || s.duration) === s.duration &&
+      !needsBackfill
+    )
+      return;
     const patch: Partial<PlayerState> = {
       position: st.position,
       duration: st.duration || s.duration,
@@ -313,7 +359,6 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     // once real duration is known from audio metadata, backfill it into
     // the queue entry and the global cache so lists show exact times
     if (st.duration > 0) {
-      const cur = s.queue[s.index];
       if (cur && !(cur.duration && cur.duration > 0)) {
         const secs = Math.round(st.duration);
         const queue = s.queue.slice();

@@ -10,7 +10,6 @@ import { useSettings } from "@/stores/settings";
  */
 export function useUpdateAvailable(): UpdateInfo | null {
   const [info, setInfo] = useState<UpdateInfo | null>(null);
-  const checkedAt = useSettings((s) => s.updateCheckedAt);
 
   useEffect(() => {
     let cancelled = false;
@@ -24,7 +23,7 @@ export function useUpdateAvailable(): UpdateInfo | null {
     };
   }, []);
 
-  return checkedAt || info ? info : info;
+  return info;
 }
 
 export type { UpdateInfo };

@@ -23,6 +23,7 @@ import { Icon } from "@/components/Icon";
 import { ModalHost } from "@/components/ModalHost";
 import { ToastHost } from "@/components/ToastHost";
 import { SnackHost } from "@/components/SnackHost";
+import { UpdateBanner } from "@/components/UpdateBanner";
 import { TooltipLayer } from "@/components/TooltipLayer";
 import { IconSprite } from "@/components/Icon";
 import { hueFor } from "@/lib/art";
@@ -181,6 +182,7 @@ export function AppShell() {
       <NowFull />
       <QueueDrawer />
       <ModalHost />
+      <UpdateBanner />
       <ToastHost />
       <SnackHost />
       <TooltipLayer />

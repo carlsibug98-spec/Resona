@@ -84,9 +84,34 @@ function ensureStarted() {
   if (started) return;
   started = true;
   void primeFromDisk();
+  // expired rows used to be deleted only once, at first use — a desktop app
+  // running for days grew the kv table (and the two in-memory layers) the
+  // whole time. Prune hourly; unref'd so the test runner never waits on it.
+  const prune = () => {
+    const now = Date.now();
+    for (const [k, e] of store) if (now > e.e) store.delete(k);
+    for (const [k, e] of restored) if (now > e.e) restored.delete(k);
+    void dbReady().then((c) => {
+      if (!c) return;
+      c.client
+        .execute("DELETE FROM kv WHERE expires_at <= ?", [now])
+        .catch(() => {
+          /* memory-only fallback is fine */
+        });
+    });
+  };
+  const timer = setInterval(prune, 60 * 60 * 1000);
+  try {
+    (timer as { unref?: () => void }).unref?.();
+  } catch {
+    /* non-node timer */
+  }
 }
 
-export function cacheGet<T>(key: string): T | null {
+/** the live entry, or null when absent/expired — shared by cacheGet (sync
+ *  reads) and cached() (which must also honor entries whose VALUE is null,
+ *  e.g. kworb's cached "this trending row has no track") */
+function lookup(key: string): { v: unknown; e: number } | null {
   ensureStarted();
   const hit = store.get(key);
   if (hit) {
@@ -94,7 +119,7 @@ export function cacheGet<T>(key: string): T | null {
       store.delete(key);
       return null;
     }
-    return hit.v as T;
+    return hit;
   }
   const disk = restored.get(key);
   if (disk) {
@@ -102,9 +127,14 @@ export function cacheGet<T>(key: string): T | null {
       restored.delete(key);
       return null;
     }
-    return disk.v as T;
+    return disk;
   }
   return null;
+}
+
+export function cacheGet<T>(key: string): T | null {
+  const entry = lookup(key);
+  return entry ? (entry.v as T) : null;
 }
 
 export function cacheSet(key: string, value: unknown, ttlMs: number) {
@@ -127,8 +157,11 @@ export async function cached<T>(
   ttlMs: number,
   fn: () => Promise<T>
 ): Promise<T> {
-  const hit = cacheGet<T>(key);
-  if (hit !== null) return hit;
+  // lookup() (not cacheGet): an entry whose value IS null — kworb caches
+  // "unresolvable row: null" for 30 minutes — must be served, not silently
+  // recomputed on every request (two YT Music searches per row per hit)
+  const entry = lookup(key);
+  if (entry) return entry.v as T;
   // share one computation between concurrent callers: a hover prefetch and
   // the click that follows it must not spawn two yt-dlp runs for the same id
   const pending = inflight.get(key);

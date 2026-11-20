@@ -721,6 +721,15 @@ export class PlayerEngine {
     const host = document.createElement("div");
     this.hostEl.appendChild(host);
     return new Promise((resolve, reject) => {
+      // the constructor only settles from onReady: if the API script loads
+      // but the embed never becomes ready (blocked iframe, bot-gated
+      // network), load() would hang forever with no failure event — the
+      // play click would sit silent with no banner, no skip, nothing.
+      // Race it with a hard timeout so the ladder reports the failure.
+      const timer = setTimeout(
+        () => reject(new Error("youtube player did not become ready")),
+        12000
+      );
       this.yt = new window.YT.Player(host, {
         height: "100%",
         width: "100%",
@@ -737,6 +746,7 @@ export class PlayerEngine {
         },
         events: {
           onReady: () => {
+            clearTimeout(timer);
             resolve(this.yt);
           },
           onStateChange: (e: any) => {
@@ -813,6 +823,11 @@ export class PlayerEngine {
       const url = URL.createObjectURL(local.blob);
       a.src = url;
       a.addEventListener("loadedmetadata", () => {
+        URL.revokeObjectURL(url);
+      }, { once: true });
+      // revoke on failure too — an errored blob must not leak its backing
+      // ref (the old listener only covered the success path)
+      a.addEventListener("error", () => {
         URL.revokeObjectURL(url);
       }, { once: true });
       a.currentTime = startSec;

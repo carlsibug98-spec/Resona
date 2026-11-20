@@ -71,21 +71,26 @@ fn data_dir() -> PathBuf {
     }
 }
 
-/// The bundled Node sidecar: tauri's externalBin lands next to the main
-/// executable as `binaries/node` (triple suffix stripped, extension added).
+/// The bundled Node sidecar. In PACKAGED builds the tauri bundler installs
+/// `externalBin` targets FLAT next to the main executable (`$INSTDIR\node.exe`
+/// — the `binaries/node-x86_64-pc-windows-msvc.exe` source name is flattened
+/// to `node.exe` at install time), so that is checked first; the nested
+/// `binaries/node` layout remains the dev-mode fallback.
 fn node_path() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
-    let mut p = exe.parent()?.join("binaries");
-    if cfg!(target_os = "windows") {
-        p.push("node.exe");
+    let dir = exe.parent()?;
+    let name = if cfg!(target_os = "windows") {
+        "node.exe"
     } else {
-        p.push("node");
+        "node"
+    };
+    for rel in [name, &format!("binaries{}{}", std::path::MAIN_SEPARATOR, name)] {
+        let p = dir.join(rel);
+        if p.exists() {
+            return Some(p);
+        }
     }
-    if p.exists() {
-        Some(p)
-    } else {
-        None
-    }
+    None
 }
 
 /// Spawn the Next standalone server with Electron's exact environment.

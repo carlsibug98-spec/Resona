@@ -281,10 +281,86 @@ p{margin:0;color:#a3a3a3;font-size:13px}
 /* ── startup update ──────────────────────────────────────────────────────────
  * Runs before the server boots. Silent install on Windows (NSIS) and Linux
  * AppImage. macOS is unsigned, so it keeps the in-app "update available"
- * prompt. The whole step is capped at UPDATE_WAIT_MS: if it is still running
- * then, the app opens on the current version and the download installs on the
- * next quit. A failed check never blocks launch. */
-const UPDATE_WAIT_MS = 10000;
+ * prompt.
+ *
+ * v1.7.9 rule: an update is only "received" when the app has RESTARTED
+ * through it — the NSIS installer must replace the files while no Resona
+ * process is alive, then relaunch into the new version. So:
+ *  - while the splash is up (before the window exists): a downloaded update
+ *    installs immediately (quitAndInstall) and the installer relaunches us
+ *    into the new version — the app never opens on a stale build;
+ *  - while the app is running: the download lands as a "Restart to apply"
+ *    banner in the UI (update:ready -> UpdateBanner.tsx); clicking Restart
+ *    runs the same install+restart sequence. autoInstallOnAppQuit stays
+ *    enabled as the no-interaction fallback (applies on the next quit),
+ *    but it can never be the primary path again — that path installed
+ *    silently with no relaunch, which read as "the update never arrived".
+ * The wait is capped at UPDATE_WAIT_MS: past it the app opens on the current
+ * version and the banner takes over. A failed check never blocks launch.
+ * 30 s: the Windows installer is ~150-250 MB; the old 10 s cap made the
+ * startup path dead code and deferred EVERY update to the quit path. */
+const UPDATE_WAIT_MS = 30000;
+
+/** last downloaded update, surfaced to the renderer once the window exists */
+let updateReady = null;
+let installingUpdate = false;
+
+/**
+ * Apply a downloaded update NOW: stop everything this process owns, hand
+ * over to the silent NSIS installer, and relaunch into the new version.
+ * The installer runs detached; electron-updater quits the app once it has
+ * spawned — the hard exit below is only a stall fallback.
+ */
+function installAndRestart(why) {
+  if (installingUpdate) return;
+  installingUpdate = true;
+  log(`update: installing and restarting (${why})`);
+  try {
+    setSplashStatus("Restarting to apply the update…");
+  } catch {}
+  // 1) stop our own children and windows first: the installer kills any
+  //    leftover Resona.exe by image name and we do not want the server
+  //    child (also Resona.exe, ELECTRON_RUN_AS_NODE) to die mid-write,
+  //    nor the single-instance lock to race the installer's relaunch.
+  quitting = true;
+  killServer();
+  try {
+    if (splash) {
+      splash.destroy();
+      splash = null;
+    }
+  } catch {}
+  try {
+    if (win) {
+      win.destroy();
+      win = null;
+    }
+  } catch {}
+  // 2) silent install + force-run: the installer replaces the files while
+  //    we are gone and launches the NEW version when it finishes.
+  try {
+    autoUpdater.quitAndInstall(true, true);
+  } catch (e) {
+    log("update: quitAndInstall failed: " + (e && e.message));
+    app.exit(0);
+    return;
+  }
+  // 3) belt and braces: if the graceful quit stalls (a hanging handler,
+  //    a stuck window), die hard — the installer has already been spawned
+  //    detached and will relaunch us once the files are replaced.
+  setTimeout(() => {
+    try {
+      app.exit(0);
+    } catch {}
+  }, 5000);
+}
+
+/** tell the renderer an update is waiting (UpdateBanner listens for this) */
+function notifyUpdateReady() {
+  try {
+    if (win && !win.isDestroyed()) win.webContents.send("update:ready", updateReady);
+  } catch {}
+}
 
 function canSelfUpdate() {
   if (!app.isPackaged) return false;
@@ -312,6 +388,11 @@ function startupUpdate() {
       if (finished) return;
       finished = true;
       clearTimeout(timer);
+      // listener hygiene: the one-shot handlers below must not linger for
+      // the whole process lifetime (any later updater error would funnel
+      // into a dead closure)
+      autoUpdater.removeAllListeners("update-not-available");
+      autoUpdater.removeAllListeners("error");
       log(`startup update: ${why}`);
       resolve();
     };
@@ -325,19 +406,29 @@ function startupUpdate() {
     autoUpdater.on("download-progress", (p) =>
       setSplashStatus(`Downloading update… ${Math.round(p.percent)}%`)
     );
-    autoUpdater.once("update-downloaded", () => {
-      // past the time limit the app is already open: leave the install to the next quit
-      if (finished) return log("update downloaded after launch, installs on next quit");
-      setSplashStatus("Installing update…");
-      finished = true;
-      clearTimeout(timer);
-      autoUpdater.quitAndInstall(true, true);
+    autoUpdater.once("update-downloaded", (info) => {
+      updateReady = { version: (info && info.version) || null };
+      if (finished) {
+        // the app already opened (time limit) — surface the restart banner
+        // instead of silently waiting for the next quit
+        log("update downloaded after launch, prompting restart");
+        notifyUpdateReady();
+        return;
+      }
+      // still on the splash, nothing is running yet: install now and let
+      // the installer relaunch us straight into the new version
+      installAndRestart("startup");
     });
     autoUpdater.once("error", (e) => finish(`error, opening app (${e && e.message})`));
 
     autoUpdater.checkForUpdates().catch((e) => finish(`check failed (${e && e.message})`));
   });
 }
+
+// explicit "Restart to apply" from the update banner (see preload.js)
+ipcMain.on("update:install-now", () => {
+  if (updateReady) installAndRestart("user request");
+});
 
 function showSplash() {
   splash = new BrowserWindow({
@@ -414,6 +505,9 @@ async function createWindow(port) {
   win.webContents.on("did-finish-load", () => {
     applyTaskbarControls();
     setTimeout(applyTaskbarControls, 1000);
+    // an update may have landed while the window was still loading —
+    // surface the restart banner as soon as the UI can hear it
+    if (updateReady && !installingUpdate) notifyUpdateReady();
   });
   // open external links in the system browser
   win.webContents.setWindowOpenHandler(({ url }) => {

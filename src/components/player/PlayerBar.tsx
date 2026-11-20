@@ -149,8 +149,11 @@ export function PlayerBar() {
           <button
             className={`iconbtn${player.shuffle ? " on" : ""}`}
             onClick={() => {
-              player.toggleShuffle();
-              toast(player.shuffle ? "Shuffle on" : "Shuffle off");
+              // read the state AFTER the toggle — the render-time snapshot
+              // still holds the pre-toggle value and announced the opposite
+              const s = usePlayer.getState();
+              s.toggleShuffle();
+              toast(s.shuffle ? "Shuffle on" : "Shuffle off");
             }}
             aria-label="Shuffle" data-tip="Shuffle"
           >

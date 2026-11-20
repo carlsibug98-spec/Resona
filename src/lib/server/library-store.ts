@@ -40,6 +40,9 @@ export interface LibrarySnapshot {
 }
 
 export const HISTORY_LIMIT = 500;
+/** hard cap per playlist: a monster payload can blow SQLite's statement
+ *  parameter budget and fail the insert — the cap keeps writes bounded */
+export const MAX_PLAYLIST_TRACKS = 2000;
 
 /** in-memory fallback so the API stays functional without the DB */
 const mem = {
@@ -126,25 +129,31 @@ export async function putPlaylist(p: PlaylistRow) {
   const c = await dbReady();
   if (!c) return void mem.playlists.set(p.id, p);
   try {
-    await c.db
-      .insert(playlists)
-      .values({ id: p.id, name: p.name, createdAt: p.createdAt, updatedAt: p.updatedAt })
-      .onConflictDoUpdate({
-        target: playlists.id,
-        set: { name: p.name, updatedAt: p.updatedAt },
-      });
-    // rewrite track rows only when the payload carries tracks (a rename
-    // passes the same array back; a reorder/add/remove sends the new one)
-    await c.db.delete(playlistTracks).where(eq(playlistTracks.playlistId, p.id));
-    if (p.tracks.length) {
-      await c.db.insert(playlistTracks).values(
-        p.tracks.map((t, i) => ({
-          playlistId: p.id,
-          position: i,
-          track: JSON.stringify(t),
-        }))
-      );
-    }
+    // one transaction: the old delete-then-insert could fail the insert
+    // (oversized payload, disk hiccup) AFTER the delete committed — the
+    // playlist silently emptied and the next sync propagated the wipe
+    await c.db.transaction(async (tx) => {
+      await tx
+        .insert(playlists)
+        .values({ id: p.id, name: p.name, createdAt: p.createdAt, updatedAt: p.updatedAt })
+        .onConflictDoUpdate({
+          target: playlists.id,
+          set: { name: p.name, updatedAt: p.updatedAt },
+        });
+      // rewrite track rows only when the payload carries tracks (a rename
+      // passes the same array back; a reorder/add/remove sends the new one)
+      await tx.delete(playlistTracks).where(eq(playlistTracks.playlistId, p.id));
+      const tracks = p.tracks.slice(0, MAX_PLAYLIST_TRACKS);
+      if (tracks.length) {
+        await tx.insert(playlistTracks).values(
+          tracks.map((t, i) => ({
+            playlistId: p.id,
+            position: i,
+            track: JSON.stringify(t),
+          }))
+        );
+      }
+    });
   } catch (e) {
     console.error("[db] putPlaylist failed:", e);
   }
@@ -203,7 +212,11 @@ export async function deleteHistory(videoId: string) {
   }
 }
 
-/** full replace — backup restore in "replace" mode, and "clear all" */
+/** full replace — backup restore in "replace" mode, and "clear all".
+ *  One transaction: the old code deleted all four tables first and inserted
+ *  afterwards, so a duplicate videoId in a backup's history (the single
+ *  multi-row INSERT hits the PK) or a crash mid-restore left the library
+ *  half-wiped while the client still got ok:true back. */
 export async function replaceLibrary(snap: LibrarySnapshot) {
   const c = await dbReady();
   if (!c) {
@@ -214,29 +227,66 @@ export async function replaceLibrary(snap: LibrarySnapshot) {
     return;
   }
   try {
-    await c.db.delete(likes);
-    await c.db.delete(playlistTracks);
-    await c.db.delete(playlists);
-    await c.db.delete(history);
-    if (Object.keys(snap.liked).length) {
-      await c.db.insert(likes).values(
-        Object.entries(snap.liked).map(([videoId, l]) => ({
-          videoId,
-          track: JSON.stringify(l.track),
-          likedAt: l.likedAt,
-        }))
-      );
+    // history is keyed by videoId — dedupe BEFORE the insert or one
+    // duplicate kills the whole batch; keep the newest entry per video
+    const seenHist = new Map<string, HistoryRow>();
+    for (const h of snap.history) {
+      const prev = seenHist.get(h.track.videoId);
+      if (!prev || h.at > prev.at) seenHist.set(h.track.videoId, h);
     }
-    for (const p of snap.playlists) await putPlaylist(p);
-    if (snap.history.length) {
-      await c.db.insert(history).values(
-        snap.history.map((h) => ({
-          videoId: h.track.videoId,
-          track: JSON.stringify(h.track),
-          playedAt: h.at,
-        }))
-      );
+    const hist = [...seenHist.values()].sort((a, b) => b.at - a.at).slice(0, HISTORY_LIMIT);
+    // playlists too: two rows with one id would double-insert its tracks
+    const seenPl = new Map<string, PlaylistRow>();
+    for (const p of snap.playlists) {
+      const prev = seenPl.get(p.id);
+      if (!prev || p.updatedAt > prev.updatedAt) seenPl.set(p.id, p);
     }
+    const likedEntries = Object.entries(snap.liked);
+    await c.db.transaction(async (tx) => {
+      await tx.delete(likes);
+      await tx.delete(playlistTracks);
+      await tx.delete(playlists);
+      await tx.delete(history);
+      // chunked inserts: thousands of likes in one statement can exceed
+      // SQLite's parameter budget and roll the whole restore back
+      for (let i = 0; i < likedEntries.length; i += 500) {
+        await tx.insert(likes).values(
+          likedEntries.slice(i, i + 500).map(([videoId, l]) => ({
+            videoId,
+            track: JSON.stringify(l.track),
+            likedAt: l.likedAt,
+          }))
+        );
+      }
+      for (const p of seenPl.values()) {
+        await tx
+          .insert(playlists)
+          .values({ id: p.id, name: p.name, createdAt: p.createdAt, updatedAt: p.updatedAt })
+          .onConflictDoUpdate({
+            target: playlists.id,
+            set: { name: p.name, updatedAt: p.updatedAt },
+          });
+        const tracks = p.tracks.slice(0, MAX_PLAYLIST_TRACKS);
+        if (tracks.length) {
+          await tx.insert(playlistTracks).values(
+            tracks.map((t, i) => ({
+              playlistId: p.id,
+              position: i,
+              track: JSON.stringify(t),
+            }))
+          );
+        }
+      }
+      for (let i = 0; i < hist.length; i += 500) {
+        await tx.insert(history).values(
+          hist.slice(i, i + 500).map((h) => ({
+            videoId: h.track.videoId,
+            track: JSON.stringify(h.track),
+            playedAt: h.at,
+          }))
+        );
+      }
+    });
   } catch (e) {
     console.error("[db] replaceLibrary failed:", e);
   }

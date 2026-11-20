@@ -687,6 +687,16 @@ img.cov{object-fit:cover}
 .errban .x{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:none;padding:0;color:#ffd9d9;flex:none}
 .errban .x:hover{background:rgba(255,255,255,.12)}
 
+/* "Restart to apply" banner for a downloaded update (UpdateBanner.tsx) —
+   same shell as .errban but green, and parked above it so both can show */
+.updban{position:fixed;left:50%;bottom:158px;transform:translateX(-50%);z-index:82;display:flex;align-items:center;gap:14px;background:#122b1d;border:1px solid rgba(74,222,128,.4);color:#d9ffe4;padding:12px 18px;border-radius:14px;font-size:14px;box-shadow:0 16px 40px rgba(0,0,0,.55);max-width:min(560px,90vw);animation:viewin .22s ease-out}
+.updban b{white-space:nowrap}
+.updban .grp{display:flex;gap:8px;flex:none}
+.updban button{height:32px;padding:0 14px;border-radius:999px;font-weight:700;font-size:13px;background:rgba(255,255,255,.12);color:#fff;transition:background .15s}
+.updban button:hover{background:rgba(255,255,255,.22)}
+.updban button.pri{background:#4ade80;color:#122b1d}
+.updban button.pri:hover{background:#86efac}
+
 /* skeleton loaders for shelves and lists */
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .sk{border-radius:10px;background:linear-gradient(90deg,var(--elev) 25%,color-mix(in srgb,var(--elev) 60%,var(--text) 8%) 50%,var(--elev) 75%);background-size:200% 100%;animation:shimmer 1.6s linear infinite}

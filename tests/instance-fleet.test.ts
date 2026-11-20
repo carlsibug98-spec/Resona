@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   buildAudioUrl,
+  isSafeStreamUrl,
   mergeInstanceLists,
   orderInstances,
   parseInstanceSetting,
@@ -111,6 +112,40 @@ test("parseInstanceSetting splits lines and commas, trims and filters", () => {
   assert.deepEqual(parseInstanceSetting(""), []);
   assert.deepEqual(parseInstanceSetting(null), []);
   assert.deepEqual(parseInstanceSetting(undefined), []);
+});
+
+test("parseInstanceSetting is bounded (max 6, each <= 200 chars)", () => {
+  const many = Array.from({ length: 10 }, (_, i) => `https://i${i}.example`).join("\n");
+  assert.equal(parseInstanceSetting(many).length, 6);
+  const huge = "https://" + "a".repeat(300) + ".example";
+  assert.deepEqual(parseInstanceSetting(huge), []);
+});
+
+test("isSafeStreamUrl passes real stream hosts", () => {
+  assert.equal(isSafeStreamUrl("https://rr3---sn-abc.googlevideo.com/videoplayback?x=1"), true);
+  assert.equal(isSafeStreamUrl("https://pipedproxy-example.kavin.rocks/stream?x=1"), true);
+  assert.equal(isSafeStreamUrl("https://inv.example/latest_version?id=abc&itag=140&local=true"), true);
+});
+
+test("isSafeStreamUrl rejects non-https and internal targets", () => {
+  // scheme: the server fetches and relays these bytes — http / data / file
+  // URLs from a hostile instance response must never reach the proxy
+  assert.equal(isSafeStreamUrl("http://rr3---sn-abc.googlevideo.com/videoplayback"), false);
+  assert.equal(isSafeStreamUrl("data:text/html,hi"), false);
+  assert.equal(isSafeStreamUrl("file:///etc/passwd"), false);
+  // loopback / private / link-local hosts
+  assert.equal(isSafeStreamUrl("https://127.0.0.1:9200/"), false);
+  assert.equal(isSafeStreamUrl("https://localhost:3000/"), false);
+  assert.equal(isSafeStreamUrl("https://10.0.0.5/stream"), false);
+  assert.equal(isSafeStreamUrl("https://192.168.1.10/stream"), false);
+  assert.equal(isSafeStreamUrl("https://172.20.3.4/stream"), false);
+  assert.equal(isSafeStreamUrl("https://169.254.169.254/latest/meta-data"), false);
+  assert.equal(isSafeStreamUrl("https://[::1]/stream"), false);
+  assert.equal(isSafeStreamUrl("https://[fe80::1]/stream"), false);
+  assert.equal(isSafeStreamUrl("https://[fd00::5]/stream"), false);
+  // garbage
+  assert.equal(isSafeStreamUrl("not a url"), false);
+  assert.equal(isSafeStreamUrl(""), false);
 });
 
 test("pickPipedAudio takes the highest-bitrate stream with a url", () => {

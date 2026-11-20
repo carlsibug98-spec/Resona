@@ -118,13 +118,51 @@ export const DEFAULT_PIPED = [
 /**
  * Parse a user's resolver-instances setting (one URL per line, or comma
  * separated) into a clean list. User instances always run before defaults.
+ * Bounded: max 6 instances, each ≤ 200 chars — the setting lands in cache
+ * keys and upstream fetch URLs, so an unbounded string is a DoS lever.
  */
 export function parseInstanceSetting(raw: string | null | undefined): string[] {
   if (!raw) return [];
   return raw
     .split(/[\n,]+/)
     .map((s) => s.trim().replace(/\/+$/, ""))
-    .filter((s) => /^https?:\/\//.test(s));
+    .filter((s) => /^https?:\/\//.test(s) && s.length <= 200)
+    .slice(0, 6);
+}
+
+/**
+ * Guard for stream URLs that came from third-party instance responses.
+ * The server fetches and relays these bytes, so an instance response must
+ * not be able to aim the proxy (or the verify probe) at loopback, the
+ * private ranges or link-local addresses — https only, public hosts only.
+ * googlevideo, piped-proxy and invidious `local=true` hosts all pass.
+ */
+export function isSafeStreamUrl(url: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== "https:") return false;
+  const host = u.hostname.toLowerCase();
+  if (!host) return false;
+  if (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".local") ||
+    host.endsWith(".home.arpa") ||
+    host.endsWith(".internal")
+  )
+    return false;
+  // IPv4 loopback / private / link-local (dotted form)
+  if (/^(?:127|10|169\.254|0)\./.test(host)) return false;
+  if (/^192\.168\./.test(host)) return false;
+  if (/^172\.(?:1[6-9]|2\d|3[01])\./.test(host)) return false;
+  // IPv6 loopback/unique-local/link-local (URL.hostname keeps the brackets)
+  const v6 = host.replace(/^\[|\]$/g, "");
+  if (/^(?:::1|::|f[cd][0-9a-f]{2}:|fe[89ab][0-9a-f]:)/.test(v6)) return false;
+  return true;
 }
 
 /** parse api.invidious.io's instances.json into base URLs (https only;

@@ -222,8 +222,11 @@ export function NowFull() {
               aria-label="Shuffle"
               title={player.shuffle ? "Shuffle on" : "Shuffle off"}
               onClick={() => {
-                player.toggleShuffle();
-                toast(player.shuffle ? "Shuffle on" : "Shuffle off");
+                // read AFTER the toggle (see PlayerBar) — the snapshot is
+                // the pre-toggle value and announced the opposite
+                const s = usePlayer.getState();
+                s.toggleShuffle();
+                toast(s.shuffle ? "Shuffle on" : "Shuffle off");
               }}
             >
               <Icon name="shuffle" />

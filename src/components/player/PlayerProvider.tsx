@@ -19,14 +19,20 @@ async function maybeStartRadio() {
   const p = usePlayer.getState();
   const seed = p.current();
   if (!seed) return;
+  const seedId = seed.videoId;
   try {
-    const res = await fetch(`/api/radio?videoId=${encodeURIComponent(seed.videoId)}`);
+    const res = await fetch(`/api/radio?videoId=${encodeURIComponent(seedId)}`);
     if (!res.ok) return;
     const data = await res.json();
     const tracks: Track[] = Array.isArray(data?.tracks) ? data.tracks : [];
     if (!tracks.length) return;
-    usePlayer.getState().extendQueue(tracks);
-    usePlayer.getState().next();
+    // the fetch takes a second or two: if the user clicked a song of their
+    // own meanwhile, the late radio response must NOT yank playback away
+    // from it (same guard scheduleSkip uses)
+    const now = usePlayer.getState();
+    if (now.current()?.videoId !== seedId) return;
+    now.extendQueue(tracks);
+    now.next();
   } catch {
     /* offline or rate-limited — playback stays stopped */
   }
@@ -167,14 +173,16 @@ export function PlayerProvider() {
   }, []);
 
   const track = usePlayer((s) => s.queue[s.index] as Track | undefined);
+  const nextVideoId = usePlayer((s) => s.queue[s.index + 1]?.videoId);
 
   // keep the engine aware of the queue successor: it warms that track's
-  // stream URL while the current one plays, so track changes are instant
+  // stream URL while the current one plays, so track changes are instant.
+  // Keyed on the successor too — enqueue/extendQueue can change who is up
+  // next without changing the current track, and a stale warm target
+  // forfeits the gapless benefit.
   useEffect(() => {
-    const s = usePlayer.getState();
-    const next = s.queue[s.index + 1];
-    engine.setNextTrack(next?.videoId ?? null);
-  }, [track?.videoId]);
+    engine.setNextTrack(nextVideoId ?? null);
+  }, [track?.videoId, nextVideoId]);
 
   // history + media session on track change
   useEffect(() => {

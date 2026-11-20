@@ -20,6 +20,15 @@ contextBridge.exposeInMainWorld("resonaDesktop", {
     ipcRenderer.on("thumbs:action", listener);
     return () => ipcRenderer.removeListener("thumbs:action", listener);
   },
+  /** update flow (see desktop/main.js startupUpdate + UpdateBanner.tsx):
+   *  the main process pushes { version } once an update is downloaded, and
+   *  the banner's Restart button asks it to install + relaunch now */
+  onUpdateReady: (cb) => {
+    const listener = (_event, info) => cb(info || {});
+    ipcRenderer.on("update:ready", listener);
+    return () => ipcRenderer.removeListener("update:ready", listener);
+  },
+  installUpdate: () => ipcRenderer.send("update:install-now"),
   /** the mpv playback core (desktop/mpv-host.js) — undefined on non-desktop
    *  or when libmpv is missing, in which case the HTML5 chain plays on */
   mpv: {

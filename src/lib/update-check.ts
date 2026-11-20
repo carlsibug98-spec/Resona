@@ -57,7 +57,12 @@ export async function checkForUpdate(force = false): Promise<UpdateInfo> {
   try {
     const r = await fetch(
       `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`,
-      { headers: { Accept: "application/vnd.github+json" } }
+      {
+        headers: { Accept: "application/vnd.github+json" },
+        // a hung TLS connection must not leave Settings stuck on
+        // "Checking…" forever (the button stays disabled until this settles)
+        signal: AbortSignal.timeout(10_000),
+      }
     );
     if (!r.ok) throw new Error(String(r.status));
     const d = (await r.json()) as { tag_name?: string; html_url?: string };

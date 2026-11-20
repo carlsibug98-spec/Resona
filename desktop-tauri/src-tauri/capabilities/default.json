@@ -1,0 +1,20 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Resona main window: window controls and server_url for the bundled splash (local context) and the served app page (remote http://127.0.0.1 context). Without this capability the Tauri 2 ACL denies every invoke and the shell cannot start its server or be closed.",
+  "windows": ["main"],
+  "context": {
+    "local": true,
+    "remote": {
+      "urls": ["http://127.0.0.1:*"]
+    }
+  },
+  "permissions": [
+    "core:default",
+    "allow-server_url",
+    "allow-win_minimize",
+    "allow-win_toggle_max",
+    "allow-win_close",
+    "allow-win_is_max"
+  ]
+}

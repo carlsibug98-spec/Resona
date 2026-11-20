@@ -1,5 +1,49 @@
 # Changes
 
+## Unreleased — the update flow fix + full app audit (2026-11-20)
+
+"the app opens right after when updating, the app isn't receiving the update,
+it should restart first" — root-caused and fixed. The startup-update window
+was 10 s against a 150–250 MB installer (dead code), the real path
+(`autoInstallOnAppQuit`) installed silently with no relaunch, and relaunching
+during a silent install could get the fresh instance killed by the installer's
+image-name process kill. Now an update is only "received" when the app has
+RESTARTED through it: splash → download → quit → installer → relaunch into the
+new version; a download that lands while running surfaces a "Restart to apply"
+banner (update:ready IPC + UpdateBanner.tsx) instead of silently deferring.
+
+Same pass: a full app audit (see AUDIT-2026-11-20.md). Code fixes landed for
+the audit's critical/high findings:
+
+- **Tauri shell was dead on arrival in release builds**: no capabilities file
+  (Tauri 2's ACL denied every invoke — the splash could never start the
+  server) and `node_path()` looked in `binaries/node.exe` while the bundler
+  installs the sidecar flat next to the exe. Both fixed; CI verifies.
+- **Library restore could silently wipe history/likes while returning ok**
+  (delete-then-insert with no transaction; one duplicate videoId in a backup
+  killed the whole insert after the deletes had committed). `replaceLibrary`
+  and `putPlaylist` are now transactional, with history dedupe by videoId,
+  playlist dedupe by id, 500-row insert chunks and a 2000-track playlist cap.
+- **SSRF hardening for the `/api/stream` chain**: instance-returned stream
+  URLs must be https and public (no loopback/private/link-local hosts) before
+  the byte proxy or the verify probe touches them; the `instances` setting is
+  bounded (max 6, ≤200 chars each); the proxy has a 15 s headers deadline.
+- **Queue correctness**: `enqueue`/`removeFromQueue` now keep the shuffle
+  order coherent (appended tracks were never played; inserted ones ended the
+  session early); `playQueue`/`playFromQueue` point `orderPos` at the current
+  track (playing from mid-album used to send Next to track 1).
+- **Engine robustness**: `ensureYT()` no longer hangs forever on a blocked
+  embed (12 s timeout); `syncFromEngine` skips the `set()` when nothing
+  changed (the 400 ms tick re-rendered the whole app); Retry keeps the queue
+  (re-loads in place); the radio auto-advance guard; shuffle toast reads the
+  post-toggle state; blob URLs revoke on error too.
+- **Cache correctness**: `cached()` now serves stored `null`s (kworb's
+  unresolvable-row cache actually caches); expired rows are pruned hourly
+  from the kv table and both in-memory layers; the GitHub update check gets a
+  10 s timeout.
+
+142 tests pass (4 new), tsc and eslint clean.
+
 ## v1.7.8 — the playback root-cause fix (2026-11-20)
 
 "Music playback not playing the song — it always reloads and stops": root-caused

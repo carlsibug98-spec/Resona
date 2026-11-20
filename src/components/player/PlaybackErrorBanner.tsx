@@ -28,10 +28,14 @@ export function PlaybackErrorBanner() {
       p.queue.find((t) => t.videoId === failedId) ??
       (engine.getTrack()?.videoId === failedId ? engine.getTrack() : null) ??
       p.current();
-    if (failed) {
-      p.playTrack(failed, "Retry");
-      engine.setVolume(p.muted ? 0 : p.volume);
-    }
+    if (!failed) return;
+    // retry IN PLACE: re-load the failed entry inside the existing queue so
+    // the rest of the session survives. playTrack() would replace the whole
+    // queue with this one track and silently drop everything after it.
+    const idx = p.queue.findIndex((t) => t.videoId === failed.videoId);
+    if (idx >= 0) p.playFromQueue(idx);
+    else p.playTrack(failed, "Retry");
+    engine.setVolume(p.muted ? 0 : p.volume);
   };
 
   const skip = () => {
