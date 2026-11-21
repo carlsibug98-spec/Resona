@@ -1,4 +1,5 @@
 {
+  "productName": "Resona Rust",
   "bundle": {
     "resources": ["resources/server", "resources/yt-dlp.exe"]
   }

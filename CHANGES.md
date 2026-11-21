@@ -1,5 +1,36 @@
 # Changes
 
+## v1.7.13 — the Rust shell stops impersonating the main app on Windows (2026-11-21)
+
+"what happened to the app, it's not working anymore, windows" — after the
+user installed the fix builds, the Windows machine ended up with BOTH shells
+installed, and both called themselves the same thing:
+
+- Electron installs `Resona.exe` at `%LOCALAPPDATA%\Programs\Resona`, plus a
+  "Resona" shortcut and a "Resona" Add/Remove-Programs entry.
+- The Rust (Tauri) shell — productName "Resona", installMode currentUser —
+  installs `Resona.exe` at `%LOCALAPPDATA%\Resona`, plus a "Resona" shortcut
+  and a "Resona" ARP entry.
+
+Same exe name, same display name, one ambiguous shortcut (last installer
+wins), two ARP entries with the same name. Clicking the wrong one opens the
+OTHER shell — for the user that meant the Rust splash coming back after
+they "installed the fix", i.e. "the app is not working anymore".
+
+**The fix (Windows only):** the Rust shell's `tauri.win.conf.json` now sets
+`productName: "Resona Rust"`. It installs `Resona Rust.exe` into
+`%LOCALAPPDATA%\Resona Rust`, with its own "Resona Rust" shortcut and ARP
+entry — coexisting cleanly with the main app instead of shadowing it. The
+NSIS artifact from CI is renamed at release time to
+`Resona-Tauri-<v>-WINDOWS-x64-setup.exe` as before. Linux keeps
+`resona`/`resona-tauri` binaries (already distinct); macOS ships the
+Electron shell only.
+
+For the user-facing recovery: uninstall both "Resona" entries, delete
+leftover `%LOCALAPPDATA%\Resona` and `%LOCALAPPDATA%\Programs\Resona`, then
+install the ONE wanted shell — the music library at `C:\Resona\data` is
+never touched by uninstalling programs.
+
 ## v1.7.12 — the Rust shell stops fighting the system it lands on (2026-11-21)
 
 Follow-up to the v1.7.11 splash fix, from the user still being stuck after

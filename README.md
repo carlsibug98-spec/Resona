@@ -12,7 +12,7 @@
 ![Issues](https://img.shields.io/github/issues/carlsibug98-spec/Resona?style=flat-square&label=ISSUES&color=1ed760)
 ![License](https://img.shields.io/github/license/carlsibug98-spec/Resona?style=flat-square&label=LICENSE&color=1ed760)
 
-**[⬇️ Download (v1.7.12) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
+**[⬇️ Download (v1.7.13) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
 
 </div>
 
@@ -26,15 +26,19 @@
 
 | Platform | Status | Download | Details |
 | --- | --- | --- | --- |
-| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.7.12** | **[⬇️ Download installer](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.7.12.exe)** | Run the wizard → desktop shortcut · ~160 MB · later versions install themselves at launch |
-| 🪟 **Windows — Rust (Tauri) shell** | ✅ **v1.7.12** | **[⬇️ Resona-Tauri-1.7.12-WINDOWS-x64-setup.exe](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Tauri-1.7.12-WINDOWS-x64-setup.exe)** | The lightweight Rust wrapper of the same app (~15 MB + runtime); same library, same data |
-| 🐧 **Linux — Rust (Tauri) shell** (.deb, x64) | ✅ **v1.7.12** | **[⬇️ Resona-Tauri-1.7.12-LINUX-amd64.deb](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Tauri-1.7.12-LINUX-amd64.deb)** | `sudo apt install ./Resona-Tauri-1.7.12-LINUX-amd64.deb` · no longer touches `/usr/bin/node` |
-| 🍎 **macOS** (Apple Silicon) | ✅ **v1.7.12** | **[⬇️ Download DMG](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.12-arm64.dmg)** | Open → drag to Applications · right-click → Open the first time (unsigned) |
-| 🍎 **macOS** (Intel) | ✅ **v1.7.12** | **[⬇️ Download DMG](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.12-x64.dmg)** | Same steps as Apple Silicon |
-| 🐧 **Linux** (AppImage / .deb, x64) | ✅ **v1.7.12** | **[⬇️ AppImage](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.12.AppImage)** · **[⬇️ .deb](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.12.deb)** | `chmod +x` the AppImage, or `sudo apt install ./Resona-1.7.12.deb` |
+| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.7.13** | **[⬇️ Download installer](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.7.13.exe)** | Run the wizard → desktop shortcut · ~160 MB · later versions install themselves at launch |
+| 🪟 **Windows — Rust (Tauri) shell** | ✅ **v1.7.13** | **[⬇️ Resona-Tauri-1.7.13-WINDOWS-x64-setup.exe](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Tauri-1.7.13-WINDOWS-x64-setup.exe)** | Installs as **"Resona Rust"** — a separate app next to the main one, no shared shortcut |
+| 🐧 **Linux — Rust (Tauri) shell** (.deb, x64) | ✅ **v1.7.13** | **[⬇️ Resona-Tauri-1.7.13-LINUX-amd64.deb](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Tauri-1.7.13-LINUX-amd64.deb)** | `sudo apt install ./Resona-Tauri-1.7.13-LINUX-amd64.deb` · no longer touches `/usr/bin/node` |
+| 🍎 **macOS** (Apple Silicon) | ✅ **v1.7.13** | **[⬇️ Download DMG](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.13-arm64.dmg)** | Open → drag to Applications · right-click → Open the first time (unsigned) |
+| 🍎 **macOS** (Intel) | ✅ **v1.7.13** | **[⬇️ Download DMG](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.13-x64.dmg)** | Same steps as Apple Silicon |
+| 🐧 **Linux** (AppImage / .deb, x64) | ✅ **v1.7.13** | **[⬇️ AppImage](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.13.AppImage)** · **[⬇️ .deb](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.13.deb)** | `chmod +x` the AppImage, or `sudo apt install ./Resona-1.7.13.deb` |
 | 📱 **iOS / Android** | 🧭 Planned | — | Mobile app in design |
 
 > **All releases:** [github.com/carlsibug98-spec/Resona/releases](https://github.com/carlsibug98-spec/Resona/releases) · **Install guide:** [INSTALL-GUIDE.txt](https://github.com/carlsibug98-spec/Resona/releases/latest/download/INSTALL-GUIDE.txt) · **SHA-256:** `SHA256SUMS.txt` in every release
+
+## ✨ What's new in v1.7.13
+
+- **🪟 The Rust shell no longer impersonates the main app on Windows** — both shells used to install as "Resona" with the same shortcut, so clicking the icon could open the WRONG shell (the Rust one with its splash — "the app is not working anymore"). The Rust shell now installs as **"Resona Rust"** — its own name, its own shortcut, next to the main app. If you have two "Resona" entries in Windows Settings → Apps, uninstall BOTH and install `Resona-Setup-1.7.13.exe` — your library at `C:\Resona` is never touched by uninstalling.
 
 ## ✨ What's new in v1.7.12
 
