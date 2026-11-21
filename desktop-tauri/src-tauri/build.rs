@@ -10,6 +10,7 @@ fn main() {
             tauri_build::AppManifest::new().commands(&[
                 "server_url",
                 "server_ready",
+                "shell_info",
                 "win_minimize",
                 "win_toggle_max",
                 "win_close",

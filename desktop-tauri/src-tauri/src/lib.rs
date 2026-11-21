@@ -71,23 +71,31 @@ fn data_dir() -> PathBuf {
     }
 }
 
-/// The bundled Node sidecar. In PACKAGED builds the tauri bundler installs
-/// `externalBin` targets FLAT next to the main executable (`$INSTDIR\node.exe`
-/// — the `binaries/node-x86_64-pc-windows-msvc.exe` source name is flattened
-/// to `node.exe` at install time), so that is checked first; the nested
-/// `binaries/node` layout remains the dev-mode fallback.
+/// The bundled Node sidecar. v1.7.12 renamed it `resona-node`: the deb used
+/// to install it as `/usr/bin/node`, which OVERWRITES a system-installed
+/// Node (and dpkg then refuses to upgrade if another package owns the file).
+/// In PACKAGED builds the tauri bundler installs `externalBin` targets FLAT
+/// next to the main executable (`$INSTDIR\resona-node.exe` — the
+/// `binaries/resona-node-x86_64-pc-windows-msvc.exe` source name is stripped
+/// of its triple at install time), so that is checked first; the flat `node`
+/// name and the nested `binaries/` layouts remain as older/dev fallbacks.
 fn node_path() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let dir = exe.parent()?;
-    let name = if cfg!(target_os = "windows") {
-        "node.exe"
+    let ext = if cfg!(target_os = "windows") {
+        ".exe"
     } else {
-        "node"
+        ""
     };
-    for rel in [name, &format!("binaries{}{}", std::path::MAIN_SEPARATOR, name)] {
-        let p = dir.join(rel);
-        if p.exists() {
-            return Some(p);
+    for name in [format!("resona-node{ext}"), format!("node{ext}")] {
+        for rel in [
+            name.clone(),
+            format!("binaries{}{}", std::path::MAIN_SEPARATOR, name),
+        ] {
+            let p = dir.join(&rel);
+            if p.exists() {
+                return Some(p);
+            }
         }
     }
     None
@@ -248,6 +256,17 @@ fn server_url(state: State<'_, ServerState>) -> String {
     format!("http://127.0.0.1:{}", state.port.load(Ordering::Relaxed))
 }
 
+/// Which shell + version is running. The splash displays it so a stuck or
+/// misbehaving machine can always be identified from a screenshot — v1.7.11
+/// support burned on not knowing which build the user actually had.
+#[tauri::command]
+fn shell_info() -> serde_json::Value {
+    serde_json::json!({
+        "shell": "rust",
+        "version": env!("CARGO_PKG_VERSION"),
+    })
+}
+
 /// Splash readiness probe — answered by RUST, not by the webview.
 ///
 /// v1.7.10 had the splash fetch() `http://127.0.0.1:<port>/` itself: from
@@ -270,13 +289,24 @@ fn server_ready(state: State<'_, ServerState>) -> bool {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
+        // single-instance MUST be the first registered plugin: two shells
+        // sharing one SQLite DB / one data dir corrupt state (Electron has
+        // requestSingleInstanceLock; this is the Tauri equivalent).
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            }
+        }))
         .invoke_handler(tauri::generate_handler![
             win_minimize,
             win_toggle_max,
             win_close,
             win_is_max,
             server_url,
-            server_ready
+            server_ready,
+            shell_info
         ])
         .setup(|app| {
             app.manage(ServerState {

@@ -37,6 +37,7 @@
 <body>
   <div class="logo">R</div>
   <h1>Resona</h1>
+  <p id="meta" style="font-size:11px;color:#6f6f78">starting…</p>
   <div class="spin" id="spin"></div>
   <p id="msg">Starting the music server…</p>
   <div class="err" id="err"></div>
@@ -78,6 +79,16 @@
           return;
         }
         var T = window.__TAURI__;
+        // identify the build (shell kind + version) so a stuck screen can
+        // always be reported unambiguously — pure display, never blocks boot
+        if (T.core && T.core.invoke) {
+          T.core.invoke("shell_info").then(function (info) {
+            if (info && info.version) {
+              document.getElementById("meta").textContent =
+                "v" + info.version + " — Rust shell";
+            }
+          }).catch(function () {});
+        }
         // 1) the push path — the shell emits this the moment the port answers
         if (T.event && T.event.listen) {
           T.event.listen("server-ready", function (e) { go(e.payload); });

@@ -1,6 +1,6 @@
 [package]
 name = "resona-tauri"
-version = "1.7.11"
+version = "1.7.12"
 description = "Resona — the Rust (Tauri 2) desktop shell around the same Next.js server the Electron shell boots"
 authors = ["carlsibug98-spec"]
 license = "GPL-3.0-or-later"
@@ -23,6 +23,9 @@ tauri-build = { version = "2", features = [] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tauri = { version = "2", features = [] }
+# One shell per data dir — two instances would race the SQLite DB and the
+# server port (Electron has requestSingleInstanceLock).
+tauri-plugin-single-instance = "2"
 
 [profile.release]
 codegen-units = 1

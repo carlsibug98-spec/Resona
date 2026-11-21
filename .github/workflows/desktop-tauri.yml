@@ -80,8 +80,10 @@ jobs:
           test -d desktop-tauri/src-tauri/resources/server/deps
 
       # The sidecar: a real Node runtime (Tauri has none). externalBin wants
-      # it at src-tauri/binaries/node-<triple>(.exe) — Tauri strips the triple
-      # into binaries/node(.exe) inside the installed app.
+      # it at src-tauri/binaries/resona-node-<triple>(.exe) — Tauri strips the
+      # triple into binaries/resona-node(.exe) inside the installed app.
+      # v1.7.12 renamed it from `node` to `resona-node`: the deb used to
+      # install /usr/bin/node, overwriting a system Node installation.
       - name: Fetch Node sidecar (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -89,7 +91,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path desktop-tauri/src-tauri/binaries | Out-Null
           Invoke-WebRequest -Uri "https://nodejs.org/dist/v22.14.0/node-v22.14.0-win-x64.zip" -OutFile "$env:RUNNER_TEMP\node.zip"
           Expand-Archive -Path "$env:RUNNER_TEMP\node.zip" -DestinationPath "$env:RUNNER_TEMP\node-pkg" -Force
-          Copy-Item "$env:RUNNER_TEMP\node-pkg\node-v22.14.0-win-x64\node.exe" "desktop-tauri/src-tauri/binaries/node-x86_64-pc-windows-msvc.exe"
+          Copy-Item "$env:RUNNER_TEMP\node-pkg\node-v22.14.0-win-x64\node.exe" "desktop-tauri/src-tauri/binaries/resona-node-x86_64-pc-windows-msvc.exe"
           Get-ChildItem desktop-tauri/src-tauri/binaries/
 
       - name: Fetch Node sidecar (Linux)
@@ -99,7 +101,7 @@ jobs:
           mkdir -p desktop-tauri/src-tauri/binaries
           curl -sL --max-time 300 -o /tmp/node-pkg https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-x64.tar.xz
           tar -xf /tmp/node-pkg -C /tmp
-          cp /tmp/node-v22.14.0-linux-x64/bin/node desktop-tauri/src-tauri/binaries/node-x86_64-unknown-linux-gnu
+          cp /tmp/node-v22.14.0-linux-x64/bin/node desktop-tauri/src-tauri/binaries/resona-node-x86_64-unknown-linux-gnu
           ls -la desktop-tauri/src-tauri/binaries/
 
       - name: Build Tauri app

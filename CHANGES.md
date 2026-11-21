@@ -1,5 +1,39 @@
 # Changes
 
+## v1.7.12 — the Rust shell stops fighting the system it lands on (2026-11-21)
+
+Follow-up to the v1.7.11 splash fix, from the user still being stuck after
+installing "the not x64 setup" — three findings, two of them real bugs:
+
+1. **The Linux deb used to install `/usr/bin/node` (FIXED).** The sidecar's
+   `externalBin` name was `binaries/node`, so the deb dropped a full Node
+   runtime at `/usr/bin/node` — overwriting a system-installed Node and
+   making dpkg refuse later upgrades ("trying to overwrite /usr/bin/node").
+   The sidecar is now `resona-node` (`binaries/resona-node` in
+   tauri.conf.json, `resona-node-<triple>` in CI, `node_path()` checks the
+   flat name first with the old names kept as fallbacks). Verified locally:
+   the 1.7.11 deb's server bundle boots and answers its TCP probe in <8 s
+   on a clean machine — the stuck reports were environmental (wrong
+   installer for the OS, or an old splash still on screen), but this bug
+   was real and would break Linux systems.
+2. **Single-instance guard (FIXED, audit MED).** `tauri-plugin-single-
+   instance` is registered first: a second launch focuses the existing
+   window instead of racing it to the SQLite DB and the server port
+   (Electron has `requestSingleInstanceLock`; this is the Tauri twin).
+3. **The splash now identifies the build (NEW).** A `shell_info` command
+   (ACL-registered in build.rs + capabilities) reports `{shell: "rust",
+   version}`, and the splash prints "v1.7.12 — Rust shell" under the logo —
+   no more guessing which build a stuck machine runs. Release artifacts are
+   also OS-labeled at upload time (`Resona-Tauri-1.7.12-WINDOWS-x64-setup.exe`,
+   `Resona-Tauri-1.7.12-LINUX-amd64.deb`) — the v1.7.11 pair (`x64-setup.exe`
+   vs `amd64.deb`) read as interchangeable and wasn't.
+
+For the record, restated: **the music server is not an optional component.**
+It is the app — search, streaming, lyrics and the library live there; the
+window loads from `127.0.0.1`. The Electron shell's "Starting up…" popup
+the user prefers sits in front of the exact same server. 1–3 s is normal;
+minutes were always a shell bug, never the server being slow.
+
 ## v1.7.11 — the Tauri splash no longer sticks on "Starting the music server…" (2026-11-21)
 
 "does starting the music server really takes a lot of time, im stuck here" —
