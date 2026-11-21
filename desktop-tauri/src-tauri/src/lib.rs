@@ -17,7 +17,7 @@
 //! the v1.7.8 root-cause playback fix lives in the shared renderer, which
 //! this shell loads unchanged.
 
-use std::net::{TcpListener, TcpStream};
+use std::net::{IpAddr, SocketAddr, TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU16, Ordering};
@@ -158,9 +158,16 @@ fn spawn_server(resource_base: &PathBuf) -> Result<(u16, Child), String> {
 /// Poll 127.0.0.1:port until the server answers (the standalone server boots
 /// in a few seconds; 150 × 400 ms ≈ 60 s of budget, Electron allows more).
 /// connect_timeout keeps a wedged poll from hanging on an OS-level default.
+/// (connect_timeout wants a resolved &SocketAddr — connect()'s tuple form
+/// is a ToSocketAddrs convenience it does not share.)
+fn loopback(port: u16) -> SocketAddr {
+    SocketAddr::new(IpAddr::V4(std::net::Ipv4Addr::LOCALHOST), port)
+}
+
 fn wait_ready(port: u16) -> bool {
+    let addr = loopback(port);
     for _ in 0..150 {
-        if TcpStream::connect_timeout(("127.0.0.1", port), Duration::from_millis(400)).is_ok() {
+        if TcpStream::connect_timeout(&addr, Duration::from_millis(400)).is_ok() {
             return true;
         }
         std::thread::sleep(Duration::from_millis(400));
@@ -257,7 +264,7 @@ fn server_ready(state: State<'_, ServerState>) -> bool {
     if port == 0 {
         return false; // spawn hasn't chosen a port yet
     }
-    TcpStream::connect_timeout(("127.0.0.1", port), Duration::from_millis(250)).is_ok()
+    TcpStream::connect_timeout(&loopback(port), Duration::from_millis(250)).is_ok()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
