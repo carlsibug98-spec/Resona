@@ -9,6 +9,7 @@ fn main() {
         tauri_build::Attributes::new().app_manifest(
             tauri_build::AppManifest::new().commands(&[
                 "server_url",
+                "server_ready",
                 "win_minimize",
                 "win_toggle_max",
                 "win_close",

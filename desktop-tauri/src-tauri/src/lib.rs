@@ -157,9 +157,10 @@ fn spawn_server(resource_base: &PathBuf) -> Result<(u16, Child), String> {
 
 /// Poll 127.0.0.1:port until the server answers (the standalone server boots
 /// in a few seconds; 150 × 400 ms ≈ 60 s of budget, Electron allows more).
+/// connect_timeout keeps a wedged poll from hanging on an OS-level default.
 fn wait_ready(port: u16) -> bool {
     for _ in 0..150 {
-        if TcpStream::connect(("127.0.0.1", port)).is_ok() {
+        if TcpStream::connect_timeout(("127.0.0.1", port), Duration::from_millis(400)).is_ok() {
             return true;
         }
         std::thread::sleep(Duration::from_millis(400));
@@ -240,6 +241,25 @@ fn server_url(state: State<'_, ServerState>) -> String {
     format!("http://127.0.0.1:{}", state.port.load(Ordering::Relaxed))
 }
 
+/// Splash readiness probe — answered by RUST, not by the webview.
+///
+/// v1.7.10 had the splash fetch() `http://127.0.0.1:<port>/` itself: from
+/// the bundled page (tauri://localhost / http://tauri.localhost) that is a
+/// CROSS-ORIGIN request, and the Next standalone server sends no
+/// Access-Control-Allow-Origin header, so the fetch rejected forever even
+/// while the server was perfectly up — the splash spun on "Starting the
+/// music server…" for two minutes, then reported a failure that never
+/// happened. A TCP connect from the Rust side has no origin, so no CORS
+/// applies; this is the only reliable readiness signal from the webview.
+#[tauri::command]
+fn server_ready(state: State<'_, ServerState>) -> bool {
+    let port = state.port.load(Ordering::Relaxed);
+    if port == 0 {
+        return false; // spawn hasn't chosen a port yet
+    }
+    TcpStream::connect_timeout(("127.0.0.1", port), Duration::from_millis(250)).is_ok()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
@@ -248,7 +268,8 @@ pub fn run() {
             win_toggle_max,
             win_close,
             win_is_max,
-            server_url
+            server_url,
+            server_ready
         ])
         .setup(|app| {
             app.manage(ServerState {
@@ -283,7 +304,13 @@ pub fn run() {
                                 *g = Some(child);
                             }
                         }
-                        if !wait_ready(port) {
+                        if wait_ready(port) {
+                            // push the URL to the splash — no polling latency
+                            // for the user; the splash also polls server_ready
+                            // as a fallback in case it loads after this fires
+                            let url = format!("http://127.0.0.1:{port}");
+                            let _ = app.emit("server-ready", url);
+                        } else {
                             eprintln!("server did not start in time on port {port}");
                         }
                     }

@@ -12,6 +12,7 @@
   "permissions": [
     "core:default",
     "allow-server-url",
+    "allow-server-ready",
     "allow-win-minimize",
     "allow-win-toggle-max",
     "allow-win-close",

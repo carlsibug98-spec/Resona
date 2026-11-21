@@ -12,7 +12,7 @@
 ![Issues](https://img.shields.io/github/issues/carlsibug98-spec/Resona?style=flat-square&label=ISSUES&color=1ed760)
 ![License](https://img.shields.io/github/license/carlsibug98-spec/Resona?style=flat-square&label=LICENSE&color=1ed760)
 
-**[⬇️ Download (v1.7.10) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
+**[⬇️ Download (v1.7.11) HERE — it's free](https://github.com/carlsibug98-spec/Resona/releases/latest)** &nbsp;·&nbsp; **[🌐 Download site](https://carlsibug98-spec.github.io/Resona/)** &nbsp;·&nbsp; **[🐞 Report an issue](https://github.com/carlsibug98-spec/Resona/issues)**
 
 </div>
 
@@ -26,13 +26,20 @@
 
 | Platform | Status | Download | Details |
 | --- | --- | --- | --- |
-| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.7.10** | **[⬇️ Download installer](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.7.10.exe)** | Run the wizard → desktop shortcut · ~160 MB · later versions install themselves at launch |
-| 🍎 **macOS** (Apple Silicon) | ✅ **v1.7.10** | **[⬇️ Download DMG](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.10-arm64.dmg)** | Open → drag to Applications · right-click → Open the first time (unsigned) |
-| 🍎 **macOS** (Intel) | ✅ **v1.7.10** | **[⬇️ Download DMG](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.10-x64.dmg)** | Same steps as Apple Silicon |
-| 🐧 **Linux** (AppImage / .deb, x64) | ✅ **v1.7.10** | **[⬇️ AppImage](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.10.AppImage)** · **[⬇️ .deb](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.10.deb)** | `chmod +x` the AppImage, or `sudo apt install ./Resona-1.7.10.deb` |
+| 🪟 **Windows** 10 / 11 (64-bit) | ✅ **v1.7.11** | **[⬇️ Download installer](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Setup-1.7.11.exe)** | Run the wizard → desktop shortcut · ~160 MB · later versions install themselves at launch |
+| 🪟 **Windows — Rust (Tauri) shell** | ✅ **v1.7.11** | **[⬇️ Resona-Tauri-1.7.11-x64-setup.exe](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-Tauri-1.7.11-x64-setup.exe)** | The lightweight Rust wrapper of the same app (~15 MB + runtime); same library, same data |
+| 🍎 **macOS** (Apple Silicon) | ✅ **v1.7.11** | **[⬇️ Download DMG](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.11-arm64.dmg)** | Open → drag to Applications · right-click → Open the first time (unsigned) |
+| 🍎 **macOS** (Intel) | ✅ **v1.7.11** | **[⬇️ Download DMG](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.11-x64.dmg)** | Same steps as Apple Silicon |
+| 🐧 **Linux** (AppImage / .deb, x64) | ✅ **v1.7.11** | **[⬇️ AppImage](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.11.AppImage)** · **[⬇️ .deb](https://github.com/carlsibug98-spec/Resona/releases/latest/download/Resona-1.7.11.deb)** | `chmod +x` the AppImage, or `sudo apt install ./Resona-1.7.11.deb` |
 | 📱 **iOS / Android** | 🧭 Planned | — | Mobile app in design |
 
 > **All releases:** [github.com/carlsibug98-spec/Resona/releases](https://github.com/carlsibug98-spec/Resona/releases) · **Install guide:** [INSTALL-GUIDE.txt](https://github.com/carlsibug98-spec/Resona/releases/latest/download/INSTALL-GUIDE.txt) · **SHA-256:** `SHA256SUMS.txt` in every release
+
+## ✨ What's new in v1.7.11
+
+- **🪟 The Rust (Tauri) shell no longer sticks on "Starting the music server…"** — the first Windows smoke test of that build found it: the splash probed the bundled music server with a `fetch()` from its own page, which is a cross-origin request the server (a local Next.js app with no CORS headers) can never answer — so the splash spun for ~2 minutes and then reported a failure that never happened, even though the server had been up the whole time. Readiness now comes from **Rust itself** (a TCP probe + a push event the moment the port answers) — no CORS in the loop, no more dead spin.
+- **🧠 For the record: what is the "music server"?** Resona's interface is a web app, and the desktop shells (Electron and the Rust one) bundle it together with a small local server that the window loads from `127.0.0.1`. That server is what performs search, streaming, lyrics and your library — starting it is the splash you see for 1–3 seconds on every launch (a little longer on the first launch, while antivirus scans the fresh install; it is never minutes).
+- **💬 The splash talks now** — "Still starting…" after 8 s, the log-file location after 30 s, and an honest failure after 90 s instead of a silent two-minute spin.
 
 ## ✨ What's new in v1.7.10
 
@@ -167,20 +174,20 @@
 
 ## 🚀 Install on Windows
 
-1. **Download** `Resona-Setup-1.7.10.exe` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~160 MB) and run the wizard — per-user install (no admin needed), desktop shortcut created. Install over an older copy to update; your library carries over. **From v1.6.0 on, later versions install themselves at launch** — this is the last manual install you need.
+1. **Download** `Resona-Setup-1.7.11.exe` from the [releases page](https://github.com/carlsibug98-spec/Resona/releases/latest) (~160 MB) and run the wizard — per-user install (no admin needed), desktop shortcut created. Install over an older copy to update; your library carries over. **From v1.6.0 on, later versions install themselves at launch** — this is the last manual install you need.
 2. **If Windows SmartScreen shows a warning** — this is expected and safe. Resona is *not code-signed* (a signing certificate costs ~$100+/yr), so Windows warns about every app it hasn't seen before. It does **not** mean a virus was found. To run it:
    - Click **More info** → **Run anyway**. That's it.
-   - Or, if the download finished already: right-click `Resona-Setup-1.7.10.exe` → **Properties** → tick **Unblock** → OK, then double-click it.
+   - Or, if the download finished already: right-click `Resona-Setup-1.7.11.exe` → **Properties** → tick **Unblock** → OK, then double-click it.
 3. Play music. Your library lives in `%APPDATA%/resona`.
 
 **Verify (SHA-256):** compare against `SHA256SUMS.txt` published with every release:
 
 ```
-Get-FileHash .\Resona-Setup-1.7.10.exe   # in PowerShell
+Get-FileHash .\Resona-Setup-1.7.11.exe   # in PowerShell
 ```
 
-**macOS**: the `.dmg` is unsigned — right-click Resona → **Open** the first time (or `xattr -d com.apple.quarantine /Applications/Resona.app`). Apple Silicon machines take `Resona-1.7.10-arm64.dmg`, Intel takes `Resona-1.7.10-x64.dmg`.  
-**Linux**: `chmod +x Resona-1.7.10.AppImage && ./Resona-1.7.10.AppImage`, or install the `.deb` with `sudo apt install ./Resona-1.7.10.deb`.
+**macOS**: the `.dmg` is unsigned — right-click Resona → **Open** the first time (or `xattr -d com.apple.quarantine /Applications/Resona.app`). Apple Silicon machines take `Resona-1.7.11-arm64.dmg`, Intel takes `Resona-1.7.11-x64.dmg`.  
+**Linux**: `chmod +x Resona-1.7.11.AppImage && ./Resona-1.7.11.AppImage`, or install the `.deb` with `sudo apt install ./Resona-1.7.11.deb`.
 
 > Signed builds are on the roadmap — until then the two steps above are the only friction.
 

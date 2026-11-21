@@ -42,37 +42,73 @@
   <div class="err" id="err"></div>
   <script>
     // The Rust shell opens this splash first, then boots the Node sidecar.
-    // Once the server answers, navigate to the real app (same-origin policy
-    // does not apply here — CSP is disabled in tauri.conf.json on purpose).
+    // Readiness is reported from the RUST side, two ways:
+    //   1. a `server-ready` event pushed once the port answers (fast path)
+    //   2. an IPC `server_ready` command polled here (fallback — events are
+    //      not sticky, a fast boot can beat this listener)
+    // The webview must NOT probe the server with fetch(): from the bundled
+    // page origin (tauri://localhost / http://tauri.localhost) that request
+    // is cross-origin and the Next standalone server sends no CORS headers,
+    // so it rejects forever even while the server is up — the v1.7.10 bug
+    // that wedged this splash on "Starting the music server…" for minutes.
     (function () {
-      var tries = 0;
+      var started = Date.now();
+      var done = false;
+      function msg(text) {
+        document.getElementById("msg").textContent = text;
+      }
+      function go(url) {
+        if (done) return;
+        done = true;
+        msg("Opening Resona…");
+        location.href = url;
+      }
       function fail(why) {
+        if (done) return;
+        done = true;
         document.getElementById("spin").style.display = "none";
-        document.getElementById("msg").textContent =
-          "Resona could not start its music server.";
+        msg("Resona could not start its music server.");
         var e = document.getElementById("err");
         e.textContent = why;
         e.style.display = "block";
       }
-      function poll() {
+      function pollLoop() {
         if (!window.__TAURI__ || !window.__TAURI__.core) {
-          setTimeout(poll, 500);
+          setTimeout(pollLoop, 400);
           return;
         }
-        window.__TAURI__.core.invoke("server_url").then(function (url) {
-          fetch(url + "/", { cache: "no-store" })
-            .then(function (r) {
-              if (r.ok) { location.href = url + "/"; return; }
-              throw new Error("HTTP " + r.status);
-            })
-            .catch(function () {
-              tries += 1;
-              if (tries > 150) fail("The server on " + url + " never answered. Check <data>/logs/server.log for details.");
-              else setTimeout(poll, 800);
-            });
-        }).catch(function (e) { fail(String(e)); });
+        var T = window.__TAURI__;
+        // 1) the push path — the shell emits this the moment the port answers
+        if (T.event && T.event.listen) {
+          T.event.listen("server-ready", function (e) { go(e.payload); });
+        }
+        // 2) the pull path — poll the Rust-side TCP probe
+        function poll() {
+          if (done) return;
+          var secs = Math.round((Date.now() - started) / 1000);
+          if (secs >= 8) msg("Still starting — first launch can take a little longer…");
+          if (secs >= 30) msg("Still starting… if this never finishes, check the server log.");
+          T.core.invoke("server_ready").then(function (up) {
+            if (done) return;
+            if (up) {
+              T.core.invoke("server_url").then(go, function (e) { fail("server_url failed: " + e); });
+            } else if (secs >= 90) {
+              fail(
+                "The bundled music server never opened its port within 90 s. " +
+                "Check the log for details — C:\\Resona\\logs\\server.log on Windows, " +
+                "~/.config/Resona/logs/server.log on Linux."
+              );
+            } else {
+              setTimeout(poll, 600);
+            }
+          }).catch(function (e) {
+            if (!done && secs >= 90) fail(String(e));
+            else setTimeout(poll, 600);
+          });
+        }
+        poll();
       }
-      poll();
+      pollLoop();
     })();
   </script>
 </body>
